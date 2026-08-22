@@ -1614,7 +1614,7 @@
   //     「받으면 바로 실행」 을 켜야만 묻지 않고 돈다.
   //   ★결과는 그 수신함으로 저장된다. 올린 쪽이 결과를 봐야 왕복이 완성되기 때문이다.
   let jobsSource = 'dest';    // 'dest' 수신함 | 'github' 저장소 지시함
-  let ghCfg = { repo: '', branch: 'main', path: 'perofix/queue.json', token: '' };
+  let ghCfg = { repo: '', branch: 'main', token: '' };
   let ghDone = [];            // 이미 실행한 작업 id (폰이 기억한다)
   let jobsDestId = null;      // 어느 수신함에서 받을지
   let jobsAuto = false;       // 받으면 바로 실행
@@ -1626,21 +1626,23 @@
   const JOB_POLL_MS = 8000;
 
   /**
-   * GitHub 지시 파일을 읽어 온다.
-   * ★공개 저장소는 raw(CDN)로 읽는다 — 토큰이 필요 없고 API 한도(시간당 60번)도 안 쓴다.
-   *   비공개면 토큰으로 API 를 부르고 Accept 를 raw 로 준다 (본문이 그대로 온다).
-   * ★안드로이드에서는 CapacitorHttp 로 부른다 — WebView 의 CORS 를 피한다.
+   * GitHub 에 GET 한 번. ★안드로이드에서는 CapacitorHttp 로 부른다 (WebView 의 CORS 회피).
+   * 토큰이 있으면 붙인다 — 비공개 저장소를 읽으려면 필요하고, API 한도도 넉넉해진다.
    */
-  async function ghFetchQueue() {
-    const useApi = !!(ghCfg.token || '').trim();
-    const url = useApi ? Github.apiUrl(ghCfg) : Github.rawUrl(ghCfg, Date.now());
-    if (!url) throw new Error('저장소를 읽지 못했습니다 (owner/repo 로 적어 주세요).');
-
+  async function ghGet(url, accept) {
     const headers = { 'Cache-Control': 'no-cache' };
-    if (useApi) {
-      headers.Authorization = 'Bearer ' + ghCfg.token.trim();
-      headers.Accept = 'application/vnd.github.raw';
-    }
+    const token = (ghCfg.token || '').trim();
+    if (token) headers.Authorization = 'Bearer ' + token;
+    if (accept) headers.Accept = accept;
+
+    const explain = function (status) {
+      if (status === 404) return '찾지 못했습니다 (저장소·브랜치·경로를 확인하세요).';
+      if (status === 401 || status === 403) {
+        return '읽을 권한이 없습니다 (비공개면 읽기 전용 토큰이 필요합니다. '
+          + '토큰 없이 자주 부르면 GitHub 이 잠깐 막기도 합니다).';
+      }
+      return 'GitHub 이 ' + status + ' 로 답했습니다.';
+    };
 
     const C = window.Capacitor;
     const P = (C && C.Plugins) ? C.Plugins : null;
@@ -1648,17 +1650,30 @@
       const r = await P.CapacitorHttp.request({
         method: 'GET', url: url, headers: headers, connectTimeout: 20000, readTimeout: 30000
       });
-      if (r.status === 404) throw new Error('지시 파일이 없습니다 (경로·브랜치를 확인하세요).');
-      if (r.status === 401 || r.status === 403) throw new Error('읽을 권한이 없습니다 (비공개면 토큰이 필요합니다).');
-      if (r.status >= 400) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+      if (r.status >= 400) throw new Error(explain(r.status));
       return typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
     }
 
     const r = await fetch(url, { headers: headers, cache: 'no-store' });
-    if (r.status === 404) throw new Error('지시 파일이 없습니다 (경로·브랜치를 확인하세요).');
-    if (r.status === 401 || r.status === 403) throw new Error('읽을 권한이 없습니다 (비공개면 토큰이 필요합니다).');
-    if (!r.ok) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+    if (!r.ok) throw new Error(explain(r.status));
     return await r.text();
+  }
+
+  /** 저장소 전체 목록 (한 번에). */
+  async function ghFetchTree() {
+    const url = Github.treeUrl(ghCfg);
+    if (!url) throw new Error('저장소를 읽지 못했습니다 (owner/repo 로 적어 주세요).');
+    return Github.parseTree(await ghGet(url, 'application/vnd.github+json'));
+  }
+
+  /** 파일 하나. ★공개 저장소는 raw(CDN)로 — API 한도를 쓰지 않는다. */
+  async function ghFetchFile(path) {
+    const token = (ghCfg.token || '').trim();
+    const url = token ? Github.apiFileUrl(ghCfg, path) : Github.rawUrl(ghCfg, path, Date.now());
+    const text = await ghGet(url, token ? 'application/vnd.github.raw' : null);
+    const parsed = Github.parseJson(text);
+    if (!parsed.ok) throw new Error(path + ' — ' + parsed.error);
+    return parsed.data;
   }
 
   function renderGhRows() {
@@ -1667,23 +1682,83 @@
     $('jobs-gh-rows').hidden = (jobsSource !== 'github');
     $('gh-repo').value = ghCfg.repo || '';
     $('gh-branch').value = ghCfg.branch || '';
-    $('gh-path').value = ghCfg.path || '';
     $('gh-token').value = ghCfg.token || '';
 
     const web = Github.webUrl(ghCfg);
     $('gh-hint').textContent = web
       ? (web + ' · 이미 한 작업 ' + ghDone.length + '건을 기억하고 있습니다.')
-      : '저장소를 적으면 여기에 지시 파일 주소가 보입니다.';
+      : '저장소를 적으면 여기에 주소가 보입니다. 없으면 아래에서 만들 수 있습니다.';
+    // 저장소가 없으면 만들기 안내를 펼쳐 둔다.
+    $('gh-setup').open = !Github.parseRepo(ghCfg.repo);
   }
 
   function readGhForm() {
     ghCfg = {
       repo: $('gh-repo').value.trim(),
       branch: $('gh-branch').value.trim() || 'main',
-      path: $('gh-path').value.trim() || 'perofix/queue.json',
       token: $('gh-token').value.trim()
     };
     return Store.setGithub(ghCfg);
+  }
+
+  /** AI 에게 그대로 붙여넣을 세팅 지시. ★규약 파일은 AI 가 만든다 — 앱은 저장소에 못 쓴다. */
+  function ghSetupPrompt() {
+    const repo = Github.parseRepo(ghCfg.repo);
+    const where = repo ? (repo.owner + '/' + repo.repo) : '<내 저장소 owner/repo>';
+    return [
+      '저장소 ' + where + ' 를 PeroPix 모바일의 「지시함」 으로 세팅해 줘.',
+      '',
+      '1. AGENTS.md 와 CLAUDE.md 를 만들어, 아래 규약을 그대로 적어 둘 것',
+      '   (두 파일 내용은 같아도 된다 — Codex 는 AGENTS.md, Claude Code 는 CLAUDE.md 를 읽는다).',
+      '2. 폴더 구조',
+      '     <작품 이름>/characters/*.json   인물 (그 작품 안에서 공용)',
+      '     <작품 이름>/slots/*.json        슬롯 묶음. 파일 하나가 작업 하나',
+      '3. 슬롯 파일 모양',
+      '     { "name": "미아 · 일상", "prefix": "공통 태그",',
+      '       "slots": [ { "name": "1-1", "content": "슬롯 태그" } ],',
+      '       "options": { "count_per_slot": 1 } }',
+      '   인물 파일 모양',
+      '     { "name": "미아", "content": "1girl, silver hair" }',
+      '4. 규칙',
+      '   - 슬롯 파일이 새로 생기거나 내용이 바뀌면 폰 앱이 그것을 새 작업으로 뽑는다.',
+      '     그러니 파일을 고치는 것은 곧 생성 요청이다. 시험 삼아 고치지 말 것.',
+      '   - 인물 파일을 고치는 것은 작업을 만들지 않는다 (다음 실행 때 최신 인물이 쓰인다).',
+      '   - 저장 폴더는 작품 폴더 이름을 쓴다. 슬롯 파일에 folder 를 적으면 그것이 이긴다.',
+      '   - options 는 아는 값만: nai_model, width, height, steps, cfg, sampler, uc_preset,',
+      '     quality_preset, negative_prompt, count_per_slot, one_char_mode, transparent_bg,',
+      '     straight_alpha, save_format, variety_plus, seed',
+      '   - 한 번에 수십 장이 나가는 지시는 돈이 든다. 새 작업은 작게 시작할 것.',
+      '5. 예시로 작품 하나(폴더 + 인물 1명 + 슬롯 2개)를 만들어 커밋해 줘.',
+      '',
+      '규약 전문(그대로 써도 된다):',
+      'https://raw.githubusercontent.com/lulus-cat/peropix-mobile/main/docs/inbox/AGENTS.md'
+    ].join('\n');
+  }
+
+  async function copyText(text) {
+    const C = window.Capacitor;
+    if (C && C.Plugins && C.Plugins.Clipboard) {
+      try { await C.Plugins.Clipboard.write({ string: text }); return true; } catch (e) { /* 아래로 */ }
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) { /* 아래로 */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
   }
 
   function jobsDest() {
@@ -1771,6 +1846,10 @@
 
       const tools = document.createElement('div');
       tools.className = 'toolrow';
+      if (j.status === 'more') {
+        box.appendChild(row);
+        return;   // 「그 밖에 N건」 은 안내일 뿐이다
+      }
       if (j.status === 'pending' || j.status === 'failed') {
         const run = document.createElement('button');
         run.className = 'btn small primary';
@@ -1813,14 +1892,33 @@
         return;
       }
       try {
-        const text = await ghFetchQueue();
-        const parsed = Github.parseQueue(text);
-        if (!parsed.ok) throw new Error(parsed.error);
-        // ★이미 한 것은 뺀다. 지시 파일을 지우지 않아도 같은 작업이 다시 돌지 않는다.
-        jobsList = Github.pending(parsed.jobs, ghDone).map(function (j) {
-          return { id: j.id, name: j.name, spec: j.spec, status: 'pending', source: 'github' };
-        });
-        const skipped = parsed.jobs.length - jobsList.length;
+        const files = await ghFetchTree();
+        const planned = Github.plan(files, ghDone);
+        // ★이미 한 것(같은 내용)은 뺀다. 파일을 고치면 SHA 가 바뀌어 다시 뜬다.
+        const fresh = Github.pending(planned.jobs, ghDone);
+
+        // 몇 장짜리인지 미리 보여 주려면 슬롯 파일을 읽어야 한다. 한 번에 너무 많이 읽지 않는다.
+        const LOOK = 12;
+        jobsList = [];
+        for (let i = 0; i < fresh.length && i < LOOK; i++) {
+          const j = fresh[i];
+          let spec = null;
+          try {
+            spec = Github.mergeSpec(await ghFetchFile(j.slotPath), [], j.work);
+          } catch (e) {
+            // 읽지 못한 파일은 목록에 이유와 함께 남긴다 (조용히 사라지면 왜 안 도는지 모른다).
+            jobsList.push({ id: j.id, name: j.name, status: 'failed', source: 'github',
+              gh: j, spec: { slots: [] }, error: (e.message || String(e)) });
+            continue;
+          }
+          jobsList.push({ id: j.id, name: j.name, status: 'pending', source: 'github',
+            gh: j, spec: spec });
+        }
+        if (fresh.length > LOOK) {
+          jobsList.push({ id: '__more__', name: '… 그 밖에 ' + (fresh.length - LOOK) + '건',
+            status: 'more', source: 'github', spec: { slots: [] } });
+        }
+        const skipped = planned.jobs.length - fresh.length;
         if (!quiet) {
           say($('jobs-msg'), jobsList.length
             ? ('새 작업 ' + jobsList.length + '건' + (skipped ? (' · 이미 한 것 ' + skipped + '건은 건너뜀') : ''))
@@ -1928,6 +2026,19 @@
     //   GitHub 은 저장소에 쓰지 않으므로, 대신 폰이 한 것을 기억해 두 번 돌지 않게 한다.
     let claimed = job;
     try {
+      if (fromGithub && job.gh) {
+        // ★인물은 **뽑기 직전에** 읽는다. 목록을 그릴 때마다 읽으면 요청만 늘고,
+        //   그 사이에 인물이 고쳐졌다면 최신 것으로 뽑는 편이 맞다.
+        const chars = [];
+        for (let i = 0; i < job.gh.charPaths.length; i++) {
+          chars.push(await ghFetchFile(job.gh.charPaths[i]));
+        }
+        claimed = {
+          id: job.id,
+          name: job.name,
+          spec: Github.mergeSpec(await ghFetchFile(job.gh.slotPath), chars, job.gh.work)
+        };
+      }
       if (!fromGithub && job.status === 'pending') {
         claimed = await RemoteStore.claimJob(d);
         if (!claimed || claimed.id !== job.id) {
@@ -1992,7 +2103,7 @@
     if (running) return;
     await loadJobs(true);
     if (!jobsAuto) return;
-    const next = jobsList.find(function (j) { return j.status === 'pending'; });
+    const next = jobsList.find(function (j) { return j.status === 'pending' && j.id !== '__more__'; });
     if (next) startJob(next, true);
   }
 
@@ -4209,6 +4320,15 @@
     $('gh-open').addEventListener('click', function () {
       const url = Github.webUrl(ghCfg);
       if (url) window.open(url, '_blank');
+    });
+    $('gh-new').addEventListener('click', function () {
+      // ★앱은 저장소를 만들지 못한다 (그 권한을 폰에 주지 않는다). 만드는 화면만 열어 준다.
+      window.open('https://github.com/new', '_blank');
+      toast('Private 로 만드시길 권합니다 — 프롬프트가 그대로 남는 곳입니다.', 3200);
+    });
+    $('gh-copy-setup').addEventListener('click', async function () {
+      const ok = await copyText(ghSetupPrompt());
+      toast(ok ? 'AI 에게 붙여넣으세요.' : '복사하지 못했습니다.', 2200);
     });
     $('gh-forget').addEventListener('click', async function () {
       if (!window.confirm('이미 한 작업 기억을 지울까요?\n지시 파일에 남아 있는 작업이 다시 뜹니다.')) return;

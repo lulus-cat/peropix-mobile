@@ -684,18 +684,11 @@
                autocorrect="off" spellcheck="false">
         <span class="hint">주소를 통째로 붙여넣어도 됩니다.</span>
       </label>
-      <div class="grid2">
-        <label class="field">
-          <span class="label">브랜치</span>
-          <input id="gh-branch" type="text" placeholder="main" autocapitalize="off"
-                 autocorrect="off" spellcheck="false">
-        </label>
-        <label class="field">
-          <span class="label">지시 파일</span>
-          <input id="gh-path" type="text" placeholder="perofix/queue.json" autocapitalize="off"
-                 autocorrect="off" spellcheck="false">
-        </label>
-      </div>
+      <label class="field">
+        <span class="label">브랜치</span>
+        <input id="gh-branch" type="text" placeholder="main" autocapitalize="off"
+               autocorrect="off" spellcheck="false">
+      </label>
       <label class="field">
         <span class="label">토큰 (비공개 저장소일 때만)</span>
         <input id="gh-token" type="password" placeholder="github_pat_... (공개 저장소면 비워 두세요)"
@@ -704,10 +697,40 @@
       </label>
       <div class="toolrow">
         <button id="gh-save" class="btn small primary">저장하고 확인</button>
-        <button id="gh-open" class="btn small">지시 파일 열기</button>
+        <button id="gh-open" class="btn small">저장소 열기</button>
         <button id="gh-forget" class="btn small danger">한 것 기억 지우기</button>
       </div>
       <p class="hint" id="gh-hint"></p>
+
+      <!-- ★지시함은 **사용자의 저장소**여야 한다. 프롬프트가 남는 곳이라 공개 저장소에
+           두면 안 된다 — 만들기부터 안내한다. 앱은 저장소를 만들지도, 쓰지도 못한다
+           (그럴 권한을 폰에 주지 않는다). 파일은 AI 에게 시켜 넣는다. -->
+      <details class="panel" id="gh-setup">
+        <summary>처음이면 — 지시함 저장소 만들기</summary>
+        <ol class="steps">
+          <li><b>새 저장소를 만듭니다.</b> 이름은 아무거나, 공개 여부는 <b>Private 을 권합니다</b>
+            — 프롬프트가 그대로 남는 곳입니다.
+            <button id="gh-new" class="btn small block">GitHub 에서 새 저장소 만들기</button>
+          </li>
+          <li><b>AI 에게 세팅을 시킵니다.</b> 아래 문구를 복사해 Claude Code·Codex 에 그대로
+            붙여넣으면 규약 파일(AGENTS.md · CLAUDE.md)과 폴더를 만들어 줍니다.
+            <button id="gh-copy-setup" class="btn small block">AI 에게 시킬 말 복사</button>
+          </li>
+          <li><b>비공개로 만들었다면</b> 읽기 전용 토큰을 위 칸에 넣습니다
+            (Settings → Developer settings → Fine-grained tokens → 그 저장소에 Contents: Read).</li>
+          <li>위 <b>저장소</b> 칸에 <code>내이름/저장소이름</code> 을 적고 <b>저장하고 확인</b>.</li>
+        </ol>
+        <p class="hint">폴더는 이렇게 갑니다 — 작품마다 하나씩, 그 안에 인물과 슬롯:</p>
+        <pre class="code-block">미아/
+  characters/미아.json     ← 인물 (그 작품 안에서 공용)
+  slots/일상.json          ← 슬롯 묶음 = 작업 하나
+  slots/H.json
+리사/
+  characters/리사.json
+  slots/교복.json</pre>
+        <p class="hint">★<b>슬롯 파일이 새로 생기거나 내용이 바뀌면</b> 그것이 새 작업이 됩니다.
+          인물 파일을 고치는 것은 작업을 만들지 않습니다 — 다음에 그 작품을 돌릴 때 최신 인물을 씁니다.</p>
+      </details>
     </div>
 
     <label class="check">
@@ -720,24 +743,22 @@
     <div id="jobs-list"></div>
 
     <details class="panel">
-      <summary>GitHub 으로 지시하는 법</summary>
-      <p class="hint">저장소에 지시 파일 하나를 만들어 두고, AI 에게 거기에 쓰라고 하면 됩니다.
-        예: <code>perofix/queue.json</code></p>
-      <pre class="code-block">[
-  {
-    "id": "mia-01",
-    "name": "미아 · 일상 2장",
-    "folder": "미아",
-    "prefix": "1girl, silver hair, masterpiece",
-    "slots": [
-      { "name": "1-1", "content": "smile, bedroom" },
-      { "name": "1-2", "content": "angry, classroom" }
-    ],
-    "options": { "count_per_slot": 1 }
-  }
-]</pre>
-      <p class="hint">★<b>id</b> 를 적어 두면 그 작업은 한 번만 돕니다 (안 적으면 내용으로 만들어 씁니다).
-        이미 한 작업은 폰이 기억하므로, 지시 파일을 지우지 않아도 다시 돌지 않습니다.</p>
+      <summary>지시 파일 모양</summary>
+      <p class="hint"><b>슬롯 파일</b> — <code>미아/slots/일상.json</code></p>
+      <pre class="code-block">{
+  "name": "미아 · 일상",
+  "prefix": "1girl, silver hair, masterpiece",
+  "slots": [
+    { "name": "1-1", "content": "smile, bedroom" },
+    { "name": "1-2", "content": "angry, classroom" }
+  ],
+  "options": { "count_per_slot": 1 }
+}</pre>
+      <p class="hint"><b>인물 파일</b> — <code>미아/characters/미아.json</code></p>
+      <pre class="code-block">{ "name": "미아", "content": "1girl, silver hair, blue eyes" }</pre>
+      <p class="hint">저장 폴더는 <b>작품 폴더 이름</b>을 씁니다. 슬롯 파일에 <code>folder</code> 를
+        적으면 그것이 이깁니다. <code>options</code> 는 아는 값만 받습니다 — 모델·크기·steps·cfg·
+        샘플러·UC·퀄리티·네거티브·배수·한 명 모드·투명 배경·저장 형식·Variety+·시드.</p>
     </details>
 
     <details class="panel">

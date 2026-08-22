@@ -266,7 +266,7 @@ const Store = (function () {
   }
 
   // ── GitHub 지시함 ────────────────────────────────────────────────────────
-  // { repo, branch, path, token } · 그리고 이미 실행한 작업 id 목록.
+  // { repo, branch, token } · 그리고 이미 실행한 작업 id 목록 (경로@SHA).
   // ★앱은 저장소에 쓰지 않는다. 무엇을 했는지는 폰이 기억한다 — 지시 파일을 지우지 않아도
   //   같은 작업이 다시 돌지 않게 하려는 것이다.
   const KEY_GH = 'github_inbox';
@@ -274,7 +274,7 @@ const Store = (function () {
 
   async function getGithub() {
     const raw = await getRaw(KEY_GH);
-    const base = { repo: '', branch: 'main', path: 'perofix/queue.json', token: '' };
+    const base = { repo: '', branch: 'main', token: '' };
     if (!raw) return base;
     try {
       return Object.assign(base, JSON.parse(raw) || {});

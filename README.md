@@ -399,29 +399,90 @@ Claude Code 같은 도구가 PC·VPS 수신함에 **작업**(무엇을 뽑을지
 
 ### GitHub 을 지시함으로 쓰기 (서버 없이)
 
-수신함을 띄울 곳이 없어도 됩니다. **저장소의 파일 하나**를 지시함으로 씁니다 —
-AI(Claude Code 등)가 거기에 JSON 을 커밋해 두면 폰이 읽어 뽑습니다.
+수신함을 띄울 곳이 없어도 됩니다. **내 GitHub 저장소 하나**를 지시함으로 씁니다 —
+AI(Claude Code · Codex 등)가 거기에 JSON 을 커밋해 두면 폰이 읽어 뽑습니다.
 
-앱의 **📥 원격 작업 → 어디서 지시를 받을까 → 「GitHub 지시함」** 에서 저장소·브랜치·파일
-경로를 적습니다. 공개 저장소면 **토큰이 필요 없습니다.**
+★**이 저장소(peropix-mobile)를 지시함으로 쓰지 마세요.** 공개 저장소라 프롬프트가
+그대로 남습니다. **자기 저장소를 새로 만들어** 쓰세요 — 앱이 만드는 법을 안내합니다.
 
-| | |
-|---|---|
-| 저장소 | `lulus-cat/peropix-mobile` (주소를 통째로 붙여넣어도 됩니다) |
-| 브랜치 | `main` |
-| 지시 파일 | `perofix/queue.json` |
+#### 1. 저장소 만들기
 
-- ★**파일 하나만** 봅니다. 폴더 목록은 GitHub API 를 써야 하는데, 토큰 없는 API 는 시간당
-  60번이라 1분 폴링으로도 한도를 칩니다. `raw` 는 CDN 이라 그 제한이 없습니다
-- ★**앱은 저장소에 쓰지 않습니다.** 이미 한 작업은 **폰이 기억**하므로 지시 파일을 지우지
-  않아도 다시 돌지 않습니다 (「한 것 기억 지우기」 로 되살릴 수 있습니다)
-- `id` 를 적어 두면 그 작업은 한 번만 돕니다. 안 적으면 내용에서 만들어 씁니다 —
-  내용이 같으면 같은 id 라 역시 두 번 돌지 않습니다
-- 비공개 저장소는 **읽기 전용 토큰**을 넣으면 API 로 읽습니다
-- ★공개 저장소에 적은 프롬프트는 **누구나 봅니다.** 가릴 것이 있으면 비공개 저장소를 쓰세요
+앱의 **📥 원격 작업 → 어디서 지시를 받을까 → 「GitHub 지시함」 → 「처음이면 — 지시함
+저장소 만들기」** 를 폅니다.
+
+1. **「GitHub 에서 새 저장소 만들기」** — 이름은 아무거나. ★**Private 을 권합니다**
+2. **「AI 에게 시킬 말 복사」** — 복사한 문구를 Claude Code · Codex 에 그대로 붙여넣으면
+   규약 파일(`AGENTS.md` · `CLAUDE.md`)과 폴더·예시를 만들어 커밋해 줍니다
+3. 비공개로 만들었다면 **읽기 전용 토큰**을 넣습니다
+   (Settings → Developer settings → Fine-grained tokens → 그 저장소에 Contents: Read)
+4. **저장소** 칸에 `내이름/저장소이름` 을 적고 **저장하고 확인**
+
+규약 전문은 이 저장소의 [`docs/inbox/AGENTS.md`](docs/inbox/AGENTS.md) ·
+[`docs/inbox/CLAUDE.md`](docs/inbox/CLAUDE.md) 에 있습니다. 그대로 복사해 넣어도 됩니다.
+
+#### 2. 폴더 구조 — 작품마다 하나씩
+
+```
+<내 지시함 저장소>/
+  AGENTS.md · CLAUDE.md      ← AI 가 읽는 규약
+  미아/
+    characters/미아.json      ← 인물 (그 작품 안에서 공용)
+    slots/일상.json           ← 슬롯 묶음 = **작업 하나**
+    slots/H.json
+  리사/
+    characters/리사.json
+    slots/교복.json
+```
+
+- 첫 폴더 이름이 **작품 이름**이자 폰에 저장될 **폴더 이름**입니다
+- 인물 폴더는 `characters` `character` `캐릭터` `인물`, 슬롯 폴더는 `slots` `slot` `슬롯`
+  `작업` `jobs` — 아무거나 씁니다 (작품 폴더 바로 아래 `.json` 도 슬롯으로 봅니다)
+- 루트에 그냥 둔 `.json` 과 점으로 시작하는 폴더(`.github`)는 무시합니다
+
+**슬롯 파일** — `미아/slots/일상.json`
+
+```json
+{
+  "name": "미아 · 일상",
+  "prefix": "1girl, silver hair, masterpiece",
+  "slots": [
+    { "name": "1-1", "content": "smile, bedroom" },
+    { "name": "1-2", "content": "angry, classroom" }
+  ],
+  "options": { "count_per_slot": 1 }
+}
+```
+
+**인물 파일** — `미아/characters/미아.json`
+
+```json
+{ "name": "미아", "content": "1girl, silver hair, blue eyes" }
+```
+
+`options` 는 아는 값만 받습니다 — 모델·크기·steps·cfg·샘플러·UC·퀄리티·네거티브·배수·
+한 명 모드·투명 배경·저장 형식·Variety+·시드.
+
+#### 3. 언제 뽑히나 (트리거)
+
+- ★**슬롯 파일이 새로 생기거나 내용이 바뀌면** 그것이 새 작업이 됩니다. 판단은 GitHub 이
+  주는 **blob SHA** 로 합니다 — 내용이 같으면 SHA 도 같아서, 커밋을 다시 해도 같은 작업을
+  두 번 뽑지 않습니다
+- ★**인물 파일을 고치는 것은 작업을 만들지 않습니다.** 인물 한 줄 고칠 때마다 그 작품의
+  슬롯이 전부 다시 도는 것은 돈이 나가는 사고입니다 — 다음에 그 작품을 돌릴 때 최신
+  인물이 자동으로 쓰입니다
+- 앱이 그 저장소를 볼 때 시작됩니다 (원격 작업 화면을 열거나, 「받으면 바로 실행」 을
+  켜 두면 주기적으로). GitHub 이 폰을 깨우지는 못합니다
+
+#### 4. 지키는 선
+
+- ★**목록은 트리 API 한 번**으로 가져옵니다 (`?recursive=1`). 폴더마다 부르면 토큰 없는
+  한도(시간당 60번)를 금방 칩니다. 파일 내용은 `raw`(CDN)로 받아 한도를 쓰지 않습니다
+- ★**앱은 저장소에 쓰지 않습니다.** 폰에 쓰기 토큰을 넣지 않기 때문입니다. 이미 한 작업은
+  **폰이 기억**하므로 파일을 지우지 않아도 다시 돌지 않습니다
+  (「한 것 기억 지우기」 로 되살릴 수 있습니다)
+- ★NovelAI API 키는 **폰에만** 있습니다. 저장소에는 지시만 오갑니다
+- ★공개 저장소에 적은 프롬프트는 **누구나 봅니다.** 가릴 것이 있으면 비공개로
 - 결과는 GitHub 으로 되돌아가지 않습니다 — 앱의 저장 위치(폰 또는 수신함)에 그대로 남습니다
-
-이 저장소에도 빈 지시함(`perofix/queue.json`)을 넣어 두었습니다. 그대로 적어 두고 쓰면 됩니다.
 
 ### PC · Claude 쪽에서
 
@@ -589,7 +650,7 @@ python tools/test_receiver.py
 | `verify_payload.js` | NAI 페이로드가 `backend.py` 와 같은가 | 138 |
 | `test_naming.js` | 경로·파일명 규칙 (탈출·예약어·겹침·인물 폴더) | 29 |
 | `test_jobs.js` | 생성 목록 (인물 × 슬롯 × 배수의 수와 순서) | 28 |
-| `test_github.js` | GitHub 지시함 (주소·지시 파일 읽기·중복 방지) | 37 |
+| `test_github.js` | GitHub 지시함 (주소·트리 읽기·작품/인물/슬롯·중복 방지) | 53 |
 | `test_import.js` | PeroFix JSON 가져오기 (슬롯·캐릭터) | 31 |
 | `test_image.js` | 리샘플이 PIL 과 같은가 · PNG 메타데이터 | 29 |
 | `test_anlas.js` | Anlas 소모량이 `backend.py` 와 같은가 | 169 |
@@ -597,7 +658,7 @@ python tools/test_receiver.py
 | `test_results.js` | 결과 분류 (슬롯 묶기·거르기·삭제·실패) | 37 |
 | `test_compose.js` | 배경 합성 (알파 판별·경계·배치·겹치기·투명 되살리기) | 74 |
 | `test_receiver.py` | 수신함 (경로 탈출 차단·인증·업로드·폴더·작업 큐) | 73 |
-| | **합계** | **669** |
+| | **합계** | **685** |
 
 `test_image.js` 는 기준 이미지(약 7MB)가 있어야 돕니다. 저장소에 넣지 않으므로
 없으면 조용히 건너뜁니다. 만들려면:
@@ -641,7 +702,7 @@ www/                      앱 본체 (여기를 고칩니다)
     nai-payload.js        NAI 페이로드 조립 (핵심)
     nai-client.js         NAI 통신 · ZIP 해제 · 폰 저장 · 재시도
     remote-store.js       PC·VPS 수신함 통신 · 작업 큐
-    github.js             GitHub 지시함 (주소 · 지시 파일 읽기)
+    github.js             GitHub 지시함 (트리 읽기 · 작품/인물/슬롯 · 중복 방지)
     results-model.js      결과 분류 (슬롯 묶기 · 파생본 · 필터)
     anlas.js              Anlas 잔량 · 소모량 계산
     wildcards.js          와일드카드 치환
@@ -670,6 +731,10 @@ tools/
   test_*.js / test_*.py   나머지 검사
   export_tables.py        기준표 재생성 (데스크톱판 필요)
   capture_reference.py    기준 페이로드 재캡처 (데스크톱판 필요)
+
+docs/inbox/
+  AGENTS.md               지시함 규약 — 내 저장소에 복사해 넣는 원본
+  CLAUDE.md               같은 규약 (Claude Code 가 읽는 이름)
 
 android/                  Capacitor 안드로이드 프로젝트
 icon.png                  앱 아이콘 원본 (900×900)
