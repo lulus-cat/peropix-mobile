@@ -309,6 +309,13 @@
   <div class="pad scroll">
     <div id="results-summary" class="msg"></div>
 
+    <!-- ★인터넷이 끊기면 남은 장이 줄줄이 깨진다. 처음부터 다시 돌리면 이미 나온 장까지
+         또 뽑아 Anlas 를 두 번 쓰므로, 못 만든 것만 집어 이어 뽑는다. -->
+    <div id="retry-row" class="toolrow" hidden>
+      <button id="retry-failed" class="btn primary small block">못 만든 것 다시 생성</button>
+    </div>
+    <p class="hint" id="retry-hint"></p>
+
     <div id="result-filters" class="chips"></div>
 
     <div class="toolrow" id="batch-row">

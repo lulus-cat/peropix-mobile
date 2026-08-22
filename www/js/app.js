@@ -2365,11 +2365,18 @@
   // 항목 구조와 분류 규칙은 results-model.js 에 있다 (화면과 분리해 검사한다).
   let results = [];
   let resultFilter = 'all';
+  // ★중지 등으로 **손도 못 댄** 작업들. 실패한 장과 함께 「못 만든 것 다시 생성」 이 집는다.
+  let pendingJobs = [];
+  // 「다시 생성」 이 도는 중인지. running 만으로는 생성 중과 구별되지 않아 버튼 글자가 엉킨다.
+  let retrying = false;
+  // 이번 실행의 조건 (공통 프롬프트 · 이름 규칙 · 한 명 모드). 다시 뽑을 때 그대로 쓴다.
+  let lastRun = null;
 
   function clearResults() {
     // ★objectURL 을 반드시 풀어 준다. 안 그러면 배치를 돌릴수록 메모리가 쌓인다.
     results.forEach(function (r) { if (r.url) URL.revokeObjectURL(r.url); });
     results = [];
+    pendingJobs = [];
     $('results').innerHTML = '';
     $('results-summary').textContent = '';
     renderResultsBadge();
@@ -2435,6 +2442,7 @@
     box.innerHTML = '';
     renderResultsBadge();
     renderFilters();
+    renderRetryRow();
 
     const s = ResultsModel.stats(results);
     $('results-summary').textContent = s.total
@@ -2504,6 +2512,118 @@
     cap.textContent = captionOf(r);
     card.appendChild(cap);
     return card;
+  }
+
+  // ── 못 만든 것 다시 생성 ─────────────────────────────────────────────────
+  // ★인터넷이 끊기면 남은 장이 줄줄이 깨진다. 그때 처음부터 다시 돌리면 이미 나온 장을
+  //   또 뽑느라 Anlas 를 두 번 쓴다. 실패한 장(과 중지로 손도 못 댄 장)만 집어 이어 뽑는다.
+  function failedItems() {
+    return ResultsModel.live(results).filter(function (r) {
+      return !!r.error && !r.bytes && !!r.job;
+    });
+  }
+
+  /** 다시 뽑을 수 있는 장수 = 실패한 장 + 아직 손도 못 댄 장. */
+  function unfinishedCount() {
+    return failedItems().length + pendingJobs.length;
+  }
+
+  function renderRetryRow() {
+    const n = unfinishedCount();
+    const row = $('retry-row');
+    const btn = $('retry-failed');
+    row.hidden = (n === 0);
+    if (retrying) {
+      btn.textContent = '중지';
+      btn.className = 'btn danger small block';
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = '못 만든 ' + n + '장 다시 생성';
+    btn.className = 'btn primary small block';
+    // 생성이 도는 중에는 누르지 못하게 한다 (같은 장을 두 번 뽑게 된다).
+    btn.disabled = running;
+    // ★그림이 없는 장만 다시 뽑는다. 「저장 실패」 는 그림이 이미 있으니 뷰어에서 저장하면 된다.
+    $('retry-hint').textContent = pendingJobs.length
+      ? ('실패 ' + failedItems().length + '장 + 중지로 안 만든 ' + pendingJobs.length
+        + '장입니다. 이미 나온 장은 건드리지 않습니다.')
+      : '이미 나온 장은 그대로 두고, 실패한 장만 같은 설정으로 다시 뽑습니다.';
+  }
+
+  async function retryUnfinished() {
+    // 도는 중에 누르면 멈춤 신호로 쓴다 (다시 생성은 결과 화면에 중지 버튼이 따로 없다).
+    if (running) {
+      cancelRequested = true;
+      if (retrying) $('retry-failed').textContent = '멈추는 중…';
+      return;
+    }
+
+    const token = await Store.getToken();
+    if (!token) { show('setup'); return; }
+    if (!lastRun) { say($('batch-msg'), '이번 실행 정보가 없습니다. 생성 화면에서 다시 돌려주세요.', 'err'); return; }
+
+    const retryItems = failedItems();
+    const pend = pendingJobs.slice();
+    const total = retryItems.length + pend.length;
+    if (!total) return;
+
+    running = true;
+    retrying = true;
+    cancelRequested = false;
+    pendingJobs = [];
+    renderRetryRow();
+    const box = $('batch-msg');
+    box.hidden = false;
+
+    let done = 0;
+    let failed = 0;
+
+    // 1) 실패한 장 — 원래 자리에 그대로 갈아 끼운다 (순서와 묶음이 흐트러지지 않게).
+    for (let i = 0; i < retryItems.length; i++) {
+      if (cancelRequested) break;
+      const prev = retryItems[i];
+      say(box, '다시 생성 중 ' + (done + 1) + '/' + total + ' — ' + prev.name);
+      const item = await runOneJob(token, prev.job, {
+        base: lastRun.base, tpl: lastRun.tpl, oneChar: lastRun.oneChar,
+        seq: results.length + 1,
+        onWait: function (msg) { say(box, prev.name + ' — ' + msg); }
+      });
+      const at = results.indexOf(prev);
+      if (at !== -1) results[at] = item; else results.push(item);
+      if (!item.bytes) failed++;
+      done++;
+      renderResults();
+    }
+
+    // 2) 중지로 손도 못 댄 장 — 뒤에 이어 붙인다.
+    for (let i = 0; i < pend.length; i++) {
+      if (cancelRequested) {
+        pendingJobs = pend.slice(i);   // 또 멈추면 남은 것을 다시 들고 있는다
+        break;
+      }
+      const job = pend[i];
+      say(box, '이어서 생성 중 ' + (done + 1) + '/' + total + ' — ' + job.name);
+      const item = await runOneJob(token, job, {
+        base: lastRun.base, tpl: lastRun.tpl, oneChar: lastRun.oneChar,
+        seq: results.length + 1,
+        onWait: function (msg) { say(box, job.name + ' — ' + msg); }
+      });
+      results.push(item);
+      if (!item.bytes) failed++;
+      done++;
+      renderResults();
+    }
+
+    running = false;
+    retrying = false;
+    const left = unfinishedCount();
+    say(box, done + '/' + total + ' 다시 생성'
+      + (failed ? ', 또 실패 ' + failed + '건' : '')
+      + (cancelRequested ? ' (중지됨)' : '')
+      + (left ? ' · 아직 ' + left + '장 남음' : ''),
+      (failed || left) ? 'err' : 'ok');
+    renderResults();
+    refreshAnlas();
   }
 
   // ── 저장 · 버리기 ────────────────────────────────────────────────────────
@@ -2916,6 +3036,116 @@
     $('progress-text').textContent = text;
   }
 
+  /**
+   * 한 장을 뽑아 결과 항목 하나를 만든다. 성공하든 실패하든 **항목을 돌려준다**
+   * (실패 항목에는 그림 대신 error 와 job 이 들어 있어 나중에 다시 뽑을 수 있다).
+   *
+   * ★생성과 「다시 생성」 이 같은 길을 쓰게 하려고 떼어 놓았다. 두 벌로 두면 한쪽만
+   *   고쳐져서, 다시 뽑은 장만 프롬프트가 다르거나 엉뚱한 폴더로 가는 일이 생긴다.
+   * @param {object} ctx { base, tpl, oneChar, seq, onWait(문구) }
+   */
+  async function runOneJob(token, job, ctx) {
+    const slot = job.slot;
+    const name = job.slotName;
+    const oneChar = ctx.oneChar;
+
+    // ★와일드카드는 **장마다 따로** 뽑는다. 다시 뽑을 때도 새로 뽑는다 —
+    //   실패한 장을 원래 조합 그대로 되살릴 이유가 없다 (시드도 어차피 새로 나온다).
+    const wcBase = Wildcards.resolve(ctx.base, wildcardPools);
+    const wcSlot = Wildcards.resolve((slot.prompt || '').trim(), wildcardPools);
+    // ★한 명 모드면 이번 인물 하나만 보낸다. 켜 둔 다른 인물은 이 장에 실리지 않는다.
+    const sending = oneChar ? [job.char] : characters;
+    const wcChars = sending.map(function (c) {
+      return Object.assign({}, c, {
+        enabled: true,
+        prompt: Wildcards.resolve(c.prompt || '', wildcardPools),
+        uc: Wildcards.resolve(c.uc || '', wildcardPools)
+      });
+    });
+
+    // ★공통 / 캐릭터 / 슬롯은 서로 다른 축이다. 어디에 붙일지는 slotTarget 이 정한다.
+    const composed = composePrompts(wcBase, wcSlot, slotTarget, wcChars);
+    const req = Object.assign({}, options, {
+      negative_prompt: Wildcards.resolve(options.negative_prompt || '', wildcardPools),
+      prompt: composed.basePrompt,
+      character_prompts_with_coords: composed.characters,
+      precise_references: references.map(function (r) {
+        return { image: r.image, mode: r.mode, strength: r.strength, fidelity: r.fidelity };
+      })
+    });
+
+    try {
+      const built = buildNaiPayload(req);
+      // ★재시도 중이라는 걸 알려 준다. 아무 표시 없이 멈춰 있으면 멈춘 줄 안다.
+      const res = await NaiClient.generate(token, built, function (n, wait, err) {
+        if (ctx.onWait) {
+          ctx.onWait(NaiClient.networkMessage(err)
+            + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
+        }
+      });
+
+      // ★이름을 먼저 정하고 겹침을 비켜 둔다. 같은 슬롯을 여러 장 뽑으면 반드시 겹친다.
+      const relPath = Naming.dedupe(Naming.render(ctx.tpl, {
+        persona: persona,
+        char: oneChar ? job.charName : undefined,
+        label: name,
+        seq: ctx.seq,
+        seed: res.seed,
+        model: options.nai_model
+      }), usedPaths);
+
+      const item = ResultsModel.make({
+        // ★한 명 모드면 「인물 · 슬롯」 으로 묶는다. 슬롯으로만 묶으면 인물 8명이
+        //   한 묶음에 섞여 뷰어에서 누구를 보고 있는지 알 수 없다.
+        slotLabel: job.group,
+        cycle: job.cycle,
+        kind: 'base',
+        name: job.name,
+        filename: relPath,
+        bytes: res.bytes,
+        url: URL.createObjectURL(new Blob([res.bytes], { type: 'image/png' })),
+        saveInfo: {
+          prompt: composed.basePrompt,
+          negative: options.negative_prompt,
+          characters: composed.characters.map(function (c) {
+            return { prompt: c.prompt, uc: c.uc, coord: c.coord };
+          }),
+          model: options.nai_model, steps: options.steps, cfg: options.cfg,
+          sampler: options.sampler, scheduler: options.scheduler,
+          width: options.width, height: options.height, seed: res.seed,
+          uc_preset: options.uc_preset, quality_preset: options.quality_preset,
+          slot: name, cycle: job.cycle, persona: persona,
+          // ★파생본(인핸스·배경 합성)도 같은 인물 폴더로 가야 한다.
+          char: oneChar ? job.charName : undefined
+        }
+      });
+
+      // ★자동 저장이 꺼져 있으면 아무 데도 쓰지 않는다. 뷰어에서 골라 저장한다.
+      if (options.auto_save) {
+        try {
+          const prepared = await prepareForSave(res.bytes, relPath, item.saveInfo);
+          item.filename = prepared.path;
+          item.savedTo = await saveOne(prepared.bytes, prepared.path);
+        } catch (e) {
+          item.savedTo = null;
+          item.error = '저장 실패: ' + (e && e.message ? e.message : e);
+        }
+      }
+      return item;
+    } catch (e) {
+      // ★job 을 함께 들고 있는다. 이게 있어야 나중에 **이 장만** 다시 뽑을 수 있다 —
+      //   인터넷이 끊겨 스무 장이 한꺼번에 깨져도 처음부터 다시 돌릴 필요가 없다.
+      return ResultsModel.make({
+        slotLabel: job.group,
+        cycle: job.cycle,
+        name: job.name,
+        error: NaiClient.networkMessage(e),
+        job: job,
+        saveInfo: { char: oneChar ? job.charName : undefined }
+      });
+    }
+  }
+
   async function runGeneration() {
     if (running) return;
 
@@ -2944,6 +3174,8 @@
 
     const tpl = namingTemplateNow();
     const totalJobs = jobs.length;
+    // 「못 만든 것 다시 생성」 이 같은 조건으로 이어 뽑도록 들고 있는다.
+    lastRun = { base: base, tpl: tpl, oneChar: oneChar };
 
     running = true;
     cancelRequested = false;
@@ -2956,108 +3188,24 @@
     let failed = 0;
 
     for (let ji = 0; ji < jobs.length; ji++) {
-      if (cancelRequested) break;
+      if (cancelRequested) {
+        // ★아직 손도 못 댄 것들을 들고 있는다. 결과 화면의 「못 만든 것 다시 생성」 이
+        //   실패한 장과 함께 이어서 뽑는다 — 처음부터 다시 돌리지 않게.
+        pendingJobs = jobs.slice(ji);
+        break;
+      }
       const job = jobs[ji];
-      const slot = job.slot;
-      const cycle = job.cycle;
-      const perSlot = job.perSlot;
-      const name = job.slotName;
       const tag = (oneChar ? (job.charName + ' · ') : '')
-        + (perSlot > 1 ? (name + ' (' + cycle + '/' + perSlot + ')') : name);
+        + (job.perSlot > 1 ? (job.slotName + ' (' + job.cycle + '/' + job.perSlot + ')') : job.slotName);
       setProgress(done, totalJobs, '생성 중 ' + (done + 1) + '/' + totalJobs + ' — ' + tag);
 
-      // ★와일드카드는 **장마다 따로** 뽑는다. 사이클 안쪽에 두어야 같은 슬롯을 여러 장
-      //   뽑을 때도 매번 다른 조합이 나온다. (바깥에 두면 한 슬롯의 N 장이 전부 같아진다.)
-      const wcBase = Wildcards.resolve(base, wildcardPools);
-      const wcSlot = Wildcards.resolve((slot.prompt || '').trim(), wildcardPools);
-      // ★한 명 모드면 이번 인물 하나만 보낸다. 켜 둔 다른 인물은 이 장에 실리지 않는다.
-      const sending = oneChar ? [job.char] : characters;
-      const wcChars = sending.map(function (c) {
-        return Object.assign({}, c, {
-          enabled: true,
-          prompt: Wildcards.resolve(c.prompt || '', wildcardPools),
-          uc: Wildcards.resolve(c.uc || '', wildcardPools)
-        });
+      const item = await runOneJob(token, job, {
+        base: base, tpl: tpl, oneChar: oneChar, seq: done + 1,
+        onWait: function (msg) { setProgress(done, totalJobs, tag + ' — ' + msg); }
       });
+      if (!item.bytes) failed++;
+      results.push(item);
 
-      // ★공통 / 캐릭터 / 슬롯은 서로 다른 축이다. 어디에 붙일지는 slotTarget 이 정한다.
-      const composed = composePrompts(wcBase, wcSlot, slotTarget, wcChars);
-      const req = Object.assign({}, options, {
-        negative_prompt: Wildcards.resolve(options.negative_prompt || '', wildcardPools),
-        prompt: composed.basePrompt,
-        character_prompts_with_coords: composed.characters,
-        precise_references: references.map(function (r) {
-          return { image: r.image, mode: r.mode, strength: r.strength, fidelity: r.fidelity };
-        })
-      });
-
-      try {
-        const built = buildNaiPayload(req);
-        // ★재시도 중이라는 걸 알려 준다. 아무 표시 없이 멈춰 있으면 멈춘 줄 안다.
-        const res = await NaiClient.generate(token, built, function (n, wait, err) {
-          setProgress(done, totalJobs,
-            tag + ' — ' + NaiClient.networkMessage(err)
-            + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
-        });
-
-        // ★이름을 먼저 정하고 겹침을 비켜 둔다. 같은 슬롯을 여러 장 뽑으면 반드시 겹친다.
-        const relPath = Naming.dedupe(Naming.render(tpl, {
-          persona: persona,
-          char: oneChar ? job.charName : undefined,
-          label: name,
-          seq: done + 1,
-          seed: res.seed,
-          model: options.nai_model
-        }), usedPaths);
-
-        const item = ResultsModel.make({
-          // ★한 명 모드면 「인물 · 슬롯」 으로 묶는다. 슬롯으로만 묶으면 인물 8명이
-          //   한 묶음에 섞여 뷰어에서 누구를 보고 있는지 알 수 없다.
-          slotLabel: job.group,
-          cycle: cycle,
-          kind: 'base',
-          name: job.name,
-          filename: relPath,
-          bytes: res.bytes,
-          url: URL.createObjectURL(new Blob([res.bytes], { type: 'image/png' })),
-          saveInfo: {
-            prompt: composed.basePrompt,
-            negative: options.negative_prompt,
-            characters: composed.characters.map(function (c) {
-              return { prompt: c.prompt, uc: c.uc, coord: c.coord };
-            }),
-            model: options.nai_model, steps: options.steps, cfg: options.cfg,
-            sampler: options.sampler, scheduler: options.scheduler,
-            width: options.width, height: options.height, seed: res.seed,
-            uc_preset: options.uc_preset, quality_preset: options.quality_preset,
-            slot: name, cycle: cycle, persona: persona,
-            // ★파생본(인핸스·배경 합성)도 같은 인물 폴더로 가야 한다.
-            char: oneChar ? job.charName : undefined
-          }
-        });
-
-        // ★자동 저장이 꺼져 있으면 아무 데도 쓰지 않는다. 뷰어에서 골라 저장한다.
-        if (options.auto_save) {
-          try {
-            const prepared = await prepareForSave(res.bytes, relPath, item.saveInfo);
-            item.filename = prepared.path;
-            item.savedTo = await saveOne(prepared.bytes, prepared.path);
-          } catch (e) {
-            item.savedTo = null;
-            item.error = '저장 실패: ' + (e && e.message ? e.message : e);
-          }
-        }
-        results.push(item);
-      } catch (e) {
-        failed++;
-        results.push(ResultsModel.make({
-          slotLabel: job.group,
-          cycle: cycle,
-          name: job.name,
-          error: NaiClient.networkMessage(e),
-          saveInfo: { char: oneChar ? job.charName : undefined }
-        }));
-      }
       renderResults();
       done++;
       setProgress(done, totalJobs, done + '/' + totalJobs + ' 완료');
@@ -3071,6 +3219,9 @@
     const summary = done + '/' + totalJobs + ' 완료'
       + (failed ? ', 실패 ' + failed + '건' : '') + stopped;
     setProgress(done, totalJobs, summary);
+    // ★끝난 뒤에 한 번 더 그린다. 도는 동안에는 「못 만든 것 다시 생성」 이 잠겨 있고,
+    //   중지로 남은 장은 루프를 빠져나온 뒤에야 정해진다 — 다시 안 그리면 줄이 안 뜬다.
+    renderResults();
     $('progress-open').hidden = ResultsModel.live(results).length === 0;
 
     // ★알림은 실패해도 조용히 넘어간다 — 결과를 못 보게 만들면 안 된다.
@@ -3308,6 +3459,8 @@
       }
     });
 
+    $('retry-failed').addEventListener('click', retryUnfinished);
+
     $('batch-compose').addEventListener('click', function () { openCompose(null, true); });
     $('viewer-compose').addEventListener('click', function () {
       const r = currentItem();
@@ -3356,9 +3509,9 @@
     });
     $('settings-perms').addEventListener('click', function () { openPerms(true); });
 
-    $('go-results').addEventListener('click', function () { show('results'); });
+    $('go-results').addEventListener('click', function () { renderResults(); show('results'); });
     $('results-back').addEventListener('click', function () { show('main'); });
-    $('progress-open').addEventListener('click', function () { show('results'); });
+    $('progress-open').addEventListener('click', function () { renderResults(); show('results'); });
     $('results-clear').addEventListener('click', function () {
       if (!results.length) return;
       if (!window.confirm('결과 목록을 비울까요? 저장하지 않은 그림은 사라집니다.')) return;
