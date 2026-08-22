@@ -48,8 +48,10 @@
   let backExitTimer = null;
 
   function handleBack() {
-    // 1) 덮개가 떠 있으면 그것부터 닫는다.
+    // 1) 덮개가 떠 있으면 그것부터 닫는다. 겹쳐 있으면 위에 있는 것부터.
     if (!$('editor').hidden) { closeEditor(); return; }
+    if (!$('item-edit').hidden) { closeItemEdit(); return; }
+    if (openDrawerName) { closeDrawer(); return; }
     if (!$('viewer').hidden) { closeViewer(); return; }
 
     // 2) 하위 화면이면 메인으로.
@@ -85,6 +87,330 @@
       handleBack();
     });
     history.pushState(null, '', location.href);
+  }
+
+  // ── 서랍 여닫기 ─────────────────────────────────────────────────────────
+  let openDrawerName = null;    // 'chars' | 'slots' | null
+
+  function openDrawer(which) {
+    if (openDrawerName === which) return;
+    closeDrawer();
+    openDrawerName = which;
+    if (which === 'chars') renderCharDrawer(); else renderSlotDrawer();
+    $('drawer-' + which).hidden = false;
+    $('drawer-scrim').hidden = false;
+    // ★서랍이 떠 있는 동안 뒤쪽 본문이 따라 스크롤되면 어디를 보는지 헷갈린다.
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    if (!openDrawerName) return;
+    $('drawer-' + openDrawerName).hidden = true;
+    $('drawer-scrim').hidden = true;
+    openDrawerName = null;
+    // 수정창이 함께 떠 있으면 스크롤 잠금을 풀지 않는다.
+    if ($('item-edit').hidden && $('editor').hidden) document.body.style.overflow = '';
+  }
+
+  /**
+   * 메인 화면에서 옆으로 밀어 서랍을 연다.
+   * ★오른쪽으로 밀면 인물(왼쪽 서랍), 왼쪽으로 밀면 슬롯(오른쪽 서랍).
+   *   세로로 긋는 것은 그냥 스크롤이므로, 가로 이동이 세로보다 확실히 클 때만 연다.
+   */
+  function setupDrawerSwipe() {
+    const area = $('screen-main');
+    let x0 = 0, y0 = 0, tracking = false;
+
+    area.addEventListener('touchstart', function (e) {
+      if (openDrawerName || e.touches.length !== 1) { tracking = false; return; }
+      // 글자를 고르는 중이거나 가로 스크롤되는 칸 위에서는 잡지 않는다.
+      const t = e.target;
+      if (t.closest('input, textarea, select, .drawer')) { tracking = false; return; }
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+      tracking = true;
+    }, { passive: true });
+
+    area.addEventListener('touchend', function (e) {
+      if (!tracking) return;
+      tracking = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - x0;
+      const dy = t.clientY - y0;
+      // 90px 이상 가로로, 그리고 세로 이동의 2배 넘게 움직였을 때만.
+      if (Math.abs(dx) < 90 || Math.abs(dx) < Math.abs(dy) * 2) return;
+      openDrawer(dx > 0 ? 'chars' : 'slots');
+    }, { passive: true });
+  }
+
+  // ── 쓸어서 여러 줄 한꺼번에 켜고 끄기 ───────────────────────────────────
+  // ★「전체 켜기/끄기」 는 전부 아니면 전무다. 실제로는 "이 구간만" 이 잦다.
+  //   원을 누른 채 위아래로 쓸면 지나간 줄이 전부 첫 줄과 같은 상태가 된다.
+  //   ─ 켜진 줄에서 시작하면 쓸고 간 자리가 꺼지고, 꺼진 줄에서 시작하면 켜진다.
+  //
+  // ★칠하는 동안에는 목록을 다시 그리지 않는다. 다시 그리면 손가락 밑의 요소가
+  //   사라져 그 뒤로는 아무것도 안 칠해진다. 화면만 그 자리에서 고치고,
+  //   저장과 다시 그리기는 손을 뗄 때 한 번만 한다.
+  let paint = null;   // { kind, to, seen:Set }
+
+  function paintRowAt(x, y) {
+    if (!paint) return;
+    const el = document.elementFromPoint(x, y);
+    const row = el && el.closest ? el.closest('.drow') : null;
+    if (!row || row.dataset.kind !== paint.kind) return;
+
+    const i = Number(row.dataset.index);
+    if (paint.seen.has(i)) return;
+    paint.seen.add(i);
+
+    const list = (paint.kind === 'chars') ? characters : slots;
+    if (!list[i]) return;
+    list[i].enabled = paint.to;
+
+    row.classList.toggle('off', !paint.to);
+    const dot = row.querySelector('.btn.icon');
+    if (dot) dot.textContent = paint.to ? '●' : '○';
+  }
+
+  function startPaint(kind, i, ev) {
+    const list = (kind === 'chars') ? characters : slots;
+    if (!list[i]) return;
+    // 첫 줄은 뒤집는다. 나머지는 그 결과를 따라간다.
+    const to = (list[i].enabled === false);
+    paint = { kind: kind, to: to, seen: new Set() };
+
+    const pt = ev.touches ? ev.touches[0] : ev;
+    paintRowAt(pt.clientX, pt.clientY);
+  }
+
+  function endPaint() {
+    if (!paint) return;
+    const kind = paint.kind;
+    const n = paint.seen.size;
+    paint = null;
+
+    if (kind === 'chars') {
+      Store.setCharacters(characters);
+      renderCharDrawer();
+      renderSlotTargetHint();
+    } else {
+      Store.setSlots(slots);
+      renderSlotDrawer();
+    }
+    renderAnlas();
+
+    // 여러 줄을 칠했을 때만 알린다 — 한 줄은 그냥 누른 것이라 말이 필요 없다.
+    if (n > 1) {
+      const list = (kind === 'chars') ? characters : slots;
+      const on = list.filter(function (x) { return x.enabled !== false; }).length;
+      toast(n + '개 바꿈 · ' + on + ' / ' + list.length + ' 켜짐');
+    }
+  }
+
+  /** 서랍 목록에 칠하기 손짓을 건다. 목록마다 한 번만 부른다. */
+  function setupPaint(listId, kind) {
+    const box = $(listId);
+
+    // ★passive:false 여야 preventDefault 가 듣는다. 안 그러면 칠하는 동안
+    //   목록이 같이 스크롤되어 엉뚱한 줄이 칠해진다.
+    box.addEventListener('touchmove', function (e) {
+      if (!paint) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      paintRowAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    box.addEventListener('touchend', endPaint);
+    box.addEventListener('touchcancel', endPaint);
+
+    // PC 미리보기에서도 같은 손짓을 확인할 수 있게 마우스도 받는다.
+    box.addEventListener('mousemove', function (e) {
+      if (!paint || !e.buttons) return;
+      paintRowAt(e.clientX, e.clientY);
+    });
+    box.addEventListener('mouseup', endPaint);
+    box.addEventListener('mouseleave', endPaint);
+
+    box.__paintKind = kind;
+  }
+
+  // ── 한꺼번에 켜고 끄기 ──────────────────────────────────────────────────
+  // ★한 JSON 안에서도 일부만 쓰는 일이 잦다. 하나씩 누르는 것은 고통이다.
+  function bulkSet(kind, mode) {
+    const list = (kind === 'chars') ? characters : slots;
+    if (!list.length) { toast('바꿀 것이 없습니다.'); return; }
+
+    list.forEach(function (it) {
+      if (mode === 'all') it.enabled = true;
+      else if (mode === 'none') it.enabled = false;
+      else it.enabled = (it.enabled === false);      // 반전
+    });
+
+    if (kind === 'chars') {
+      Store.setCharacters(characters);
+      renderCharDrawer();
+      renderSlotTargetHint();
+    } else {
+      Store.setSlots(slots);
+      renderSlotDrawer();
+    }
+    renderAnlas();
+
+    const on = list.filter(function (x) { return x.enabled !== false; }).length;
+    toast(on + ' / ' + list.length + ' 켜짐');
+  }
+
+  /** 인물을 하나 만들고 바로 고칠 수 있게 연다. */
+  function addCharacter() {
+    characters.push({ prompt: '', uc: '', coord: null, name: '', skipSlotPrompt: false, enabled: true });
+    Store.setCharacters(characters);
+    openDrawer('chars');
+    renderCharDrawer();
+    renderSlotTargetHint();
+    openItemEdit('char', characters.length - 1);
+  }
+
+  /** 슬롯을 하나 만들고 바로 고칠 수 있게 연다. */
+  function addSlot() {
+    slots.push({ label: '', prompt: '', enabled: true });
+    Store.setSlots(slots);
+    openDrawer('slots');
+    renderSlotDrawer();
+    renderAnlas();
+    openItemEdit('slot', slots.length - 1);
+  }
+
+  // ── 한 항목 수정창 ──────────────────────────────────────────────────────
+  let editKind = null, editIndex = -1;
+
+  function openItemEdit(kind, i) {
+    editKind = kind;
+    editIndex = i;
+
+    const isChar = (kind === 'char');
+    const list = isChar ? characters : slots;
+    const it = list[i];
+    if (!it) return;
+
+    $('item-edit-title').textContent = isChar ? charName(it, i) : slotName(it, i);
+
+    const box = $('item-edit-fields');
+    box.innerHTML = '';
+
+    const save = function () {
+      if (isChar) Store.setCharacters(characters); else Store.setSlots(slots);
+    };
+
+    // 한 줄짜리 칸
+    const mkText = function (labelText, key, placeholder, hint) {
+      const f = document.createElement('label');
+      f.className = 'field';
+      const sp = document.createElement('span');
+      sp.className = 'label';
+      sp.textContent = labelText;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = it[key] || '';
+      inp.placeholder = placeholder;
+      inp.addEventListener('input', function () {
+        it[key] = inp.value;
+        save();
+        $('item-edit-title').textContent = isChar ? charName(it, i) : slotName(it, i);
+      });
+      f.appendChild(sp);
+      f.appendChild(inp);
+      if (hint) {
+        const hz = document.createElement('span');
+        hz.className = 'hint';
+        hz.textContent = hint;
+        f.appendChild(hz);
+      }
+      return f;
+    };
+
+    // 여러 줄 칸 — 누르면 전체화면 편집기가 열린다
+    const mkArea = function (labelText, key, rows, placeholder) {
+      const f = document.createElement('label');
+      f.className = 'field';
+      const sp = document.createElement('span');
+      sp.className = 'label';
+      sp.textContent = labelText;
+      const ta = document.createElement('textarea');
+      ta.rows = rows;
+      ta.value = it[key] || '';
+      ta.placeholder = placeholder;
+      ta.addEventListener('input', function () {
+        it[key] = ta.value;
+        save();
+        if (!isChar) renderAnlas();
+      });
+      makeExpandable(ta, function () {
+        return (isChar ? charName(it, i) : slotName(it, i)) + ' · ' + labelText;
+      });
+      f.appendChild(sp);
+      f.appendChild(ta);
+      return f;
+    };
+
+    if (isChar) {
+      box.appendChild(mkText('이름', 'name', '예: 미아 — 비워 두면 「인물 ' + (i + 1) + '」',
+        '목록에서 이 이름으로 보입니다. 그림에는 들어가지 않습니다.'));
+      box.appendChild(mkArea('프롬프트', 'prompt', 3, '예: 1girl, blonde hair, red dress'));
+      box.appendChild(mkArea('네거티브 (UC)', 'uc', 2, '이 인물에만 걸리는 네거티브'));
+
+      const f = document.createElement('label');
+      f.className = 'field';
+      const sp = document.createElement('span');
+      sp.className = 'label';
+      sp.textContent = '위치';
+      const sel = document.createElement('select');
+      COORDS.forEach(function (o) {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.text;
+        sel.appendChild(opt);
+      });
+      sel.value = it.coord || '';
+      sel.addEventListener('change', function () {
+        it.coord = sel.value || null;
+        save();
+      });
+      f.appendChild(sp);
+      f.appendChild(sel);
+      box.appendChild(f);
+    } else {
+      box.appendChild(mkText('이름', 'label', '예: happy', '저장 파일 이름에 쓰입니다.'));
+      box.appendChild(mkArea('프롬프트', 'prompt', 4, '이 슬롯의 프롬프트 (예: smile, happy)'));
+    }
+
+    $('item-edit').hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeItemEdit() {
+    $('item-edit').hidden = true;
+    editKind = null;
+    editIndex = -1;
+    // 서랍이 아직 떠 있으면 잠금을 유지한다.
+    if (!openDrawerName && $('editor').hidden) document.body.style.overflow = '';
+    renderCharDrawer();
+    renderSlotDrawer();
+    renderAnlas();
+  }
+
+  function deleteEditedItem() {
+    if (editIndex < 0) return;
+    const isChar = (editKind === 'char');
+    const list = isChar ? characters : slots;
+    const it = list[editIndex];
+    const nm = isChar ? charName(it, editIndex) : slotName(it, editIndex);
+    if (!window.confirm('「' + nm + '」 을(를) 지울까요?')) return;
+
+    list.splice(editIndex, 1);
+    if (isChar) Store.setCharacters(characters); else Store.setSlots(slots);
+    closeItemEdit();
+    renderSlotTargetHint();
+    toast('지웠습니다.');
   }
 
   // ── 저장 위치 ────────────────────────────────────────────────────────────
@@ -1456,97 +1782,131 @@
     }
   }
 
-  function renderChars() {
-    const box = $('chars');
-    box.innerHTML = '';
-    renderCharLimitHint();
+  // ── 인물 · 슬롯 목록 (옆 서랍) ───────────────────────────────────────────
+  // ★수십 개가 되면 본문에 늘어놓을 수 없다. 목록은 서랍에서 보고, 편집은 수정창에서.
+  //   서랍에서는 켜고 끄기만 한다 — 한 손으로 훑으며 고르는 것이 목적이다.
 
-    if (!characters.length) return;
+  /** 인물의 표시 이름. 가져온 JSON 의 name 을 우선 쓰고, 없으면 번호로 부른다. */
+  function charName(c, i) {
+    return (c && c.name ? String(c.name).trim() : '') || ('인물 ' + (i + 1));
+  }
+
+  /**
+   * 켠 인물 중 이 번째가 모델 상한을 넘어 전송되지 않는지.
+   * ★꺼 둔 인물은 세지 않는다 — 상한 자리를 차지하지 않기 때문이다.
+   */
+  function charOverLimit(i) {
+    if (!characters[i] || characters[i].enabled === false) return false;
+    const lim = charLimit();
+    let seen = 0;
+    for (let k = 0; k <= i; k++) {
+      if (characters[k].enabled !== false) seen++;
+    }
+    return seen > lim;
+  }
+
+  function renderCharsSummary() {
+    const on = activeChars().length;
+    $('chars-summary').textContent = characters.length
+      ? ('인물 ' + characters.length + '명 · ' + on + '명 켜짐')
+      : '인물 없음 — 눌러서 추가';
+  }
+
+  function renderCharDrawer() {
+    renderCharLimitHint();
+    renderCharsSummary();
+
+    const on = activeChars().length;
+    $('drawer-chars-count').textContent = characters.length
+      ? (on + ' / ' + characters.length + ' 켜짐')
+      : '';
+
+    // 상한 경고는 서랍 안에도 둔다 — 켜고 끄는 곳이 여기이므로.
+    const lim = charLimit();
+    const w = $('drawer-chars-warn');
+    if (on > lim) {
+      w.textContent = '켠 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
+        + '명까지라 「초과」 표시된 인물은 전송되지 않습니다.';
+      w.hidden = false;
+    } else {
+      w.hidden = true;
+    }
+
+    const box = $('drawer-chars-list');
+    box.innerHTML = '';
+
+    if (!characters.length) {
+      const e = document.createElement('div');
+      e.className = 'drawer-empty';
+      e.textContent = '인물이 없습니다. 아래 「+ 인물 추가」 를 누르거나 캐릭터 JSON 을 가져오세요.';
+      box.appendChild(e);
+      return;
+    }
 
     characters.forEach(function (c, i) {
-      const el = document.createElement('div');
-      // ★생성 슬롯과 같은 규칙 — 꺼진 카드는 통째로 어두워진다.
-      //   목록에 몇 명을 쌓아 두든 상관없고, 켜 둔 인물만 전송된다.
-      el.className = 'slot' + (c.enabled === false ? ' off' : '');
-
-      const head = document.createElement('div');
-      head.className = 'slot-head';
-
-      const title = document.createElement('span');
-      title.className = 'char-no';
-      title.textContent = '인물 ' + (i + 1);
-
-      const coord = document.createElement('select');
-      coord.className = 'char-coord';
-      COORDS.forEach(function (o) {
-        const opt = document.createElement('option');
-        opt.value = o.value;
-        opt.textContent = o.text;
-        coord.appendChild(opt);
-      });
-      coord.value = c.coord || '';
-      coord.addEventListener('change', function () {
-        characters[i].coord = coord.value || null;
-        Store.setCharacters(characters);
-      });
-
-      const del = document.createElement('button');
-      del.className = 'btn icon';
-      del.textContent = '✕';
-      del.addEventListener('click', function () {
-        characters.splice(i, 1);
-        Store.setCharacters(characters);
-        renderChars();
-      });
+      const over = charOverLimit(i);
+      const row = document.createElement('div');
+      row.className = 'drow' + (c.enabled === false ? ' off' : '') + (over ? ' over' : '');
+      row.dataset.kind = 'chars';
+      row.dataset.index = i;
 
       const toggle = document.createElement('button');
       toggle.className = 'btn icon';
       toggle.textContent = c.enabled === false ? '○' : '●';
-      toggle.title = '켜기/끄기';
-      toggle.setAttribute('aria-label', '이 인물 켜기/끄기');
-      toggle.addEventListener('click', function () {
-        const on = (characters[i].enabled === false);   // 꺼져 있었으면 켠다
-        characters[i].enabled = on;
+      toggle.title = '누르면 켜고 끄기 · 누른 채 쓸면 여러 줄';
+      toggle.setAttribute('aria-label', charName(c, i) + ' 켜기/끄기');
+      // 누르는 순간 칠하기가 시작된다. 그냥 떼면 한 줄만 바뀐다.
+      toggle.addEventListener('touchstart', function (e) { startPaint('chars', i, e); }, { passive: true });
+      toggle.addEventListener('mousedown', function (e) { startPaint('chars', i, e); });
+      // 키보드로도 쓸 수 있게 (마우스를 안 쓰는 경우)
+      toggle.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        characters[i].enabled = (characters[i].enabled === false);
         Store.setCharacters(characters);
-        el.classList.toggle('off', !on);
-        toggle.textContent = on ? '●' : '○';
-        renderCharLimitHint();
+        renderCharDrawer();
         renderSlotTargetHint();
       });
 
-      head.appendChild(title);
-      head.appendChild(coord);
-      head.appendChild(toggle);
-      head.appendChild(del);
-      el.appendChild(head);
+      const main = document.createElement('div');
+      main.className = 'drow-main';
 
-      const mkArea = function (labelText, key, rows, placeholder) {
-        const f = document.createElement('label');
-        f.className = 'field';
-        const sp = document.createElement('span');
-        sp.className = 'label';
-        sp.textContent = labelText;
-        const ta = document.createElement('textarea');
-        ta.rows = rows;
-        ta.value = c[key] || '';
-        ta.placeholder = placeholder;
-        ta.addEventListener('input', function () {
-          characters[i][key] = ta.value;
-          Store.setCharacters(characters);
-        });
-        makeExpandable(ta, function () { return '인물 ' + (i + 1) + ' · ' + labelText; });
-        f.appendChild(sp);
-        f.appendChild(ta);
-        return f;
-      };
+      const nm = document.createElement('div');
+      nm.className = 'drow-name' + (c.name ? '' : ' unnamed');
+      nm.textContent = charName(c, i);
 
-      el.appendChild(mkArea('프롬프트', 'prompt', 2, '예: 1girl, blonde hair, red dress'));
-      // ★인물별 네거티브. 공통 네거티브와 별개로 이 인물에만 걸린다.
-      el.appendChild(mkArea('네거티브 (UC)', 'uc', 2, '이 인물에만 걸리는 네거티브'));
+      const sub = document.createElement('div');
+      sub.className = 'drow-sub';
+      const bits = [];
+      if (c.coord) bits.push(String(c.coord).toUpperCase());
+      bits.push((c.prompt || '').trim() || '(프롬프트 없음)');
+      sub.textContent = bits.join(' · ');
 
-      box.appendChild(el);
+      main.appendChild(nm);
+      main.appendChild(sub);
+      // 이름을 눌러도 열린다 — 「수정」 을 정확히 겨냥하지 않아도 되게.
+      main.addEventListener('click', function () { openItemEdit('char', i); });
+
+      const edit = document.createElement('button');
+      edit.className = 'btn small';
+      edit.textContent = '수정';
+      edit.addEventListener('click', function () { openItemEdit('char', i); });
+
+      row.appendChild(toggle);
+      row.appendChild(main);
+      if (over) {
+        const tag = document.createElement('span');
+        tag.className = 'drow-over-tag';
+        tag.textContent = '초과';
+        row.appendChild(tag);
+      }
+      row.appendChild(edit);
+      box.appendChild(row);
     });
   }
+
+  // 예전 이름을 그대로 남긴다 — 부르는 곳이 여러 군데다.
+  function renderChars() { renderCharDrawer(); }
 
   function renderSlotTargetHint() {
     const t = $('slot-target').value;
@@ -1589,81 +1949,84 @@
   }
 
   // ── 슬롯 ────────────────────────────────────────────────────────────────
-  function renderSlots() {
-    const box = $('slots');
+  function slotName(sl, i) {
+    return (sl && sl.label ? String(sl.label).trim() : '') || ('slot' + (i + 1));
+  }
+
+  function renderSlotsSummary() {
+    const on = slots.filter(function (x) { return x.enabled !== false; }).length;
+    $('slots-summary').textContent = slots.length
+      ? ('슬롯 ' + slots.length + '개 · ' + on + '개 켜짐')
+      : '슬롯 없음 — 눌러서 추가';
+  }
+
+  function renderSlotDrawer() {
+    renderSlotsSummary();
+
+    const on = slots.filter(function (x) { return x.enabled !== false; }).length;
+    $('drawer-slots-count').textContent = slots.length ? (on + ' / ' + slots.length + ' 켜짐') : '';
+
+    const box = $('drawer-slots-list');
     box.innerHTML = '';
 
     if (!slots.length) {
       const e = document.createElement('div');
-      e.className = 'empty';
+      e.className = 'drawer-empty';
       e.textContent = '슬롯을 추가하면 각각 다른 프롬프트로 한 번에 생성합니다.';
       box.appendChild(e);
       return;
     }
 
-    slots.forEach(function (slot, i) {
-      const el = document.createElement('div');
-      el.className = 'slot' + (slot.enabled === false ? ' off' : '');
-
-      const head = document.createElement('div');
-      head.className = 'slot-head';
-
-      const label = document.createElement('input');
-      label.type = 'text';
-      label.className = 'slot-label';
-      label.value = slot.label || '';
-      label.placeholder = '이름 (예: happy) — 파일명에 쓰입니다';
-      label.addEventListener('input', function () {
-        slots[i].label = label.value;
-        Store.setSlots(slots);
-      });
+    slots.forEach(function (sl, i) {
+      const row = document.createElement('div');
+      row.className = 'drow' + (sl.enabled === false ? ' off' : '');
+      row.dataset.kind = 'slots';
+      row.dataset.index = i;
 
       const toggle = document.createElement('button');
       toggle.className = 'btn icon';
-      toggle.textContent = slot.enabled === false ? '○' : '●';
-      toggle.title = '켜기/끄기';
-      toggle.addEventListener('click', function () {
-        const on = (slots[i].enabled === false);
-        slots[i].enabled = on;
+      toggle.textContent = sl.enabled === false ? '○' : '●';
+      toggle.title = '누르면 켜고 끄기 · 누른 채 쓸면 여러 줄';
+      toggle.setAttribute('aria-label', slotName(sl, i) + ' 켜기/끄기');
+      toggle.addEventListener('touchstart', function (e) { startPaint('slots', i, e); }, { passive: true });
+      toggle.addEventListener('mousedown', function (e) { startPaint('slots', i, e); });
+      toggle.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        slots[i].enabled = (slots[i].enabled === false);
         Store.setSlots(slots);
-        el.classList.toggle('off', !on);
-        toggle.textContent = on ? '●' : '○';
+        renderSlotDrawer();
         renderAnlas();
       });
 
-      const del = document.createElement('button');
-      del.className = 'btn icon';
-      del.textContent = '✕';
-      del.title = '삭제';
-      del.addEventListener('click', function () {
-        slots.splice(i, 1);
-        Store.setSlots(slots);
-        renderSlots();
-        renderAnlas();
-      });
+      const main = document.createElement('div');
+      main.className = 'drow-main';
 
-      head.appendChild(label);
-      head.appendChild(toggle);
-      head.appendChild(del);
+      const nm = document.createElement('div');
+      nm.className = 'drow-name' + (sl.label ? '' : ' unnamed');
+      nm.textContent = slotName(sl, i);
 
-      const ta = document.createElement('textarea');
-      ta.rows = 2;
-      ta.value = slot.prompt || '';
-      ta.placeholder = '이 슬롯의 프롬프트 (예: smile, happy)';
-      ta.addEventListener('input', function () {
-        slots[i].prompt = ta.value;
-        Store.setSlots(slots);
-        renderAnlas();
-      });
-      makeExpandable(ta, function () {
-        return '슬롯 · ' + (slots[i].label || ('slot' + (i + 1)));
-      });
+      const sub = document.createElement('div');
+      sub.className = 'drow-sub';
+      sub.textContent = (sl.prompt || '').trim() || '(프롬프트 없음)';
 
-      el.appendChild(head);
-      el.appendChild(ta);
-      box.appendChild(el);
+      main.appendChild(nm);
+      main.appendChild(sub);
+      main.addEventListener('click', function () { openItemEdit('slot', i); });
+
+      const edit = document.createElement('button');
+      edit.className = 'btn small';
+      edit.textContent = '수정';
+      edit.addEventListener('click', function () { openItemEdit('slot', i); });
+
+      row.appendChild(toggle);
+      row.appendChild(main);
+      row.appendChild(edit);
+      box.appendChild(row);
     });
   }
+
+  function renderSlots() { renderSlotDrawer(); }
 
   // ── 생성 ────────────────────────────────────────────────────────────────
   // ── 결과 목록 ────────────────────────────────────────────────────────────
@@ -2619,12 +2982,7 @@
 
     $('folders-star').addEventListener('click', toggleFav);
 
-    $('add-char').addEventListener('click', function () {
-      characters.push({ prompt: '', uc: '', coord: null, skipSlotPrompt: false, enabled: true });
-      Store.setCharacters(characters);
-      renderChars();
-      renderSlotTargetHint();
-    });
+    $('add-char').addEventListener('click', addCharacter);
 
     $('slot-target').addEventListener('change', function () {
       slotTarget = $('slot-target').value;
@@ -2632,12 +2990,7 @@
       renderSlotTargetHint();
     });
 
-    $('add-slot').addEventListener('click', function () {
-      slots.push({ label: '', prompt: '', enabled: true });
-      Store.setSlots(slots);
-      renderSlots();
-      renderAnlas();
-    });
+    $('add-slot').addEventListener('click', addSlot);
 
     $('opt-model').addEventListener('change', function () {
       options.nai_model = $('opt-model').value;
@@ -2719,6 +3072,32 @@
     $('import-json').addEventListener('click', function () { openImport('slots'); });
     $('import-chars').addEventListener('click', function () { openImport('characters'); });
     $('import-back').addEventListener('click', function () { show('main'); });
+    // ── 서랍 ────────────────────────────────────────────────────────────
+    $('open-chars').addEventListener('click', function () {
+      if (!characters.length) { addCharacter(); return; }
+      openDrawer('chars');
+    });
+    $('open-slots').addEventListener('click', function () {
+      if (!slots.length) { addSlot(); return; }
+      openDrawer('slots');
+    });
+    $('drawer-scrim').addEventListener('click', closeDrawer);
+    Array.prototype.forEach.call(document.querySelectorAll('.drawer-close'), function (b) {
+      b.addEventListener('click', closeDrawer);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bulk]'), function (b) {
+      const parts = b.getAttribute('data-bulk').split('-');
+      b.addEventListener('click', function () { bulkSet(parts[0], parts[1]); });
+    });
+    $('drawer-add-char').addEventListener('click', addCharacter);
+    $('drawer-add-slot').addEventListener('click', addSlot);
+    $('item-edit-close').addEventListener('click', closeItemEdit);
+    $('item-edit-done').addEventListener('click', closeItemEdit);
+    $('item-edit-del').addEventListener('click', deleteEditedItem);
+    setupDrawerSwipe();
+    setupPaint('drawer-chars-list', 'chars');
+    setupPaint('drawer-slots-list', 'slots');
+
     $('import-file-btn').addEventListener('click', function () { $('import-file').click(); });
     $('import-file').addEventListener('change', function () {
       loadImportFile($('import-file').files && $('import-file').files[0]);

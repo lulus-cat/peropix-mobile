@@ -136,7 +136,10 @@
       </span>
     </div>
     <p class="hint warn" id="char-limit-hint" hidden></p>
-    <div id="chars"></div>
+    <button id="open-chars" class="btn block drawer-open">
+      <span id="chars-summary">인물 없음</span>
+      <span class="drawer-open-cue">▶ 밀어서 열기</span>
+    </button>
 
     <div class="row-head">
       <span class="label">Precise Reference</span>
@@ -186,7 +189,10 @@
       </select>
       <span class="hint" id="slot-target-hint"></span>
     </label>
-    <div id="slots"></div>
+    <button id="open-slots" class="btn block drawer-open">
+      <span id="slots-summary">슬롯 없음</span>
+      <span class="drawer-open-cue">◀ 밀어서 열기</span>
+    </button>
 
     <details class="panel">
       <summary>생성 옵션</summary>
@@ -433,6 +439,65 @@
 <!-- ★폰에서 2~3줄짜리 칸에 긴 프롬프트를 넣으면 앞뒤가 안 보인다.
      프롬프트 칸을 누르면 여기가 열려 전체를 펼쳐 놓고 고친다.
      ★고치는 즉시 원래 칸에 반영된다 — 「완료」 를 누르지 않아 잃는 일이 없게. -->
+
+<!-- ── 옆에서 나오는 서랍 ─────────────────────────────────────────────────
+     ★인물·슬롯이 수십 개가 되면 본문에 늘어놓을 수 없다. 화면을 오른쪽으로 밀면
+       인물이, 왼쪽으로 밀면 슬롯이 나온다. 목록에서는 켜고 끄기와 「수정」만 하고,
+       실제 편집은 수정창에서 한다. -->
+<div id="drawer-scrim" class="drawer-scrim" hidden></div>
+
+<aside id="drawer-chars" class="drawer left" hidden aria-label="인물 목록">
+  <header class="drawer-head">
+    <h2 class="drawer-title">인물</h2>
+    <span id="drawer-chars-count" class="drawer-count"></span>
+    <button class="btn icon drawer-close" data-close="chars" aria-label="닫기">✕</button>
+  </header>
+  <div class="drawer-tools">
+    <button class="btn small" data-bulk="chars-all">전체 켜기</button>
+    <button class="btn small" data-bulk="chars-none">전체 끄기</button>
+    <button class="btn small" data-bulk="chars-invert">반전</button>
+  </div>
+  <p class="hint drawer-tip">동그라미를 <b>누른 채 위아래로 쓸면</b> 지나간 것이 한꺼번에 바뀝니다.</p>
+  <p class="hint warn" id="drawer-chars-warn" hidden></p>
+  <div id="drawer-chars-list" class="drawer-list"></div>
+  <div class="drawer-foot">
+    <button id="drawer-add-char" class="btn primary block">+ 인물 추가</button>
+  </div>
+</aside>
+
+<aside id="drawer-slots" class="drawer right" hidden aria-label="슬롯 목록">
+  <header class="drawer-head">
+    <h2 class="drawer-title">생성 슬롯</h2>
+    <span id="drawer-slots-count" class="drawer-count"></span>
+    <button class="btn icon drawer-close" data-close="slots" aria-label="닫기">✕</button>
+  </header>
+  <div class="drawer-tools">
+    <button class="btn small" data-bulk="slots-all">전체 켜기</button>
+    <button class="btn small" data-bulk="slots-none">전체 끄기</button>
+    <button class="btn small" data-bulk="slots-invert">반전</button>
+  </div>
+  <p class="hint drawer-tip">동그라미를 <b>누른 채 위아래로 쓸면</b> 지나간 것이 한꺼번에 바뀝니다.</p>
+  <div id="drawer-slots-list" class="drawer-list"></div>
+  <div class="drawer-foot">
+    <button id="drawer-add-slot" class="btn primary block">+ 슬롯 추가</button>
+  </div>
+</aside>
+
+<!-- 한 항목을 고치는 창. 인물이면 이름·프롬프트·네거티브·좌표, 슬롯이면 이름·프롬프트. -->
+<div id="item-edit" class="editor" hidden>
+  <header class="editor-head">
+    <button id="item-edit-close" class="btn icon" aria-label="닫기">✕</button>
+    <span id="item-edit-title" class="editor-title"></span>
+    <button id="item-edit-del" class="btn icon danger" aria-label="삭제">🗑</button>
+  </header>
+  <div class="editor-body pad">
+    <div id="item-edit-fields"></div>
+  </div>
+  <div class="editor-done-row">
+    <button id="item-edit-done" class="btn primary block">완료</button>
+  </div>
+</div>
+
 <!-- 화면 어디서든 잠깐 뜨는 알림. 뒤로가기 안내처럼 자리를 차지하면 안 되는 것에 쓴다. -->
 <div id="toast" class="toast" hidden></div>
 

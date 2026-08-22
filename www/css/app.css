@@ -780,3 +780,139 @@ textarea.expandable { cursor: pointer; }
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
+
+/* ── 옆에서 나오는 서랍 ──────────────────────────────────────────────────
+   인물·슬롯이 수십 개가 되면 본문에 늘어놓을 수 없다. 목록은 여기서 보고,
+   실제 편집은 수정창(#item-edit)에서 한다. */
+.drawer-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  padding: 14px;
+}
+.drawer-open-cue { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 56;
+  width: min(86vw, 380px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.5);
+}
+.drawer.left { left: 0; border-right: 1px solid var(--line); }
+.drawer.right { right: 0; border-left: 1px solid var(--line); }
+
+/* ★열릴 때 미끄러져 들어온다. 툭 나타나면 어디서 나온 것인지 알기 어렵다. */
+@keyframes drawer-in-left { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes drawer-in-right { from { transform: translateX(100%); } to { transform: none; } }
+.drawer.left { animation: drawer-in-left 0.18s ease-out; }
+.drawer.right { animation: drawer-in-right 0.18s ease-out; }
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 12px) 12px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.drawer-title { font-size: 16px; font-weight: 700; margin: 0; }
+.drawer-count { color: var(--muted); font-size: 12.5px; margin-right: auto; }
+
+.drawer-tools {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer-tools .btn { flex: 1; min-width: 0; margin-bottom: 0; }
+
+.drawer .hint.warn { margin: 10px 12px 0; }
+
+.drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px;
+}
+
+.drawer-foot {
+  padding: 10px 12px calc(env(safe-area-inset-bottom) + 12px);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.drawer-foot .btn { margin-bottom: 0; }
+
+/* 목록의 한 줄 — 켜기끄기 · 이름 · 수정 */
+.drow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: opacity 0.18s ease;
+}
+.drow.off { opacity: 0.4; }
+.drow .btn.icon { min-width: 36px; min-height: 36px; font-size: 16px; flex: none; }
+
+.drow-main { flex: 1; min-width: 0; }
+.drow-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 이름이 없으면 자리만 차지하지 않게 흐리게 */
+.drow-name.unnamed { font-weight: 500; color: var(--muted); }
+.drow-sub {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+/* ★모델 상한을 넘어 전송되지 않는 줄을 표시한다. 꺼진 것과 구별되어야 한다. */
+.drow.over { border-color: #e0a355; }
+.drow-over-tag { font-size: 11px; color: #e0a355; white-space: nowrap; }
+
+.drawer-empty {
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+  padding: 28px 12px;
+  line-height: 1.6;
+}
+
+/* 수정창 안의 좌표 칸은 본문과 같은 폭을 쓴다 */
+#item-edit-fields .field { margin-bottom: 14px; }
+
+/* ── 쓸어서 칠하기 ───────────────────────────────────────────────────────
+   ★칠하는 동안 글자가 선택되면 파란 덩어리가 끌려다녀 무엇이 칠해졌는지 안 보인다.
+     목록 안에서는 글자 선택을 끈다 — 여기서 글자를 복사할 일은 없다. */
+.drawer-list { user-select: none; -webkit-user-select: none; }
+/* 동그라미는 길게 눌러도 안드로이드 기본 메뉴가 뜨지 않게 */
+.drow .btn.icon { -webkit-touch-callout: none; touch-action: none; }
+
+.drawer-tip {
+  margin: 8px 12px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
