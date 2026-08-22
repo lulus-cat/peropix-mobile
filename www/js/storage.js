@@ -302,6 +302,44 @@ const Store = (function () {
     await setRaw(KEY_GH_DONE, JSON.stringify(list || []));
   }
 
+  // ── 작가 서랍 ────────────────────────────────────────────────────────────
+  // 항목: { tag, count, cats:[], note, fav, at }
+  // ★엄선한 목록이라 통째로 들고 있어도 가볍다. 장수는 화면을 열 때 다시 물어본다 —
+  //   저장해 둔 숫자는 금방 낡는다.
+  const KEY_ARTISTS = 'artist_drawer';
+  const KEY_ART_MIX = 'artist_mix';
+
+  async function getArtists() {
+    const raw = await getRaw(KEY_ARTISTS);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setArtists(list) {
+    await setRaw(KEY_ARTISTS, JSON.stringify(list || []));
+  }
+
+  /** 섞던 것 — 앱을 껐다 켜도 하던 조합이 남아야 한다. */
+  async function getArtistMix() {
+    const raw = await getRaw(KEY_ART_MIX);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setArtistMix(m) {
+    await setRaw(KEY_ART_MIX, JSON.stringify(m || []));
+  }
+
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
   // 항목: { destId, path, label }
   const KEY_FAVS = 'folder_favorites';
@@ -414,6 +452,10 @@ const Store = (function () {
     setFavorites: setFavorites,
     getGithub: getGithub,
     setGithub: setGithub,
+    getArtists: getArtists,
+    setArtists: setArtists,
+    getArtistMix: getArtistMix,
+    setArtistMix: setArtistMix,
     getGithubDone: getGithubDone,
     setGithubDone: setGithubDone,
     getJobsDest: getJobsDest,

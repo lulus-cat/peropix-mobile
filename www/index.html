@@ -87,6 +87,7 @@
     <button id="go-jobs" class="btn icon badge-host" aria-label="원격 작업">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg><span id="jobs-badge" class="badge" hidden></span>
     </button>
+    <button id="go-artists" class="btn icon" aria-label="작가 태그"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.3-9-7.3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="9" r="1.2"/></svg></button>
     <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
   </header>
@@ -896,6 +897,186 @@
   </div>
 </section>
 
+<!-- ★작가 태그를 다루는 곳. 세 가지 일을 한 화면에서 한다.
+       찾기 — Danbooru 에 실시간으로 물어 반영율(장수)과 화풍을 확인한다
+       서랍 — 엄선한 것을 갈래로 나눠 두고 섞는다 (세기 배분 포함)
+       깎기 — 여러 명을 넣고 뽑은 그림에서 「그 요소를 만든 범인」 을 찾는다 -->
+<section id="screen-artists" class="screen" hidden>
+  <header class="topbar">
+    <button id="artists-back" class="btn icon" aria-label="뒤로">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1 class="brand sm">작가 태그</h1>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-find" class="tab on" role="tab">찾기</button>
+    <button id="tab-drawer" class="tab" role="tab">서랍 <span id="tab-drawer-n" class="tab-n"></span></button>
+    <button id="tab-bisect" class="tab" role="tab">깎기</button>
+  </div>
+
+  <!-- ── 찾기 ───────────────────────────────────────────────────────── -->
+  <div class="pad scroll" id="pane-find">
+    <label class="field">
+      <span class="label">작가 이름</span>
+      <input id="art-q" type="text" placeholder="예: wlop · 별명으로도 찾습니다"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span class="hint">Danbooru 에 그때그때 물어봅니다. 목록을 앱에 넣어 두지 않으니 늘 최신입니다.</span>
+    </label>
+    <div id="art-ac" class="art-ac" hidden></div>
+
+    <div class="toolrow">
+      <select id="art-rating" class="tool-select">
+        <option value="g">전체 이용가만</option>
+        <option value="s" selected>가벼운 것까지</option>
+        <option value="q">아슬한 것까지</option>
+        <option value="">가리지 않음</option>
+      </select>
+      <button id="art-open" class="btn small">Danbooru</button>
+    </div>
+    <p class="hint">★미리보기 그림은 Danbooru 에서 그대로 옵니다. 수위는 여기서 정합니다.</p>
+
+    <div id="art-msg" class="msg" hidden></div>
+    <div id="art-detail" hidden>
+      <div class="art-head">
+        <div>
+          <div id="art-name" class="art-name"></div>
+          <div id="art-alias" class="art-alias"></div>
+        </div>
+        <div class="art-head-btns">
+          <button id="art-keep" class="btn small">서랍에 담기</button>
+        </div>
+      </div>
+
+      <div class="art-reach">
+        <div class="art-reach-bar"><span id="art-reach-fill"></span></div>
+        <div><b id="art-reach-label"></b> <span id="art-reach-note" class="hint"></span></div>
+      </div>
+
+      <div id="art-stats" class="art-stats"></div>
+      <div id="art-tags" class="chips"></div>
+      <div id="art-grid" class="art-grid"></div>
+    </div>
+
+    <details class="panel">
+      <summary>반영율이란</summary>
+      <p class="hint">★정직하게 말하면 <b>추정</b>입니다. NAI 가 무엇을 얼마나 배웠는지는 공개되지
+        않았습니다. 다만 학습이 Danbooru 를 바탕으로 한 이상 <b>그림 수가 곧 학습량</b>이고,
+        그림이 적은 작가는 실제로 잘 안 나옵니다. 그래서 장수를 그대로 눈금으로 쓰되
+        「몇 장이라 이 등급인지」를 같이 적어 직접 판단하실 수 있게 했습니다.</p>
+      <p class="hint">★장수가 많아도 <b>최근에 몰려 있으면</b> 학습 시점 이후라 안 먹을 수
+        있습니다. 그래서 「몇 %가 몇 년 이전인지」도 함께 적습니다.</p>
+    </details>
+  </div>
+
+  <!-- ── 서랍 ───────────────────────────────────────────────────────── -->
+  <div class="pad scroll" id="pane-drawer" hidden>
+    <div class="toolrow">
+      <input id="drw-q" type="text" class="tool-select" placeholder="서랍에서 찾기">
+      <button id="drw-fav" class="btn small">즐겨찾기</button>
+    </div>
+    <div id="drw-cats" class="chips"></div>
+    <div id="drw-list" class="drw-list"></div>
+
+    <div class="row-head"><span class="label">섞기</span></div>
+    <div id="mix-list" class="mix-list"></div>
+    <p id="mix-empty" class="hint">위에서 작가를 눌러 담으면 여기서 섞습니다.</p>
+
+    <label class="check">
+      <input id="mix-norm" type="checkbox" checked> 세기 합을 작가 수로 고정
+    </label>
+    <p class="hint">★끄면 절대값이 됩니다. 다섯 명한테 전부 1.2 를 주면 프롬프트가 작가 쪽으로
+      쏠려 구도·표정·의상 태그가 밀려납니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩
+      내려가서, 「이 작가를 더 세게」가 다른 것을 망가뜨리지 않습니다.</p>
+
+    <label class="field">
+      <span class="label">이렇게 들어갑니다</span>
+      <textarea id="mix-out" rows="2" readonly></textarea>
+    </label>
+    <div class="toolrow">
+      <button id="mix-apply" class="btn primary">작가 태그 칸에 넣기</button>
+      <button id="mix-copy" class="btn small">복사</button>
+      <button id="mix-clear" class="btn small">비우기</button>
+    </div>
+    <p class="hint">세기는 <code>숫자::태그::</code> 로 적힙니다. 1.0 인 작가는 문법을 안 붙입니다 —
+      뜻은 같은데 프롬프트만 지저분해지기 때문입니다.</p>
+  </div>
+
+  <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
+  <div class="pad scroll" id="pane-bisect" hidden>
+    <div id="bis-setup">
+      <p class="hint">작가 태그를 잔뜩 넣고 뽑았는데 그림의 어떤 요소가 <b>누구 때문인지</b>
+        모를 때 씁니다. 20개를 하나씩 빼 보면 20장이 들지만, 절반씩 빼며 좁히면
+        <b>5라운드</b>면 끝납니다.</p>
+
+      <label class="field">
+        <span class="label">후보 작가</span>
+        <textarea id="bis-tags" rows="3" placeholder="쉼표로 구분. 서랍의 조합을 가져올 수 있습니다."></textarea>
+      </label>
+      <div class="toolrow">
+        <button id="bis-from-mix" class="btn small">섞기에서 가져오기</button>
+        <button id="bis-from-prompt" class="btn small">작가 태그 칸에서</button>
+      </div>
+
+      <label class="field">
+        <span class="label">무엇을 찾나</span>
+        <select id="bis-goal" class="tool-select">
+          <option value="keep">마음에 드는 요소 — 누구 덕인지</option>
+          <option value="drop">거슬리는 요소 — 누구 탓인지</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">시드</span>
+        <input id="bis-seed" type="number" inputmode="numeric" placeholder="비우면 무작위로 하나 정합니다">
+        <span class="hint">★깎기에서 시드는 설정이 아니라 전제입니다. 시드가 바뀌면 그림이 달라진 것이
+          태그 때문인지 시드 때문인지 구분할 수 없습니다.</span>
+      </label>
+
+      <label class="check">
+        <input id="bis-cross" type="checkbox" checked> 양쪽을 다 빼 본다 (교차 확인)
+      </label>
+      <p class="hint">장수가 두 배로 늘지만, <b>한 명이 만든 것이 아닌 경우</b>를 알아낼 수 있습니다.
+        왼쪽을 빼도 남고 오른쪽을 빼도 남으면 그 요소는 여럿이 함께 만든 것입니다.</p>
+
+      <div id="bis-est" class="cost-est"></div>
+      <button id="bis-start" class="btn primary block">깎기 시작</button>
+    </div>
+
+    <div id="bis-run" hidden>
+      <div id="bis-sum" class="bis-sum"></div>
+      <div id="bis-step" class="bis-step"></div>
+      <div id="bis-msg" class="msg" hidden></div>
+      <div class="toolrow">
+        <button id="bis-shoot" class="btn primary">이번 라운드 뽑기</button>
+        <button id="bis-undo" class="btn small">되돌리기</button>
+        <button id="bis-stop" class="btn small">그만</button>
+      </div>
+      <div id="bis-ask" hidden>
+        <p class="hint" id="bis-ask-q"></p>
+        <div id="bis-ask-btns" class="bis-ask-btns"></div>
+      </div>
+      <div id="bis-done" hidden>
+        <div class="row-head"><span class="label">세기 맞추기</span></div>
+        <p class="hint">범인을 찾았으니 이제 <b>얼마나</b>를 정합니다. 한 명만 1차원으로 훑으므로
+          가짓수가 곱해지지 않습니다.</p>
+        <button id="bis-scan" class="btn primary block">세기 5칸으로 뽑아 보기</button>
+      </div>
+    </div>
+
+    <details class="panel">
+      <summary>왜 절반씩 빼는가</summary>
+      <p class="hint">★<b>넣기가 아니라 빼기</b>여야 합니다. 절반만 넣고 뽑으면 그림이 통째로 달라져
+        무엇 때문에 달라졌는지 알 수 없습니다. 전체를 유지한 채 절반을 빼야 나머지 화풍이
+        남은 상태에서 그 요소만 사라졌는지 보입니다.</p>
+      <p class="hint">★<b>누구인지</b>와 <b>얼마나</b>를 절대 같이 돌리지 않습니다. on/off 20개는
+        2<sup>20</sup>, 거기에 세기 5단계를 곱하면 5<sup>20</sup> 이라 훑을 수 없습니다.
+        범인을 먼저 on/off 로만 찾고(세기는 전부 1.0 으로 묶습니다), 세기는 그 뒤에
+        한 명만 훑습니다. 합쳐서 10장 안팎이면 끝납니다.</p>
+    </details>
+  </div>
+</section>
+
 <script src="js/fflate.js"></script>
 <script src="js/nai-tables.js"></script>
 <script src="js/nai-payload.js"></script>
@@ -906,6 +1087,9 @@
 <script src="js/nai-client.js"></script>
 <script src="js/remote-store.js"></script>
 <script src="js/github.js"></script>
+<script src="js/danbooru.js"></script>
+<script src="js/artists.js"></script>
+<script src="js/bisect.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>

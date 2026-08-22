@@ -1031,3 +1031,141 @@ textarea.expandable { cursor: pointer; }
 .drawer-check { margin: 10px 12px 0; }
 #drawer-one-char-hint { margin: 4px 12px 0; font-size: 12px; line-height: 1.5; }
 #one-char-hint { margin-top: -6px; }
+
+/* ── 작가 태그 화면 ───────────────────────────────────────────────────────
+   ★탭 세 개를 한 화면에 둔다. 찾기 → 서랍 → 깎기가 실제로 이어지는 순서라,
+     화면을 나눠 두면 오갈 때마다 하던 것이 끊긴다. */
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.tab {
+  flex: 1;
+  padding: 11px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-n { font-size: 12px; color: var(--text-dim); }
+
+/* 자동완성 — 입력칸 바로 아래 붙는다 */
+.art-ac {
+  margin: -6px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.art-ac button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.art-ac button:first-child { border-top: 0; }
+.art-ac .n { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.art-ac .via { color: var(--text-dim); font-size: 11px; }
+
+.art-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.art-name { font-size: 18px; font-weight: 600; word-break: break-all; }
+.art-alias { color: var(--text-dim); font-size: 12px; margin-top: 2px; word-break: break-all; }
+
+/* 반영율 — 눈금 다섯 칸 */
+.art-reach { margin: 12px 0; }
+.art-reach-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.art-reach-bar span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.art-reach-bar span.lv0, .art-reach-bar span.lv1 { background: #d05353; }
+.art-reach-bar span.lv2 { background: #d0983f; }
+
+.art-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.art-stat {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.art-stat b { color: var(--text); font-weight: 600; }
+
+/* 그림 격자 — 썸네일이 180×180 이라 3열이면 폰에서 딱 맞는다 */
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 10px;
+}
+.art-grid a { display: block; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--line); }
+.art-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 서랍 목록 */
+.drw-list { margin: 8px 0; }
+.drw-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.drw-row.picked { border-color: var(--accent); }
+.drw-row .nm { flex: 1; word-break: break-all; }
+.drw-row .n { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.drw-cats { color: var(--text-dim); font-size: 11px; }
+
+/* 섞기 — 작가마다 세기 슬라이더 한 줄 */
+.mix-row {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.mix-row.off { opacity: .45; }
+.mix-top { display: flex; align-items: center; gap: 8px; }
+.mix-top .nm { flex: 1; word-break: break-all; }
+.mix-w { width: 44px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.mix-row input[type=range] { width: 100%; margin-top: 6px; }
+
+/* 깎기 */
+.bis-sum {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.bis-step { margin-bottom: 10px; }
+.bis-shot {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.bis-shot .nm { font-weight: 600; }
+.bis-shot .tags { color: var(--text-dim); font-size: 12px; margin-top: 3px; word-break: break-all; }
+.bis-ask-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
