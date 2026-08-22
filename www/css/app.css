@@ -1223,7 +1223,25 @@ textarea.expandable { cursor: pointer; }
 .reco-thumbs { display: flex; gap: 3px; flex: 0 0 auto; }
 .reco-thumbs img { width: 46px; height: 46px; object-fit: cover; border-radius: 5px; background: var(--line); }
 .reco-main { flex: 1; min-width: 0; }
-.reco-name { font-weight: 600; word-break: break-all; }
+/* ★이름은 누를 수 있다 (찾기로 넘어간다). 단추이지만 글처럼 보이게 두되,
+   밑줄로 「누를 수 있다」 를 알린다 — 아니면 아무도 안 누른다. */
+.reco-name {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  word-break: break-all;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.reco-name:active { color: var(--accent); }
 .reco-sub { color: var(--text-dim); font-size: 12px; }
 .reco-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .reco-row.kept { opacity: .5; }

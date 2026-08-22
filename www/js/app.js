@@ -2583,6 +2583,19 @@
     recoBusy = false;
   }
 
+  /**
+   * 그 작가를 「찾기」 에서 펼친다. 추천 목록의 이름을 눌렀을 때 온다.
+   * ★시트가 떠 있으면 먼저 닫는다. 뒤에서 화면이 바뀌어 봐야 가려서 안 보인다.
+   */
+  function showArtist(name) {
+    $('reco').hidden = true;
+    if (currentScreen !== 'artists') show('artists');
+    setArtTab('find');
+    $('art-ac').hidden = true;
+    $('art-q').value = String(name || '').replace(/_/g, ' ');
+    artLoad(name);
+  }
+
   /** 켤 때 뜨는 시트. */
   async function openReco(force) {
     if (recoOff && !force) return;
@@ -2615,9 +2628,13 @@
 
       const main = document.createElement('div');
       main.className = 'reco-main';
-      const nm = document.createElement('div');
+      // ★이름을 누르면 찾기로 넘어가 바로 펼친다. 권해 놓고 「더 볼 방법은 알아서
+      //   찾으세요」 는 불친절하다 — 담을지 말지는 그림을 봐야 정해진다.
+      const nm = document.createElement('button');
       nm.className = 'reco-name';
       nm.textContent = r.name.replace(/_/g, ' ');
+      nm.title = 'Danbooru 에서 이 작가 보기';
+      nm.addEventListener('click', function () { showArtist(r.name); });
       const sub = document.createElement('div');
       sub.className = 'reco-sub';
       sub.textContent = Danbooru.reach(r.count).label + ' · ' + r.count.toLocaleString() + '장';
