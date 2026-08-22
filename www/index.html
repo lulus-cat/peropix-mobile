@@ -912,6 +912,7 @@
   <div class="tabs" role="tablist">
     <button id="tab-find" class="tab on" role="tab">찾기</button>
     <button id="tab-drawer" class="tab" role="tab">서랍 <span id="tab-drawer-n" class="tab-n"></span></button>
+    <button id="tab-reco" class="tab" role="tab">추천</button>
     <button id="tab-bisect" class="tab" role="tab">깎기</button>
   </div>
 
@@ -1024,6 +1025,25 @@
       뜻은 같은데 프롬프트만 지저분해지기 때문입니다.</p>
   </div>
 
+  <!-- ── 추천 ───────────────────────────────────────────────────────── -->
+  <!-- ★앱을 켤 때 뜨는 시트와 **같은 코드**로 그린다. 두 벌로 두면 한쪽만 고쳐져
+       팝업과 메뉴가 다른 것을 보여 주게 된다. -->
+  <div class="pad scroll" id="pane-reco" hidden>
+    <p class="hint">그림이 <b>많은</b> 작가일수록 NAI 가 잘 알아봅니다. 그 문턱을 정해 두고
+      무작위로 골라 보여 드립니다 — 누를 때마다 다른 얼굴이 나옵니다.</p>
+    <div class="toolrow">
+      <select id="reco-tab-min" class="tool-select">
+        <option value="100">100장 이상</option>
+        <option value="300">300장 이상</option>
+        <option value="1000">1000장 이상</option>
+        <option value="5000">5000장 이상</option>
+      </select>
+      <button id="reco-tab-go" class="btn primary">다시 뽑기</button>
+    </div>
+    <div id="reco-tab-list" class="reco-list"></div>
+    <p class="hint">★이미 서랍에 있는 사람은 권하지 않습니다. 담으면 장르까지 함께 들어갑니다.</p>
+  </div>
+
   <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
   <div class="pad scroll" id="pane-bisect" hidden>
     <div id="bis-setup">
@@ -1132,6 +1152,7 @@
         <option value="100">100장 이상</option>
         <option value="300">300장 이상</option>
         <option value="1000">1000장 이상</option>
+        <option value="5000">5000장 이상</option>
       </select>
       <button id="reco-more" class="btn small">다른 작가</button>
     </div>

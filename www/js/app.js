@@ -1830,7 +1830,7 @@
 
   function setArtTab(name) {
     artTab = name;
-    ['find', 'drawer', 'bisect'].forEach(function (n) {
+    ['find', 'drawer', 'reco', 'bisect'].forEach(function (n) {
       $('tab-' + n).classList.toggle('on', n === name);
       $('pane-' + n).hidden = (n !== name);
     });
@@ -2550,29 +2550,56 @@
     return [];
   }
 
-  async function openReco(force) {
+  /**
+   * 권할 작가를 받아 그린다.
+   *
+   * ★켤 때 뜨는 시트와 「작가 태그 → 추천」 탭이 **같은 코드**를 쓴다. 두 벌로 두면
+   *   한쪽만 고쳐져 팝업과 메뉴가 다른 것을 보여 주게 된다.
+   *
+   * @param {object} o {box, min, count} box 를 안 주면 시트에 그리고 시트를 연다
+   */
+  async function loadReco(o) {
+    const opt = o || {};
+    const sheet = !opt.box;
+    const box = sheet ? $('reco-list') : $(opt.box);
+    const min = opt.min || recoMin;
     if (recoBusy) return;
-    if (recoOff && !force) return;
     recoBusy = true;
-    const min = recoMin;
-    $('reco-why').textContent = '그림 ' + min.toLocaleString() + '장 이상인 작가 중에서 골랐습니다.';
-    $('reco-list').innerHTML = '<p class="hint">찾는 중…</p>';
-    $('reco-off').checked = recoOff;
-    $('reco-min').value = String(min);
-    $('reco').hidden = false;
+    if (sheet) {
+      $('reco-why').textContent = '그림 ' + min.toLocaleString() + '장 이상인 작가 중에서 골랐습니다.';
+      $('reco-off').checked = recoOff;
+      $('reco-min').value = String(min);
+      $('reco').hidden = false;
+    }
+    box.innerHTML = '<p class="hint">찾는 중…</p>';
     try {
       const rows = (await recoPage(min))
         // 이미 서랍에 있는 사람은 권할 것이 없다.
         .filter(function (r) { return !r.deprecated && !Artists.has(artDrawer, r.name); });
-      await renderReco(Danbooru.sample(rows, 5));
+      await renderReco(Danbooru.sample(rows, opt.count || 5), box);
     } catch (e) {
-      $('reco-list').innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
+      box.innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
     }
     recoBusy = false;
   }
 
-  async function renderReco(rows) {
-    const box = $('reco-list');
+  /** 켤 때 뜨는 시트. */
+  async function openReco(force) {
+    if (recoOff && !force) return;
+    await loadReco({});
+  }
+
+  /** 「작가 태그 → 추천」 탭. ★자리가 넓으니 열 명을 보여 준다. */
+  async function loadRecoTab() {
+    await loadReco({
+      box: 'reco-tab-list',
+      min: parseInt($('reco-tab-min').value, 10) || 100,
+      count: 10
+    });
+  }
+
+  async function renderReco(rows, target) {
+    const box = target || $('reco-list');
     box.innerHTML = '';
     if (!rows.length) {
       box.innerHTML = '<p class="hint">권할 만한 작가를 못 찾았습니다.</p>';
@@ -2630,6 +2657,7 @@
         await Store.setArtists(artDrawer);
         keep.textContent = '담았음';
         keep.disabled = true;
+        row.classList.add('kept');
         renderDrawer();
       });
     });
@@ -5001,6 +5029,7 @@
     wRange = await Store.getWeightRange();
     recoOff = await Store.getRecoOff();
     recoMin = await Store.getRecoMin();
+    $('reco-tab-min').value = String(recoMin);
     renderWeightUI();
     renderGhRows();
     $('jobs-auto').checked = jobsAuto;
@@ -5178,7 +5207,7 @@
     // ── 작가 태그 ───────────────────────────────────────────────────
     $('go-artists').addEventListener('click', openArtists);
     $('artists-back').addEventListener('click', function () { show('main'); });
-    ['find', 'drawer', 'bisect'].forEach(function (n) {
+    ['find', 'drawer', 'reco', 'bisect'].forEach(function (n) {
       $('tab-' + n).addEventListener('click', function () { setArtTab(n); });
     });
 
@@ -5271,9 +5300,22 @@
       if (recoOff) toast('설정에서 다시 켤 수 있습니다.', 2400);
     });
     $('reco-more').addEventListener('click', function () { openReco(true); });
+    $('tab-reco').addEventListener('click', function () {
+      // ★탭을 처음 열 때만 부른다. 올 때마다 부르면 보고 있던 목록이 사라진다.
+      if (!$('reco-tab-list').children.length) loadRecoTab();
+    });
+    $('reco-tab-go').addEventListener('click', loadRecoTab);
+    $('reco-tab-min').addEventListener('change', async function () {
+      recoMin = parseInt($('reco-tab-min').value, 10) || 100;
+      await Store.setRecoMin(recoMin);
+      // ★한 곳에서 정한 문턱이다. 안 맞춰 두면 팝업과 메뉴가 서로 다른 것을 보여 준다.
+      $('reco-min').value = String(recoMin);
+      loadRecoTab();
+    });
     $('reco-min').addEventListener('change', async function () {
       recoMin = parseInt($('reco-min').value, 10) || 100;
       await Store.setRecoMin(recoMin);
+      $('reco-tab-min').value = String(recoMin);
       openReco(true);
     });
     $('bis-start').addEventListener('click', bisStart);
