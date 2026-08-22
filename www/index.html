@@ -662,10 +662,53 @@
 
   <div class="pad scroll">
     <label class="field">
+      <span class="label">어디서 지시를 받을까</span>
+      <select id="jobs-source">
+        <option value="dest">PC · VPS 수신함</option>
+        <option value="github">GitHub 지시함</option>
+      </select>
+    </label>
+
+    <label class="field" id="jobs-dest-row">
       <span class="label">어느 수신함에서 받을까</span>
       <select id="jobs-dest"></select>
       <span class="hint" id="jobs-dest-hint"></span>
     </label>
+
+    <!-- ★서버가 없어도 된다. AI 가 저장소에 JSON 을 커밋해 두면 폰이 읽어 뽑는다.
+         앱은 저장소에 **쓰지 않는다** — 무엇을 이미 했는지는 폰이 기억한다. -->
+    <div id="jobs-gh-rows" hidden>
+      <label class="field">
+        <span class="label">저장소</span>
+        <input id="gh-repo" type="text" placeholder="lulus-cat/peropix-mobile" autocapitalize="off"
+               autocorrect="off" spellcheck="false">
+        <span class="hint">주소를 통째로 붙여넣어도 됩니다.</span>
+      </label>
+      <div class="grid2">
+        <label class="field">
+          <span class="label">브랜치</span>
+          <input id="gh-branch" type="text" placeholder="main" autocapitalize="off"
+                 autocorrect="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span class="label">지시 파일</span>
+          <input id="gh-path" type="text" placeholder="perofix/queue.json" autocapitalize="off"
+                 autocorrect="off" spellcheck="false">
+        </label>
+      </div>
+      <label class="field">
+        <span class="label">토큰 (비공개 저장소일 때만)</span>
+        <input id="gh-token" type="password" placeholder="github_pat_... (공개 저장소면 비워 두세요)"
+               autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="hint">★<b>읽기 전용</b> 토큰을 쓰세요. 앱은 저장소에 쓰지 않습니다.</span>
+      </label>
+      <div class="toolrow">
+        <button id="gh-save" class="btn small primary">저장하고 확인</button>
+        <button id="gh-open" class="btn small">지시 파일 열기</button>
+        <button id="gh-forget" class="btn small danger">한 것 기억 지우기</button>
+      </div>
+      <p class="hint" id="gh-hint"></p>
+    </div>
 
     <label class="check">
       <input id="jobs-auto" type="checkbox"> 받으면 바로 실행
@@ -675,6 +718,27 @@
 
     <div id="jobs-msg" class="msg" hidden></div>
     <div id="jobs-list"></div>
+
+    <details class="panel">
+      <summary>GitHub 으로 지시하는 법</summary>
+      <p class="hint">저장소에 지시 파일 하나를 만들어 두고, AI 에게 거기에 쓰라고 하면 됩니다.
+        예: <code>perofix/queue.json</code></p>
+      <pre class="code-block">[
+  {
+    "id": "mia-01",
+    "name": "미아 · 일상 2장",
+    "folder": "미아",
+    "prefix": "1girl, silver hair, masterpiece",
+    "slots": [
+      { "name": "1-1", "content": "smile, bedroom" },
+      { "name": "1-2", "content": "angry, classroom" }
+    ],
+    "options": { "count_per_slot": 1 }
+  }
+]</pre>
+      <p class="hint">★<b>id</b> 를 적어 두면 그 작업은 한 번만 돕니다 (안 적으면 내용으로 만들어 씁니다).
+        이미 한 작업은 폰이 기억하므로, 지시 파일을 지우지 않아도 다시 돌지 않습니다.</p>
+    </details>
 
     <details class="panel">
       <summary>PC 에서 올리는 법</summary>
@@ -820,6 +884,7 @@
 <script src="js/storage.js"></script>
 <script src="js/nai-client.js"></script>
 <script src="js/remote-store.js"></script>
+<script src="js/github.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>

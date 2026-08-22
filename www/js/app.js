@@ -1613,6 +1613,9 @@
   //   ★키도 Anlas 도 이 폰 것이다 — 그래서 실행 여부는 언제나 여기서 정한다.
   //     「받으면 바로 실행」 을 켜야만 묻지 않고 돈다.
   //   ★결과는 그 수신함으로 저장된다. 올린 쪽이 결과를 봐야 왕복이 완성되기 때문이다.
+  let jobsSource = 'dest';    // 'dest' 수신함 | 'github' 저장소 지시함
+  let ghCfg = { repo: '', branch: 'main', path: 'perofix/queue.json', token: '' };
+  let ghDone = [];            // 이미 실행한 작업 id (폰이 기억한다)
   let jobsDestId = null;      // 어느 수신함에서 받을지
   let jobsAuto = false;       // 받으면 바로 실행
   let jobsList = [];
@@ -1621,6 +1624,67 @@
   let jobReportAt = 0;
 
   const JOB_POLL_MS = 8000;
+
+  /**
+   * GitHub 지시 파일을 읽어 온다.
+   * ★공개 저장소는 raw(CDN)로 읽는다 — 토큰이 필요 없고 API 한도(시간당 60번)도 안 쓴다.
+   *   비공개면 토큰으로 API 를 부르고 Accept 를 raw 로 준다 (본문이 그대로 온다).
+   * ★안드로이드에서는 CapacitorHttp 로 부른다 — WebView 의 CORS 를 피한다.
+   */
+  async function ghFetchQueue() {
+    const useApi = !!(ghCfg.token || '').trim();
+    const url = useApi ? Github.apiUrl(ghCfg) : Github.rawUrl(ghCfg, Date.now());
+    if (!url) throw new Error('저장소를 읽지 못했습니다 (owner/repo 로 적어 주세요).');
+
+    const headers = { 'Cache-Control': 'no-cache' };
+    if (useApi) {
+      headers.Authorization = 'Bearer ' + ghCfg.token.trim();
+      headers.Accept = 'application/vnd.github.raw';
+    }
+
+    const C = window.Capacitor;
+    const P = (C && C.Plugins) ? C.Plugins : null;
+    if (C && typeof C.isNativePlatform === 'function' && C.isNativePlatform() && P && P.CapacitorHttp) {
+      const r = await P.CapacitorHttp.request({
+        method: 'GET', url: url, headers: headers, connectTimeout: 20000, readTimeout: 30000
+      });
+      if (r.status === 404) throw new Error('지시 파일이 없습니다 (경로·브랜치를 확인하세요).');
+      if (r.status === 401 || r.status === 403) throw new Error('읽을 권한이 없습니다 (비공개면 토큰이 필요합니다).');
+      if (r.status >= 400) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+      return typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+    }
+
+    const r = await fetch(url, { headers: headers, cache: 'no-store' });
+    if (r.status === 404) throw new Error('지시 파일이 없습니다 (경로·브랜치를 확인하세요).');
+    if (r.status === 401 || r.status === 403) throw new Error('읽을 권한이 없습니다 (비공개면 토큰이 필요합니다).');
+    if (!r.ok) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+    return await r.text();
+  }
+
+  function renderGhRows() {
+    $('jobs-source').value = jobsSource;
+    $('jobs-dest-row').hidden = (jobsSource !== 'dest');
+    $('jobs-gh-rows').hidden = (jobsSource !== 'github');
+    $('gh-repo').value = ghCfg.repo || '';
+    $('gh-branch').value = ghCfg.branch || '';
+    $('gh-path').value = ghCfg.path || '';
+    $('gh-token').value = ghCfg.token || '';
+
+    const web = Github.webUrl(ghCfg);
+    $('gh-hint').textContent = web
+      ? (web + ' · 이미 한 작업 ' + ghDone.length + '건을 기억하고 있습니다.')
+      : '저장소를 적으면 여기에 지시 파일 주소가 보입니다.';
+  }
+
+  function readGhForm() {
+    ghCfg = {
+      repo: $('gh-repo').value.trim(),
+      branch: $('gh-branch').value.trim() || 'main',
+      path: $('gh-path').value.trim() || 'perofix/queue.json',
+      token: $('gh-token').value.trim()
+    };
+    return Store.setGithub(ghCfg);
+  }
 
   function jobsDest() {
     return destinations.find(function (d) { return d.id === jobsDestId; }) || null;
@@ -1672,7 +1736,9 @@
     if (!jobsList.length) {
       const e = document.createElement('div');
       e.className = 'empty';
-      e.textContent = jobsDest() ? '기다리는 작업이 없습니다.' : '';
+      e.textContent = (jobsSource === 'github')
+        ? (Github.parseRepo(ghCfg.repo) ? '새 작업이 없습니다.' : '저장소를 적어 주세요.')
+        : (jobsDest() ? '기다리는 작업이 없습니다.' : '');
       box.appendChild(e);
       return;
     }
@@ -1715,12 +1781,18 @@
       }
       const del = document.createElement('button');
       del.className = 'btn small danger';
-      del.textContent = '지우기';
+      // ★GitHub 지시는 저장소를 건드리지 않는다 — 대신 「한 것」 으로 표시해 넘긴다.
+      del.textContent = (j.source === 'github') ? '건너뛰기' : '지우기';
       del.addEventListener('click', async function () {
-        const d = jobsDest();
-        if (!d) return;
         try {
-          await RemoteStore.deleteJob(d, j.id);
+          if (j.source === 'github') {
+            ghDone = Github.rememberDone(ghDone, j.id);
+            await Store.setGithubDone(ghDone);
+          } else {
+            const d = jobsDest();
+            if (!d) return;
+            await RemoteStore.deleteJob(d, j.id);
+          }
           await loadJobs();
         } catch (e) {
           say($('jobs-msg'), e.message || String(e), 'err');
@@ -1733,10 +1805,44 @@
   }
 
   async function loadJobs(quiet) {
+    if (jobsSource === 'github') {
+      if (!Github.parseRepo(ghCfg.repo)) {
+        jobsList = [];
+        renderJobs();
+        if (!quiet) say($('jobs-msg'), '저장소를 먼저 적어 주세요.', 'err');
+        return;
+      }
+      try {
+        const text = await ghFetchQueue();
+        const parsed = Github.parseQueue(text);
+        if (!parsed.ok) throw new Error(parsed.error);
+        // ★이미 한 것은 뺀다. 지시 파일을 지우지 않아도 같은 작업이 다시 돌지 않는다.
+        jobsList = Github.pending(parsed.jobs, ghDone).map(function (j) {
+          return { id: j.id, name: j.name, spec: j.spec, status: 'pending', source: 'github' };
+        });
+        const skipped = parsed.jobs.length - jobsList.length;
+        if (!quiet) {
+          say($('jobs-msg'), jobsList.length
+            ? ('새 작업 ' + jobsList.length + '건' + (skipped ? (' · 이미 한 것 ' + skipped + '건은 건너뜀') : ''))
+            : (skipped ? ('새 작업이 없습니다 (이미 한 것 ' + skipped + '건).') : '지시 파일이 비어 있습니다.'),
+            'ok');
+        }
+        renderJobs();
+        renderGhRows();
+      } catch (e) {
+        jobsList = [];
+        renderJobs();
+        if (!quiet) say($('jobs-msg'), (e.message || String(e)), 'err');
+      }
+      return;
+    }
+
     const d = jobsDest();
     if (!d) { jobsList = []; renderJobs(); return; }
     try {
-      jobsList = await RemoteStore.listJobs(d);
+      jobsList = (await RemoteStore.listJobs(d)).map(function (j) {
+        return Object.assign({ source: 'dest' }, j);
+      });
       if (!quiet) say($('jobs-msg'), '');
       renderJobs();
     } catch (e) {
@@ -1770,9 +1876,11 @@
     OK_OPTS.forEach(function (k) {
       if (given[k] !== undefined) options[k] = given[k];
     });
-    // ★결과가 올린 쪽에 보여야 왕복이 완성된다 — 저장은 켜고, 저장 위치는 그 수신함으로.
+    // ★저장은 켠다 — 지시를 받아 돌린 것이니 결과가 남아야 한다.
     options.auto_save = true;
-    activeDestId = dest.id;
+    // 수신함에서 온 지시면 결과도 그리로 보낸다 (올린 쪽이 결과를 봐야 왕복이 완성된다).
+    // GitHub 지시는 되돌려 줄 곳이 없으므로 **지금 저장 위치를 그대로 쓴다** (폰이든 수신함이든).
+    if (dest) activeDestId = dest.id;
 
     await Store.setSlots(slots);
     await Store.setCharacters(characters);
@@ -1803,8 +1911,9 @@
 
   async function startJob(job, auto) {
     if (running) return;
-    const d = jobsDest();
-    if (!d) return;
+    const fromGithub = (job.source === 'github');
+    const d = fromGithub ? null : jobsDest();
+    if (!fromGithub && !d) return;
 
     const shots = jobShots(job.spec || {});
     if (!auto) {
@@ -1815,10 +1924,11 @@
       if (!ok) return;
     }
 
-    // ★집어 온다 — 서버가 running 으로 바꿔 다른 폰이 같은 것을 또 뽑지 못하게 한다.
+    // ★수신함 지시는 집어 온다 — 서버가 running 으로 바꿔 다른 폰이 또 뽑지 못하게 한다.
+    //   GitHub 은 저장소에 쓰지 않으므로, 대신 폰이 한 것을 기억해 두 번 돌지 않게 한다.
     let claimed = job;
     try {
-      if (job.status === 'pending') {
+      if (!fromGithub && job.status === 'pending') {
         claimed = await RemoteStore.claimJob(d);
         if (!claimed || claimed.id !== job.id) {
           say($('jobs-msg'), '다른 쪽이 먼저 집어 갔습니다. 목록을 새로 고칩니다.', 'err');
@@ -1829,31 +1939,48 @@
       await applyJobSpec(claimed.spec || {}, d);
     } catch (e) {
       say($('jobs-msg'), (e.message || String(e)), 'err');
-      try { await RemoteStore.updateJob(d, { id: job.id, status: 'failed', error: String(e.message || e) }); } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+      if (!fromGithub) {
+        try { await RemoteStore.updateJob(d, { id: job.id, status: 'failed', error: String(e.message || e) }); } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+      }
       await loadJobs(true);
       return;
     }
 
-    activeJob = { id: claimed.id, dest: d, total: shots };
+    // 진행 알림은 수신함에만 보낸다 (GitHub 은 되돌려 줄 곳이 없다).
+    activeJob = d ? { id: claimed.id, dest: d, total: shots } : null;
     jobReportAt = 0;
     say($('jobs-msg'), '「' + (claimed.name || '작업') + '」 을 뽑는 중입니다…');
     show('main');
 
+    const total = shots;
     try {
       await runGeneration();
       const saved = ResultsModel.live(results).filter(function (r) { return r.savedTo && r.filename; });
       const failed = ResultsModel.live(results).filter(function (r) { return r.error && !r.bytes; });
-      await RemoteStore.updateJob(d, {
-        id: claimed.id,
-        status: failed.length && !saved.length ? 'failed' : 'done',
-        progress: { done: saved.length, total: activeJob.total || saved.length },
-        files: saved.map(function (r) { return r.filename; }),
-        error: failed.length ? (failed.length + '장 실패') : ''
-      });
+
+      if (fromGithub) {
+        // ★한 것을 기억한다. 지시 파일을 지우지 않아도 다시 돌지 않는다.
+        ghDone = Github.rememberDone(ghDone, claimed.id);
+        await Store.setGithubDone(ghDone);
+        say($('jobs-msg'), '「' + (claimed.name || '작업') + '」 ' + saved.length + '장 완료'
+          + (failed.length ? (' · 실패 ' + failed.length + '장') : ''), failed.length ? 'err' : 'ok');
+      } else {
+        await RemoteStore.updateJob(d, {
+          id: claimed.id,
+          status: failed.length && !saved.length ? 'failed' : 'done',
+          progress: { done: saved.length, total: total },
+          files: saved.map(function (r) { return r.filename; }),
+          error: failed.length ? (failed.length + '장 실패') : ''
+        });
+      }
     } catch (e) {
-      try {
-        await RemoteStore.updateJob(d, { id: claimed.id, status: 'failed', error: String(e.message || e) });
-      } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+      if (!fromGithub) {
+        try {
+          await RemoteStore.updateJob(d, { id: claimed.id, status: 'failed', error: String(e.message || e) });
+        } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+      } else {
+        say($('jobs-msg'), (e.message || String(e)), 'err');
+      }
     } finally {
       activeJob = null;
       await loadJobs(true);
@@ -3881,6 +4008,10 @@
 
     jobsDestId = await Store.getJobsDest();
     jobsAuto = await Store.getJobsAuto();
+    jobsSource = await Store.getJobsSource();
+    ghCfg = await Store.getGithub();
+    ghDone = await Store.getGithubDone();
+    renderGhRows();
     $('jobs-auto').checked = jobsAuto;
     renderJobsDestSelect();
     // ★자동 모드는 앱을 켜 두는 동안만 돈다 (안드로이드가 백그라운드를 재운다).
@@ -4050,6 +4181,7 @@
     // ── 원격 작업 ───────────────────────────────────────────────────
     $('go-jobs').addEventListener('click', async function () {
       renderJobsDestSelect();
+      renderGhRows();
       $('jobs-auto').checked = jobsAuto;
       show('jobs');
       await loadJobs();
@@ -4061,6 +4193,30 @@
       show('main');
     });
     $('jobs-reload').addEventListener('click', function () { loadJobs(); });
+
+    $('jobs-source').addEventListener('change', async function () {
+      jobsSource = $('jobs-source').value === 'github' ? 'github' : 'dest';
+      await Store.setJobsSource(jobsSource);
+      renderGhRows();
+      say($('jobs-msg'), '');
+      loadJobs();
+    });
+    $('gh-save').addEventListener('click', async function () {
+      await readGhForm();
+      renderGhRows();
+      await loadJobs();
+    });
+    $('gh-open').addEventListener('click', function () {
+      const url = Github.webUrl(ghCfg);
+      if (url) window.open(url, '_blank');
+    });
+    $('gh-forget').addEventListener('click', async function () {
+      if (!window.confirm('이미 한 작업 기억을 지울까요?\n지시 파일에 남아 있는 작업이 다시 뜹니다.')) return;
+      ghDone = [];
+      await Store.setGithubDone(ghDone);
+      renderGhRows();
+      await loadJobs();
+    });
     $('jobs-dest').addEventListener('change', function () {
       jobsDestId = $('jobs-dest').value;
       Store.setJobsDest(jobsDestId);

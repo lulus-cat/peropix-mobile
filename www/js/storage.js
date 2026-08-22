@@ -237,8 +237,17 @@ const Store = (function () {
   // ── 원격 작업 ────────────────────────────────────────────────────────────
   // 어느 수신함에서 「이거 뽑으세요」 를 받아 올지, 받으면 바로 돌릴지.
   // ★자동 실행은 묻지 않고 Anlas 를 쓴다. 그래서 기본값은 꺼짐이다.
+  const KEY_JOBS_SOURCE = 'jobs_source';   // 'dest' | 'github'
   const KEY_JOBS_DEST = 'jobs_dest';
   const KEY_JOBS_AUTO = 'jobs_auto';
+
+  async function getJobsSource() {
+    return (await getRaw(KEY_JOBS_SOURCE)) === 'github' ? 'github' : 'dest';
+  }
+
+  async function setJobsSource(v) {
+    await setRaw(KEY_JOBS_SOURCE, v === 'github' ? 'github' : 'dest');
+  }
 
   async function getJobsDest() {
     return (await getRaw(KEY_JOBS_DEST)) || '';
@@ -254,6 +263,43 @@ const Store = (function () {
 
   async function setJobsAuto(on) {
     await setRaw(KEY_JOBS_AUTO, on ? '1' : '0');
+  }
+
+  // ── GitHub 지시함 ────────────────────────────────────────────────────────
+  // { repo, branch, path, token } · 그리고 이미 실행한 작업 id 목록.
+  // ★앱은 저장소에 쓰지 않는다. 무엇을 했는지는 폰이 기억한다 — 지시 파일을 지우지 않아도
+  //   같은 작업이 다시 돌지 않게 하려는 것이다.
+  const KEY_GH = 'github_inbox';
+  const KEY_GH_DONE = 'github_done';
+
+  async function getGithub() {
+    const raw = await getRaw(KEY_GH);
+    const base = { repo: '', branch: 'main', path: 'perofix/queue.json', token: '' };
+    if (!raw) return base;
+    try {
+      return Object.assign(base, JSON.parse(raw) || {});
+    } catch (e) {
+      return base;
+    }
+  }
+
+  async function setGithub(cfg) {
+    await setRaw(KEY_GH, JSON.stringify(cfg || {}));
+  }
+
+  async function getGithubDone() {
+    const raw = await getRaw(KEY_GH_DONE);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setGithubDone(list) {
+    await setRaw(KEY_GH_DONE, JSON.stringify(list || []));
   }
 
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
@@ -366,10 +412,16 @@ const Store = (function () {
     setReferences: setReferences,
     getFavorites: getFavorites,
     setFavorites: setFavorites,
+    getGithub: getGithub,
+    setGithub: setGithub,
+    getGithubDone: getGithubDone,
+    setGithubDone: setGithubDone,
     getJobsDest: getJobsDest,
     setJobsDest: setJobsDest,
     getJobsAuto: getJobsAuto,
     setJobsAuto: setJobsAuto,
+    getJobsSource: getJobsSource,
+    setJobsSource: setJobsSource,
     getCharacters: getCharacters,
     setCharacters: setCharacters,
     getSlotTarget: getSlotTarget,
