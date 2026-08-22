@@ -29,14 +29,20 @@ check('인물 판에는 1girl 이 들어간다', /1girl/.test(S.preset('upper').
 
 // ── 2. 기본 인물 (자캐) ───────────────────────────────────────────────────
 const c = S.DEFAULT_CHAR;
-[['여캐', '1girl'], ['로리', 'loli'], ['중단발', 'medium hair'],
- ['오버핏', 'oversized clothes'], ['가디건', 'open cardigan'],
- ['셔츠', 'collared shirt'], ['스커트', 'skirt'], ['맨발', 'barefoot']]
+[['여캐', 'girl'], ['로리', 'loli'], ['작은 키', 'petite'], ['혼자', 'solo'],
+ ['하늘색 머리', 'pastel blue hair'], ['중단발', 'medium hair'], ['안말음', 'inward curl'],
+ ['아호게', 'ahoge'], ['머리 리본', 'side ivory hair ribbon'],
+ ['살구색 눈', 'apricot eyes'], ['처진 눈', 'tareme'],
+ ['오버핏 가디건', 'oversized cardigan'], ['벌어진 가디건', 'open cardigan'],
+ ['손 덮는 소매', 'sleeves past wrists'], ['셔츠', 'white collared shirt'],
+ ['목 리본', 'ivory neck ribbon'], ['주름치마', 'ivory pleated skirt']]
   .forEach(function (pair) {
-    check('기본 인물에 ' + pair[0] + ' 가 있다', c.indexOf(pair[1]) !== -1, c);
+    check('기본 캐릭터에 ' + pair[0] + ' 가 있다', c.indexOf(pair[1]) !== -1, c);
   });
-check('★하늘색 머리는 aqua hair 로 (light blue hair 는 Danbooru 에서 죽었다)',
-  c.indexOf('aqua hair') !== -1 && c.indexOf('light blue hair') === -1, c);
+check('★줄바꿈으로 갈렸던 ivory 와 pleated skirt 가 한 태그로 붙는다',
+  c.indexOf('ivory pleated skirt') !== -1 && !/,\s*ivory\s*,/.test(c), c);
+check('쉼표가 겹치거나 끝에 남지 않는다',
+  c.indexOf(',,') === -1 && !/,\s*$/.test(c), c.slice(-40));
 check('★버려진 배경 태그를 안 쓴다 (detailed background 는 장수 0)',
   S.PRESETS.every(function (p) { return p.tags.indexOf('detailed background') === -1; }));
 
@@ -51,7 +57,7 @@ check('품질이 앞, 구도가 뒤', b.base.indexOf('masterpiece') === 0, b.bas
 check('구도가 붙는다', /upper body/.test(b.base), b.base);
 check('★작가 태그는 여기 없다 (슬롯으로 따로 들어간다)',
   !/wlop|artist:/.test(b.base));
-check('인물이 실린다', b.character.indexOf('1girl') !== -1 && b.withChar === true);
+check('캐릭터가 실린다', b.character.indexOf('pastel blue hair') !== -1 && b.withChar === true);
 check('네거티브가 온다', b.negative === S.DEFAULT_NEG);
 
 b = S.build({ preset: 'scene' });

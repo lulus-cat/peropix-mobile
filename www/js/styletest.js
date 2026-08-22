@@ -11,9 +11,9 @@
 //   사이의 차이만 남는다. 배경이 복잡한 판을 따로 둔 것은, 인물만 잘 그리고 배경은 못 그리는
 //   작가가 흔해서다 — 인물 위주로만 시험하면 그것을 못 걸러낸다.
 //
-// ★태그는 실제로 살아 있는 것만 쓴다. Danbooru 에서 버려진 태그(장수 0)는 NAI 도 모른다.
-//   `light_blue_hair` 와 `detailed_background` 가 그렇게 죽어 있어 각각 `aqua hair` 와
-//   구체적인 배경 태그로 바꿔 두었다 (2026-08 확인).
+// ★구도 태그는 실제로 살아 있는 것만 쓴다. Danbooru 에서 버려진 태그(장수 0)는 NAI 도
+//   모른다. `detailed_background` 가 그렇게 죽어 있어 구체적인 배경 태그로 바꿔 두었다
+//   (2026-08 확인). 기본 캐릭터는 사람이 직접 준 것이라 그대로 쓴다.
 'use strict';
 
 const StyleTest = (function () {
@@ -38,11 +38,20 @@ const StyleTest = (function () {
     { key: 'custom', label: '직접 적기', char: true, tags: '' }
   ];
 
-  // 기본 시험 인물. 사람이 고쳐 쓰라고 있는 값이라 화면에서 바로 편집된다.
-  // 하늘색 머리는 `light blue hair` 가 Danbooru 에서 죽어(blue_hair 로 흡수) `aqua hair` 를 쓴다.
-  const DEFAULT_CHAR =
-    '1girl, loli, medium hair, aqua hair, oversized clothes, open cardigan, '
-    + 'collared shirt, skirt, barefoot';
+  // 기본 테스트 캐릭터. 화면에서 바로 고쳐 쓸 수 있다.
+  const DEFAULT_CHAR = [
+    'girl, loli, petite, solo',
+    'pastel blue hair, light blue hair, medium hair',
+    'inward curl, sidelocks, hair between eyes, ahoge',
+    'glossy hair, detailed hair, hair strand, side ivory hair ribbon',
+    'apricot eyes, orange eyes, pale orange eyes',
+    'gradient eyes, detailed eyes, long eyelashes',
+    'tareme, thin eyebrows, light blush',
+    'oversized cardigan, light blue cardigan, open cardigan',
+    'off shoulder, long sleeves, sleeves past wrists',
+    'white collared shirt, dress shirt, ivory neck ribbon',
+    'ivory pleated skirt, thighs'
+  ].join(', ');
 
   // ★품질 태그만 둔다. 화풍을 건드리는 말(예: 작가 이름·질감 묘사)을 여기 넣으면
   //   작가 태그의 차이를 덮어 버린다.

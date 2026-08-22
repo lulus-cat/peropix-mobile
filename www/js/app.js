@@ -27,6 +27,61 @@
   let presets = [];
   let subscription = null;      // Anlas 잔량 (없으면 표시 안 함)
 
+  // ── 인트로 ───────────────────────────────────────────────────────────────
+  // ★쓰는 법을 여기서 한 줄씩 알려 준다. 기능이 늘면서 어디에 뭐가 있는지 찾기 어려워졌는데,
+  //   설명서를 따로 만들어 봐야 아무도 안 읽는다. 어차피 뜨는 화면이니 여기에 얹는다.
+  const TIPS = [
+    '작가 태그 → 찾기 에서 이름을 넣으면 그 작가 그림이 몇 장인지, NAI 가 알아볼 만한지 바로 보입니다.',
+    '작가 태그 → 그림체 → 조합 은 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 줍니다. 마음에 드는 걸 고르세요.',
+    '조합에서 딱 맞는 게 없으면 별점을 매기고 「점수 반영해서 다시 뽑기」. 높은 점수 쪽으로 세기가 당겨집니다.',
+    '작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모르겠다면, 그림체 → 깎기 가 5번 만에 범인을 찾아 줍니다.',
+    '뷰어에서 위로 밀면 버리기, 아래로 밀면 저장. 손가락 두 개로 벌리면 확대됩니다.',
+    '인터넷이 끊겨 몇 장이 깨졌으면, 결과 화면 맨 위의 「못 만든 N장 다시 생성」 이 그것만 다시 뽑습니다.',
+    '인물이 많고 슬롯이 적으면 「한 명 모드」 를 켜세요. 인물 수만큼 자동으로 돌립니다.',
+    '투명 배경으로 뽑은 그림은 「배경 합성」 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
+    'API 키는 이 폰에만 저장됩니다. APK 를 남에게 줘도 키는 따라가지 않습니다.'
+  ];
+
+  const INTRO_MS = 5000;
+
+  /** 인트로를 띄우고 5초 뒤에 걷는다. 아무 데나 누르면 바로 넘어간다. */
+  function startIntro() {
+    const intro = $('intro');
+    if (!intro) return;
+
+    let tip = Math.floor(Math.random() * TIPS.length);   // 켤 때마다 다른 것부터
+    const showTip = function () {
+      const el = $('intro-tip-text');
+      el.textContent = TIPS[tip % TIPS.length];
+      // 애니메이션을 다시 태우려면 한 번 떼었다 붙여야 한다.
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
+      tip++;
+    };
+    showTip();
+    $('intro-msg').textContent = '준비 완료';
+
+    const started = Date.now();
+    const rotate = setInterval(showTip, 2200);
+    const tick = setInterval(function () {
+      const p = Math.min(1, (Date.now() - started) / INTRO_MS);
+      $('intro-fill').style.width = (p * 100) + '%';
+      if (p >= 1) close();
+    }, 100);
+
+    let closed = false;
+    function close() {
+      if (closed) return;
+      closed = true;
+      clearInterval(rotate);
+      clearInterval(tick);
+      intro.classList.add('gone');
+      setTimeout(function () { intro.remove(); }, 400);
+    }
+    intro.addEventListener('click', close);
+  }
+
   // ── 화면 전환 ────────────────────────────────────────────────────────────
   // ★뒤로가기가 "어디서 눌렸는지" 알아야 해서 지금 화면을 들고 있는다.
   let currentScreen = 'main';
@@ -5652,17 +5707,14 @@
 
     // ★앱을 켤 때 한 번 권한다 — 새 작가는 판을 짜기 **전에** 알아야 쓸모가 있다.
     //   키를 아직 안 넣은 첫 실행에는 띄우지 않는다 (그때 할 일은 키 넣기다).
+    // ★인트로가 걷힌 뒤에 띄운다. 인트로 밑에서 먼저 열리면 걷히는 순간 이미 떠 있어,
+    //   사람이 무엇을 눌러 띄운 것인지 알 수 없다.
     if (await Store.hasToken()) {
-      setTimeout(function () { openReco(false); }, 1200);
+      setTimeout(function () { openReco(false); }, INTRO_MS + 700);
     }
 
     // ★설정을 다 읽은 뒤에 인트로를 걷는다. 먼저 걷으면 빈 화면이 잠깐 보인다.
-    const intro = $('intro');
-    if (intro) {
-      $('intro-msg').textContent = '준비 완료';
-      intro.classList.add('gone');
-      setTimeout(function () { intro.remove(); }, 400);
-    }
+    startIntro();
   }
 
   // ── 이벤트 ──────────────────────────────────────────────────────────────

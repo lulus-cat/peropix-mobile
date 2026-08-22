@@ -12,12 +12,23 @@
 
 <!-- ── 인트로 (로딩) ──────────────────────────────────────────────────── -->
 <!-- ★설정을 다 읽기 전 화면은 값이 비어 있어 잠깐 어색하게 깜빡인다. 그 사이를 덮는다. -->
+<!-- ★인트로. 아이콘을 가운데 두고 아래에 꿀팁을 돌린다. 배경 그림은 옅게 깔아 글씨를
+     가리지 않게 한다. 아무 데나 누르면 바로 넘어간다 — 매번 5초를 기다리게 하면
+     자주 쓰는 사람에게는 그냥 방해다. -->
 <div id="intro" class="intro">
-  <div class="intro-mark">P</div>
-  <div class="intro-title">Peropix</div>
-  <div class="intro-sub">Lkit mobile ver.</div>
-  <div class="intro-bar"><div class="intro-fill"></div></div>
-  <div id="intro-msg" class="intro-msg">준비하는 중…</div>
+  <img class="intro-bg" src="img/intro.webp" alt="" aria-hidden="true">
+  <div class="intro-body">
+    <img class="intro-mark" src="img/icon.png" alt="" width="88" height="88">
+    <div class="intro-title">Peropix</div>
+    <div class="intro-sub">Lkit mobile ver.</div>
+    <div class="intro-tip">
+      <div id="intro-tip-label" class="intro-tip-label">꿀팁</div>
+      <div id="intro-tip-text" class="intro-tip-text"></div>
+    </div>
+    <div class="intro-bar"><div id="intro-fill" class="intro-fill"></div></div>
+    <div id="intro-msg" class="intro-msg">준비하는 중…</div>
+    <div class="intro-skip">아무 데나 누르면 넘어갑니다</div>
+  </div>
 </div>
 
 <!-- ── 첫 실행: API 키 입력 ───────────────────────────────────────────── -->
