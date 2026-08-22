@@ -86,6 +86,21 @@ flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
 check('최종본 = 인핸스·업스케일 결과',
   names(flat) === 'happy#2_enh,happy#2_enh_x4', names(flat));
 
+// 배경을 깐 장도 최종본으로 센다 (인핸스 뒤 마지막 손질이라 여기 있어야 한다).
+const composed = RM.make({
+  slotLabel: 'sad', cycle: 1, kind: 'composed', name: 'sad#1_bg', bytes: {},
+  parentId: list.find(function (r) { return r.name === 'sad#1'; }).id
+});
+list.push(composed);
+f = RM.applyFilter(list, 'final');
+flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
+check('최종본에 배경 합성 결과도 들어간다',
+  names(flat).indexOf('sad#1_bg') !== -1, names(flat));
+f = RM.applyFilter(list, 'todo');
+flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
+check('배경을 깐 원본은 인핸스 대상에서 빠진다',
+  names(flat).indexOf('sad#1') === -1, names(flat));
+
 f = RM.applyFilter(list, 'reject');
 flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
 check('버릴 것 필터', names(flat) === 'happy#1', names(flat));

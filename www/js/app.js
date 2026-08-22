@@ -34,7 +34,7 @@
   function show(which) {
     currentScreen = which;
     ['setup', 'perms', 'main', 'settings', 'import', 'folders', 'results',
-     'wildcards', 'enhance'].forEach(function (n) {
+     'wildcards', 'enhance', 'compose'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     window.scrollTo(0, 0);
@@ -1281,6 +1281,262 @@
     refreshAnlas();
   }
 
+  // ── 배경 합성 ────────────────────────────────────────────────────────────
+  // ★통신이 없다. Anlas 도 들지 않고 인터넷도 필요 없다 — 전부 폰 안에서 끝난다.
+  // ★자리는 **알파 경계**로 잡는다. 슬롯마다 인물이 잡힌 크기·여백이 달라서,
+  //   같은 배율로 얹으면 어떤 장은 배경 밖으로 나가고 어떤 장은 한가운데 뜬다.
+  //   경계를 찾아 「높이의 92% · 바닥에서 2%」 로 맞추면 수십 장이 같은 자리에 선다.
+  let cmpTarget = null;      // { item } 또는 { batch: true }
+  let cmpBg = null;          // { name, w, h, data, canvas }
+  let cmpFg = null;          // 미리보기 기준 { name, w, h, straight, bounds, detected, canvas }
+  let cmpBgCache = null;     // 결과 크기로 줄여 둔 배경 — 같은 배경으로 여러 장 돌릴 때 재사용
+  // 무작위 배치의 씨앗. ★Math.random 을 그냥 쓰면 미리보기를 다시 그릴 때마다 인물이 튄다.
+  //   씨앗을 들고 있다가 「다시 굴려 보기」 를 눌렀을 때만 바꾼다. 장마다는 씨앗 + 번호를 쓴다.
+  let cmpSeed = 1;
+
+  const CMP_PREVIEW_MAX = 560;
+
+  function cmpTargets() {
+    if (!cmpTarget) return [];
+    return cmpTarget.batch ? visibleItems() : (cmpTarget.item ? [cmpTarget.item] : []);
+  }
+
+  /** 화면의 값들을 Compose 가 읽는 모양으로 모은다. */
+  function cmpSettings() {
+    // ★최소·최대를 사용자가 뒤집어 놓을 수 있다. 뒤집힌 채로 넘기면 범위가 0 이 된다.
+    const rMin = parseInt($('cmp-rand-min').value, 10) / 100;
+    const rMax = parseInt($('cmp-rand-max').value, 10) / 100;
+    return {
+      out: $('cmp-out').value,
+      fit: $('cmp-fit').value,
+      mode: $('cmp-mode').value,
+      alpha: $('cmp-alpha').value,
+      fill: parseInt($('cmp-fill').value, 10) / 100,
+      bottom: parseInt($('cmp-bottom').value, 10) / 100,
+      scale: parseInt($('cmp-scale').value, 10) / 100,
+      x: parseInt($('cmp-x').value, 10) / 100,
+      y: parseInt($('cmp-y').value, 10) / 100,
+      randMin: Math.min(rMin, rMax),
+      randMax: Math.max(rMin, rMax),
+      randomY: $('cmp-rand-y').checked
+    };
+  }
+
+  /** PNG·JPEG 바이트를 픽셀과 캔버스로 풀어 둔다 (미리보기에 쓴다). */
+  async function cmpDecode(bytes, mime) {
+    const img = await ImageUtil.toImageData(bytes, mime);
+    return { data: img.data, w: img.width, h: img.height };
+  }
+
+  function cmpCanvasOf(data, w, h) {
+    return ImageUtil.fromImageData(new ImageData(
+      data instanceof Uint8ClampedArray ? data : new Uint8ClampedArray(data), w, h));
+  }
+
+  /** 뷰어·결과에서 넘어온 그림 한 장을 미리보기 기준으로 삼는다. */
+  async function cmpLoadFg(item) {
+    const d = await cmpDecode(item.bytes, 'image/png');
+    const detected = Compose.detectAlpha(d.data);
+    const s = $('cmp-alpha').value;
+    const mode = (s === 'auto') ? detected : s;
+    const straight = Compose.toStraight(d.data, mode);
+    cmpFg = {
+      name: item.name,
+      w: d.w, h: d.h,
+      straight: straight,
+      bounds: Compose.alphaBounds(straight, d.w, d.h),
+      detected: detected,
+      canvas: cmpCanvasOf(straight, d.w, d.h)
+    };
+  }
+
+  function renderCmpAlphaHint() {
+    if (!cmpFg) { $('cmp-alpha-hint').textContent = ''; return; }
+    const map = {
+      premultiplied: '이 그림은 **미리 곱해진 알파**로 보입니다 (되돌려서 합칩니다).',
+      straight: '이 그림은 Straight Alpha 로 보입니다.',
+      none: '⚠ 이 그림에는 투명한 곳이 없습니다 — 배경이 통째로 가려집니다.'
+    };
+    $('cmp-alpha-hint').textContent = (map[cmpFg.detected] || '').replace(/\*\*/g, '');
+  }
+
+  function renderCmpRows() {
+    const mode = $('cmp-mode').value;
+    const s = cmpSettings();
+    $('cmp-auto-rows').hidden = (mode !== 'auto');
+    $('cmp-rand-rows').hidden = (mode !== 'random');
+    $('cmp-manual-rows').hidden = (mode !== 'manual');
+    // 바닥 여백은 바닥에 세우는 두 경우에만 뜻이 있다.
+    $('cmp-bottom-row').hidden = !(mode === 'auto' || (mode === 'random' && !s.randomY));
+
+    $('cmp-fill-val').textContent = $('cmp-fill').value + '%';
+    $('cmp-bottom-val').textContent = $('cmp-bottom').value + '%';
+    $('cmp-scale-val').textContent = $('cmp-scale').value + '%';
+    $('cmp-x-val').textContent = $('cmp-x').value + '%';
+    $('cmp-y-val').textContent = $('cmp-y').value + '%';
+    $('cmp-rand-val').textContent =
+      Math.round(s.randMin * 100) + '% ~ ' + Math.round(s.randMax * 100) + '%';
+
+    const hint = {
+      auto: '인물이 그려진 사각형을 찾아 크기와 자리를 맞춥니다. 장마다 인물이 잡힌 크기가 달라도 같은 자리에 섭니다.',
+      random: '장마다 크기와 자리를 다르게 뽑습니다. 인물이 화면 밖으로 잘리지 않는 범위 안에서만 뽑습니다.',
+      'as-is': '원본 크기 그대로 얹습니다. 인물과 배경 크기가 같을 때 제일 정확합니다.',
+      manual: '값을 직접 정합니다. 고른 값이 모든 장에 똑같이 걸립니다.'
+    };
+    $('cmp-mode-hint').textContent = hint[mode] || '';
+  }
+
+  /**
+   * 미리보기. ★여기서는 캔버스 drawImage 로 빠르게 그린다 (슬라이더가 따라와야 한다).
+   *   실제 합성은 lanczos3 로 다시 한다 — 자리는 같은 placement() 로 잡으므로 어긋나지 않는다.
+   */
+  function renderCmpPreview() {
+    const cv = $('cmp-preview');
+    if (!cmpFg) { cv.hidden = true; $('cmp-preview-hint').textContent = ''; return; }
+
+    const s = cmpSettings();
+    const place = Compose.placement(Object.assign({
+      fgW: cmpFg.w, fgH: cmpFg.h,
+      bgW: cmpBg ? cmpBg.w : cmpFg.w,
+      bgH: cmpBg ? cmpBg.h : cmpFg.h,
+      bounds: cmpFg.bounds,
+      rng: Compose.rngFrom(cmpSeed)
+    }, s));
+
+    const k = Math.min(1, CMP_PREVIEW_MAX / Math.max(place.width, place.height));
+    cv.hidden = false;
+    cv.width = Math.max(1, Math.round(place.width * k));
+    cv.height = Math.max(1, Math.round(place.height * k));
+    const cx = cv.getContext('2d');
+    cx.clearRect(0, 0, cv.width, cv.height);
+    if (cmpBg) {
+      cx.drawImage(cmpBg.canvas,
+        place.bg.x * k, place.bg.y * k, place.bg.w * k, place.bg.h * k);
+    }
+    cx.drawImage(cmpFg.canvas,
+      place.fg.x * k, place.fg.y * k, place.fg.w * k, place.fg.h * k);
+
+    const n = cmpTargets().length;
+    const many = (s.mode === 'random')
+      ? ' (미리보기는 한 번 뽑아 본 것 — 실제로는 ' + n + '장이 저마다 다른 자리에 섭니다)'
+      : ' (미리보기는 첫 장, 실제로는 ' + n + '장에 같은 설정이 걸립니다)';
+    $('cmp-preview-hint').textContent =
+      place.width + '×' + place.height + ' · ' + cmpFg.name + (n > 1 ? many : '');
+  }
+
+  async function openCompose(item, batch) {
+    cmpTarget = batch ? { batch: true } : { item: item };
+    say($('cmp-msg'), '');
+
+    const targets = cmpTargets();
+    if (!targets.length) { window.alert('합성할 그림이 없습니다.'); return; }
+
+    $('cmp-title').textContent = batch ? ('일괄 배경 합성 (' + targets.length + '장)') : '배경 합성';
+    $('cmp-help').textContent = batch
+      ? '보이는 그림 전부를 같은 배경 위에 얹습니다. 원본은 그대로 두고 새 장으로 추가됩니다. Anlas 는 들지 않습니다.'
+      : '이 그림을 배경 위에 얹습니다. 원본은 그대로 두고 새 장으로 추가됩니다. Anlas 는 들지 않습니다.';
+
+    show('compose');
+    try {
+      await cmpLoadFg(targets[0]);
+    } catch (e) {
+      say($('cmp-msg'), '그림을 읽지 못했습니다: ' + (e && e.message ? e.message : e), 'err');
+      return;
+    }
+    renderCmpRows();
+    renderCmpAlphaHint();
+    renderCmpPreview();
+  }
+
+  async function pickBackground(file) {
+    if (!file) return;
+    try {
+      say($('cmp-msg'), '배경을 읽는 중…');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const d = await cmpDecode(bytes, file.type || 'image/png');
+      cmpBg = {
+        name: file.name || '배경',
+        w: d.w, h: d.h,
+        data: d.data,
+        canvas: cmpCanvasOf(d.data, d.w, d.h)
+      };
+      cmpBgCache = null;
+      $('cmp-bg-name').textContent = cmpBg.name + ' · ' + d.w + '×' + d.h;
+      say($('cmp-msg'), '');
+      renderCmpPreview();
+    } catch (e) {
+      say($('cmp-msg'), '배경을 읽지 못했습니다: ' + (e && e.message ? e.message : e), 'err');
+    }
+  }
+
+  /** 합성 결과를 PNG 바이트로. ★NAI 가 붙여 둔 tEXt 는 원본에서 그대로 옮겨 온다. */
+  async function cmpEncode(result, srcBytes) {
+    const cv = cmpCanvasOf(result.data, result.width, result.height);
+    let out = await ImageUtil.canvasToBytes(cv, 'image/png');
+    try {
+      const texts = ImageUtil.getTexts(srcBytes);
+      const keep = {};
+      ImageUtil.NAI_TEXT_KEYS.forEach(function (k) {
+        if (texts[k] !== undefined) keep[k] = texts[k];
+      });
+      if (Object.keys(keep).length) out = ImageUtil.setTexts(out, keep);
+    } catch (e) {
+      // 메타데이터를 못 옮겨도 그림은 그대로 쓴다.
+    }
+    return out;
+  }
+
+  async function runCompose() {
+    if (running) return;
+    if (!cmpBg) { say($('cmp-msg'), '먼저 배경 그림을 고르세요.', 'err'); return; }
+    const targets = cmpTargets();
+    if (!targets.length) return;
+
+    const s = cmpSettings();
+    running = true;
+    $('cmp-run').disabled = true;
+    let failed = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      const src = targets[i];
+      say($('cmp-msg'), '합치는 중 ' + (i + 1) + '/' + targets.length + ' — ' + src.name);
+      // ★한 장씩 화면에 숨 돌릴 틈을 준다. 안 그러면 진행 문구가 끝날 때 한 번에 뜬다.
+      await new Promise(function (r) { setTimeout(r, 0); });
+      try {
+        const fg = await cmpDecode(src.bytes, 'image/png');
+        const res = Compose.composite(Object.assign({
+          fg: { data: fg.data, width: fg.w, height: fg.h },
+          bg: { data: cmpBg.data, width: cmpBg.w, height: cmpBg.h },
+          bgScaled: cmpBgCache,
+          // ★장마다 다른 씨앗을 준다. 하나만 쓰면 무작위인데도 전부 같은 자리에 선다.
+          rng: Compose.rngFrom(cmpSeed + i * 7919)
+        }, s));
+        cmpBgCache = res.bgScaled;
+        const bytes = await cmpEncode(res, src.bytes);
+        await addDerived(bytes, src, '_bg', {
+          width: res.width, height: res.height,
+          background: cmpBg.name,
+          compose: {
+            mode: s.mode, fit: s.fit, out: s.out, alpha: res.alphaMode,
+            scale: Number(res.place.scale.toFixed(4)),
+            x: res.place.fg.x, y: res.place.fg.y,
+            seed: (s.mode === 'random') ? (cmpSeed + i * 7919) : undefined
+          }
+        }, 'composed');
+      } catch (e) {
+        failed++;
+        say($('cmp-msg'), src.name + ' 실패: ' + (e && e.message ? e.message : e), 'err');
+      }
+    }
+
+    running = false;
+    $('cmp-run').disabled = false;
+    const okCount = targets.length - failed;
+    say($('cmp-msg'), okCount + '/' + targets.length + ' 완료'
+      + (failed ? ', 실패 ' + failed + '건' : ''), failed ? 'err' : 'ok');
+    if (!failed) setTimeout(function () { show('results'); }, 800);
+  }
+
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
   // ★VPS·PC 는 폴더가 금세 수백 개가 된다. 자주 가는 곳은 한 번에 가야 한다.
   // ★구분자가 없으면 destId 와 path 의 경계가 사라져 서로 다른 대상의 항목이 같은 키가 된다
@@ -2054,7 +2310,7 @@
     return bits.join(' · ');
   }
 
-  const KIND_TAG = { enhanced: '인핸스', upscaled: '×4' };
+  const KIND_TAG = { enhanced: '인핸스', upscaled: '×4', composed: '배경' };
 
   function renderResultsBadge() {
     const n = ResultsModel.live(results).length;
@@ -2929,6 +3185,47 @@
     ['enh-scale', 'enh-strength', 'enh-noise'].forEach(function (id) {
       $(id).addEventListener('input', updateEnhCost);
       $(id).addEventListener('change', updateEnhCost);
+    });
+
+    // ── 배경 합성 ───────────────────────────────────────────────────
+    $('cmp-back').addEventListener('click', function () { show('results'); });
+    $('cmp-pick').addEventListener('click', function () { $('cmp-file').click(); });
+    $('cmp-file').addEventListener('change', function (e) {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';        // 같은 파일을 다시 골라도 change 가 뜨게
+      pickBackground(f);
+    });
+    $('cmp-run').addEventListener('click', runCompose);
+    $('cmp-reroll').addEventListener('click', function () {
+      cmpSeed = (cmpSeed + 1 + Math.floor(Math.random() * 9973)) >>> 0;
+      renderCmpPreview();
+    });
+    ['cmp-mode', 'cmp-out', 'cmp-fit', 'cmp-rand-y'].forEach(function (id) {
+      $(id).addEventListener('change', function () { renderCmpRows(); renderCmpPreview(); });
+    });
+    ['cmp-fill', 'cmp-bottom', 'cmp-scale', 'cmp-x', 'cmp-y',
+     'cmp-rand-min', 'cmp-rand-max'].forEach(function (id) {
+      $(id).addEventListener('input', function () { renderCmpRows(); renderCmpPreview(); });
+    });
+    // ★알파 처리를 바꾸면 인물 픽셀을 다시 풀어야 한다 (되돌릴지 말지가 달라진다).
+    $('cmp-alpha').addEventListener('change', async function () {
+      const targets = cmpTargets();
+      if (!targets.length) return;
+      try {
+        await cmpLoadFg(targets[0]);
+        renderCmpAlphaHint();
+        renderCmpPreview();
+      } catch (e) {
+        say($('cmp-msg'), '그림을 다시 읽지 못했습니다: ' + (e && e.message ? e.message : e), 'err');
+      }
+    });
+
+    $('batch-compose').addEventListener('click', function () { openCompose(null, true); });
+    $('viewer-compose').addEventListener('click', function () {
+      const r = currentItem();
+      if (!r) return;
+      closeViewer();
+      openCompose(r, false);
     });
 
     $('batch-enhance').addEventListener('click', function () { openEnhance(null, true); });

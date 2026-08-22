@@ -613,7 +613,27 @@ select.char-coord {
   margin-bottom: 20px;
 }
 
-#wc-info, #wc-result, #enh-cost { font-size: 13px; }
+/* ── 배경 합성 화면 ──────────────────────────────────────────────────── */
+/* ★미리보기는 캔버스다. 바둑판을 깔아 두면 아직 투명한 곳이 어디인지 바로 보인다
+     (배경을 고르기 전, 또는 배경이 결과를 다 덮지 못했을 때). */
+.cmp-preview {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  background-color: var(--surface-2);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.06) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+#wc-info, #wc-result, #enh-cost, #cmp-msg { font-size: 13px; }
 #wc-result { word-break: break-all; }
 #batch-row .btn { flex: 1; }
 
