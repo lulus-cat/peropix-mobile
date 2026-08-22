@@ -277,7 +277,20 @@ img.내도메인.com {
 
 ---
 
-## APK 만들기 (처음 한 번)
+## APK 받기 (제일 쉬운 길)
+
+**빌드할 것이 없습니다.** 올릴 때마다 GitHub 가 대신 만들어 Releases 에 붙여 둡니다.
+
+> **[→ 최신 APK 받기](../../releases/latest)**
+
+폰 브라우저로 위 링크를 열고 `.apk` 파일을 누르면 바로 받아집니다.
+받은 파일을 눌러 설치하면 끝입니다 (「출처를 알 수 없는 앱」 허용은 아래 참고).
+
+직접 돌리고 싶으면 **Actions 탭 → APK 빌드 → Run workflow** 를 누르면 됩니다.
+
+---
+
+## APK 직접 만들기 (원할 때만)
 
 **준비물:** [Android Studio](https://developer.android.com/studio) (무료, 기본값 설치).
 
