@@ -599,6 +599,8 @@
     $('opt-cfg-rescale').value = options.cfg_rescale;
     $('opt-count').value = options.count_per_slot;
     $('opt-enh-replace').checked = !!options.enhance_replace_original;
+    $('opt-one-char').checked = !!options.one_char_mode;
+    $('drawer-one-char').checked = !!options.one_char_mode;
     $('opt-transparent').checked = !!options.transparent_bg;
     $('opt-straight-alpha').checked = !!options.straight_alpha;
     $('opt-format').value = options.save_format || 'png';
@@ -632,10 +634,20 @@
     options.count_per_slot = Math.min(50, Math.max(1, parseInt($('opt-count').value, 10) || 1));
     options.enhance_replace_original = $('opt-enh-replace').checked;
     renderAnlas();
+    renderOneChar();
     return Store.setOptions(options);
   }
 
   // ── 이름 규칙 ────────────────────────────────────────────────────────────
+  /**
+   * 지금 실제로 쓸 이름 규칙.
+   * ★한 명 모드면 인물 이름을 폴더 한 겹으로 끼운다 — 안 그러면 미아의 1-1 과 리사의 1-1 이
+   *   같은 경로가 되어 `_2` 가 붙고, 나중에 어느 것이 누구인지 알 수 없다.
+   */
+  function namingTemplateNow() {
+    return oneCharOn() ? Naming.withChar(namingTemplate) : namingTemplate;
+  }
+
   function renderNamingUI() {
     const sel = $('naming-preset');
     if (!sel.options.length) {
@@ -658,8 +670,12 @@
 
   function renderNamingPreview() {
     const first = slots.filter(function (s) { return s.enabled !== false; })[0];
-    const sample = Naming.render(namingTemplate, {
+    const firstChar = activeChars()[0];
+    const sample = Naming.render(namingTemplateNow(), {
       persona: persona || '폴더이름',
+      char: oneCharOn()
+        ? charName(firstChar, characters.indexOf(firstChar))
+        : undefined,
       label: (first && first.label) || 'happy',
       seq: 1,
       seed: 1234567,
@@ -1141,8 +1157,13 @@
   /** 결과 하나를 새 항목으로 추가한다 (인핸스·업스케일 결과). */
   async function addDerived(bytes, srcItem, suffix, extraInfo, kind) {
     const name = (srcItem.name || 'image') + suffix;
-    const relPath = Naming.dedupe(Naming.render(namingTemplate, {
+    // ★원본이 어느 인물의 것이었는지 저장 정보에 남아 있다. 파생본도 그 폴더로 보낸다 —
+    //   인핸스한 것만 인물 폴더 밖에 떨어지면 나중에 짝을 못 찾는다.
+    const srcChar = (srcItem.saveInfo && srcItem.saveInfo.char) || '';
+    const relPath = Naming.dedupe(Naming.render(
+      srcChar ? Naming.withChar(namingTemplate) : namingTemplate, {
       persona: persona,
+      char: srcChar || undefined,
       label: name,
       seq: results.length + 1,
       seed: (srcItem.saveInfo && srcItem.saveInfo.seed) || 0,
@@ -1803,7 +1824,9 @@
       isOpus: subscription ? subscription.isOpus : false,
       opusExhausted: subscription ? subscription.opusExhausted : false,
       refCount: cap.char_ref ? references.length : 0,
-      count: Math.max(1, activeSlotCount())
+      // ★실제로 뽑을 장수로 센다 — 배수와 한 명 모드의 바퀴까지 포함이다.
+      //   슬롯 수만 세면 「배수 3」 을 켠 사람에게 1/3 로 적힌 값을 보여 주게 된다.
+      count: Math.max(1, plannedJobs().length)
     });
 
     const el = $('cost-est');
@@ -1821,6 +1844,8 @@
     if (est.overLimit) { text += ' · 1장 상한(140) 초과'; cls += ' warn'; }
     el.className = cls;
     el.textContent = text;
+
+    renderOneChar();
 
     const bal = $('anlas-bal');
     if (subscription) {
@@ -2028,7 +2053,11 @@
     const lim = charLimit();
     const on = activeChars().length;
     const el = $('char-limit-hint');
-    if (on > lim) {
+    // ★한 명 모드에서는 한 장에 한 명만 실리므로 모델 상한과 무관하다.
+    if (oneCharOn()) {
+      el.textContent = '';
+      el.hidden = true;
+    } else if (on > lim) {
       el.textContent = '켜 둔 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
         + '명까지라 뒤 ' + (on - lim) + '명은 전송되지 않습니다 — 안 쓸 인물은 꺼 주세요.';
       el.hidden = false;
@@ -2051,7 +2080,50 @@
    * 켠 인물 중 이 번째가 모델 상한을 넘어 전송되지 않는지.
    * ★꺼 둔 인물은 세지 않는다 — 상한 자리를 차지하지 않기 때문이다.
    */
+  // ── 한 명 모드 ───────────────────────────────────────────────────────────
+  // ★켠 인물을 **한 명씩** 보내고 인물 수만큼 바퀴를 더 돈다 (인물 × 슬롯 × 배수).
+  //   인물이 많고 슬롯이 적을 때, 인물을 켰다 껐다 하며 여러 번 돌리던 왕복을 없앤다.
+  function oneCharOn() {
+    return !!(options && options.one_char_mode);
+  }
+
+  /** 지금 설정으로 몇 장이 나오는지. Anlas 어림과 화면 문구가 같은 값을 쓴다. */
+  function plannedJobs() {
+    return Jobs.build({
+      slots: slots, chars: characters, base: $('base-prompt').value,
+      perSlot: options ? options.count_per_slot : 1, oneChar: oneCharOn()
+    });
+  }
+
+  function renderOneChar() {
+    const on = oneCharOn();
+    $('opt-one-char').checked = on;
+    $('drawer-one-char').checked = on;
+
+    const chars = activeChars().length;
+    const jobs = plannedJobs();
+    const slotCount = Jobs.activeSlots(slots, $('base-prompt').value).length;
+    const perSlot = Math.max(1, (options && options.count_per_slot) || 1);
+
+    let text;
+    if (on && chars) {
+      text = '켠 인물 ' + chars + '명을 **한 명씩** 돌립니다 — 인물 ' + chars
+        + ' × 슬롯 ' + slotCount + (perSlot > 1 ? ' × 배수 ' + perSlot : '')
+        + ' = ' + jobs.length + '장. 저장 경로에 인물 폴더가 한 겹 끼어듭니다.';
+    } else if (on) {
+      text = '켠 인물이 없습니다. 인물을 켜면 그 수만큼 바퀴를 돕니다.';
+    } else {
+      text = chars > 1
+        ? ('켠 인물 ' + chars + '명이 한 장에 함께 나갑니다. 한 명씩 따로 뽑으려면 켜세요.')
+        : '켠 인물을 한 명씩 따로 뽑고 싶을 때 켭니다 (인물 수만큼 바퀴를 돕니다).';
+    }
+    $('one-char-hint').textContent = text.replace(/\*\*/g, '');
+    $('drawer-one-char-hint').textContent = text.replace(/\*\*/g, '');
+  }
+
   function charOverLimit(i) {
+    // ★한 명 모드에서는 한 장에 한 명만 나가므로 상한을 넘을 수가 없다.
+    if (oneCharOn()) return false;
     if (!characters[i] || characters[i].enabled === false) return false;
     const lim = charLimit();
     let seen = 0;
@@ -2077,10 +2149,14 @@
       ? (on + ' / ' + characters.length + ' 켜짐')
       : '';
 
+    renderOneChar();
+
     // 상한 경고는 서랍 안에도 둔다 — 켜고 끄는 곳이 여기이므로.
     const lim = charLimit();
     const w = $('drawer-chars-warn');
-    if (on > lim) {
+    if (oneCharOn()) {
+      w.hidden = true;
+    } else if (on > lim) {
       w.textContent = '켠 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
         + '명까지라 「초과」 표시된 인물은 전송되지 않습니다.';
       w.hidden = false;
@@ -2850,11 +2926,15 @@
     await Store.setPersona(persona);
     usedPaths = new Set();
 
-    const active = slots.filter(function (s) {
-      return s.enabled !== false && ((s.prompt || '').trim() || (base || '').trim());
+    // ★뽑을 목록은 jobs.js 가 만든다 (인물 · 슬롯 · 배수의 순서를 거기서 검사한다).
+    //   한 명 모드면 켠 인물마다 한 바퀴씩 더 돈다.
+    const oneChar = oneCharOn();
+    const jobs = Jobs.build({
+      slots: slots, chars: characters, base: base,
+      perSlot: options.count_per_slot, oneChar: oneChar
     });
 
-    if (!active.length) {
+    if (!jobs.length) {
       setProgress(0, 0, '생성할 슬롯이 없습니다. 슬롯을 추가하고 프롬프트를 넣어주세요.');
       return;
     }
@@ -2862,10 +2942,8 @@
     const token = await Store.getToken();
     if (!token) { show('setup'); return; }
 
-    // ★슬롯 하나당 몇 장을 뽑을지. 사이클을 바깥에 두어 슬롯 순서대로 한 바퀴씩 돈다 —
-    //   한 슬롯을 몰아서 다 뽑으면 중간에 멈췄을 때 뒤 슬롯이 통째로 비어 버린다.
-    const perSlot = Math.max(1, parseInt(options.count_per_slot, 10) || 1);
-    const totalJobs = active.length * perSlot;
+    const tpl = namingTemplateNow();
+    const totalJobs = jobs.length;
 
     running = true;
     cancelRequested = false;
@@ -2877,103 +2955,112 @@
     let done = 0;
     let failed = 0;
 
-    for (let cycle = 1; cycle <= perSlot; cycle++) {
+    for (let ji = 0; ji < jobs.length; ji++) {
       if (cancelRequested) break;
+      const job = jobs[ji];
+      const slot = job.slot;
+      const cycle = job.cycle;
+      const perSlot = job.perSlot;
+      const name = job.slotName;
+      const tag = (oneChar ? (job.charName + ' · ') : '')
+        + (perSlot > 1 ? (name + ' (' + cycle + '/' + perSlot + ')') : name);
+      setProgress(done, totalJobs, '생성 중 ' + (done + 1) + '/' + totalJobs + ' — ' + tag);
 
-      for (let i = 0; i < active.length; i++) {
-        if (cancelRequested) break;
-        const slot = active[i];
-        const name = slot.label || ('slot' + (i + 1));
-        const tag = perSlot > 1 ? (name + ' (' + cycle + '/' + perSlot + ')') : name;
-        setProgress(done, totalJobs, '생성 중 ' + (done + 1) + '/' + totalJobs + ' — ' + tag);
+      // ★와일드카드는 **장마다 따로** 뽑는다. 사이클 안쪽에 두어야 같은 슬롯을 여러 장
+      //   뽑을 때도 매번 다른 조합이 나온다. (바깥에 두면 한 슬롯의 N 장이 전부 같아진다.)
+      const wcBase = Wildcards.resolve(base, wildcardPools);
+      const wcSlot = Wildcards.resolve((slot.prompt || '').trim(), wildcardPools);
+      // ★한 명 모드면 이번 인물 하나만 보낸다. 켜 둔 다른 인물은 이 장에 실리지 않는다.
+      const sending = oneChar ? [job.char] : characters;
+      const wcChars = sending.map(function (c) {
+        return Object.assign({}, c, {
+          enabled: true,
+          prompt: Wildcards.resolve(c.prompt || '', wildcardPools),
+          uc: Wildcards.resolve(c.uc || '', wildcardPools)
+        });
+      });
 
-        // ★와일드카드는 **장마다 따로** 뽑는다. 사이클 안쪽에 두어야 같은 슬롯을 여러 장
-        //   뽑을 때도 매번 다른 조합이 나온다. (바깥에 두면 한 슬롯의 N 장이 전부 같아진다.)
-        const wcBase = Wildcards.resolve(base, wildcardPools);
-        const wcSlot = Wildcards.resolve((slot.prompt || '').trim(), wildcardPools);
-        const wcChars = characters.map(function (c) {
-          return Object.assign({}, c, {
-            prompt: Wildcards.resolve(c.prompt || '', wildcardPools),
-            uc: Wildcards.resolve(c.uc || '', wildcardPools)
-          });
+      // ★공통 / 캐릭터 / 슬롯은 서로 다른 축이다. 어디에 붙일지는 slotTarget 이 정한다.
+      const composed = composePrompts(wcBase, wcSlot, slotTarget, wcChars);
+      const req = Object.assign({}, options, {
+        negative_prompt: Wildcards.resolve(options.negative_prompt || '', wildcardPools),
+        prompt: composed.basePrompt,
+        character_prompts_with_coords: composed.characters,
+        precise_references: references.map(function (r) {
+          return { image: r.image, mode: r.mode, strength: r.strength, fidelity: r.fidelity };
+        })
+      });
+
+      try {
+        const built = buildNaiPayload(req);
+        // ★재시도 중이라는 걸 알려 준다. 아무 표시 없이 멈춰 있으면 멈춘 줄 안다.
+        const res = await NaiClient.generate(token, built, function (n, wait, err) {
+          setProgress(done, totalJobs,
+            tag + ' — ' + NaiClient.networkMessage(err)
+            + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
         });
 
-        // ★공통 / 캐릭터 / 슬롯은 서로 다른 축이다. 어디에 붙일지는 slotTarget 이 정한다.
-        const composed = composePrompts(wcBase, wcSlot, slotTarget, wcChars);
-        const req = Object.assign({}, options, {
-          negative_prompt: Wildcards.resolve(options.negative_prompt || '', wildcardPools),
-          prompt: composed.basePrompt,
-          character_prompts_with_coords: composed.characters,
-          precise_references: references.map(function (r) {
-            return { image: r.image, mode: r.mode, strength: r.strength, fidelity: r.fidelity };
-          })
-        });
+        // ★이름을 먼저 정하고 겹침을 비켜 둔다. 같은 슬롯을 여러 장 뽑으면 반드시 겹친다.
+        const relPath = Naming.dedupe(Naming.render(tpl, {
+          persona: persona,
+          char: oneChar ? job.charName : undefined,
+          label: name,
+          seq: done + 1,
+          seed: res.seed,
+          model: options.nai_model
+        }), usedPaths);
 
-        try {
-          const built = buildNaiPayload(req);
-          // ★재시도 중이라는 걸 알려 준다. 아무 표시 없이 멈춰 있으면 멈춘 줄 안다.
-          const res = await NaiClient.generate(token, built, function (n, wait, err) {
-            setProgress(done, totalJobs,
-              tag + ' — ' + NaiClient.networkMessage(err)
-              + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
-          });
-
-          // ★이름을 먼저 정하고 겹침을 비켜 둔다. 같은 슬롯을 여러 장 뽑으면 반드시 겹친다.
-          const relPath = Naming.dedupe(Naming.render(namingTemplate, {
-            persona: persona,
-            label: name,
-            seq: done + 1,
-            seed: res.seed,
-            model: options.nai_model
-          }), usedPaths);
-
-          const item = ResultsModel.make({
-            slotLabel: name,
-            cycle: cycle,
-            kind: 'base',
-            name: perSlot > 1 ? (name + '#' + cycle) : name,
-            filename: relPath,
-            bytes: res.bytes,
-            url: URL.createObjectURL(new Blob([res.bytes], { type: 'image/png' })),
-            saveInfo: {
-              prompt: composed.basePrompt,
-              negative: options.negative_prompt,
-              characters: composed.characters.map(function (c) {
-                return { prompt: c.prompt, uc: c.uc, coord: c.coord };
-              }),
-              model: options.nai_model, steps: options.steps, cfg: options.cfg,
-              sampler: options.sampler, scheduler: options.scheduler,
-              width: options.width, height: options.height, seed: res.seed,
-              uc_preset: options.uc_preset, quality_preset: options.quality_preset,
-              slot: name, cycle: cycle, persona: persona
-            }
-          });
-
-          // ★자동 저장이 꺼져 있으면 아무 데도 쓰지 않는다. 뷰어에서 골라 저장한다.
-          if (options.auto_save) {
-            try {
-              const prepared = await prepareForSave(res.bytes, relPath, item.saveInfo);
-              item.filename = prepared.path;
-              item.savedTo = await saveOne(prepared.bytes, prepared.path);
-            } catch (e) {
-              item.savedTo = null;
-              item.error = '저장 실패: ' + (e && e.message ? e.message : e);
-            }
+        const item = ResultsModel.make({
+          // ★한 명 모드면 「인물 · 슬롯」 으로 묶는다. 슬롯으로만 묶으면 인물 8명이
+          //   한 묶음에 섞여 뷰어에서 누구를 보고 있는지 알 수 없다.
+          slotLabel: job.group,
+          cycle: cycle,
+          kind: 'base',
+          name: job.name,
+          filename: relPath,
+          bytes: res.bytes,
+          url: URL.createObjectURL(new Blob([res.bytes], { type: 'image/png' })),
+          saveInfo: {
+            prompt: composed.basePrompt,
+            negative: options.negative_prompt,
+            characters: composed.characters.map(function (c) {
+              return { prompt: c.prompt, uc: c.uc, coord: c.coord };
+            }),
+            model: options.nai_model, steps: options.steps, cfg: options.cfg,
+            sampler: options.sampler, scheduler: options.scheduler,
+            width: options.width, height: options.height, seed: res.seed,
+            uc_preset: options.uc_preset, quality_preset: options.quality_preset,
+            slot: name, cycle: cycle, persona: persona,
+            // ★파생본(인핸스·배경 합성)도 같은 인물 폴더로 가야 한다.
+            char: oneChar ? job.charName : undefined
           }
-          results.push(item);
-        } catch (e) {
-          failed++;
-          results.push(ResultsModel.make({
-            slotLabel: name,
-            cycle: cycle,
-            name: perSlot > 1 ? (name + '#' + cycle) : name,
-            error: NaiClient.networkMessage(e)
-          }));
+        });
+
+        // ★자동 저장이 꺼져 있으면 아무 데도 쓰지 않는다. 뷰어에서 골라 저장한다.
+        if (options.auto_save) {
+          try {
+            const prepared = await prepareForSave(res.bytes, relPath, item.saveInfo);
+            item.filename = prepared.path;
+            item.savedTo = await saveOne(prepared.bytes, prepared.path);
+          } catch (e) {
+            item.savedTo = null;
+            item.error = '저장 실패: ' + (e && e.message ? e.message : e);
+          }
         }
-        renderResults();
-        done++;
-        setProgress(done, totalJobs, done + '/' + totalJobs + ' 완료');
+        results.push(item);
+      } catch (e) {
+        failed++;
+        results.push(ResultsModel.make({
+          slotLabel: job.group,
+          cycle: cycle,
+          name: job.name,
+          error: NaiClient.networkMessage(e),
+          saveInfo: { char: oneChar ? job.charName : undefined }
+        }));
       }
+      renderResults();
+      done++;
+      setProgress(done, totalJobs, done + '/' + totalJobs + ' 완료');
     }
 
     running = false;
@@ -3120,6 +3207,7 @@
     $('persona').value = persona;
 
     renderAnlas();
+    renderOneChar();
     show((await Store.hasToken()) ? 'main' : 'setup');
     // 잔량은 통신이 필요하므로 화면을 먼저 띄우고 뒤따라 채운다.
     refreshAnlas();
@@ -3304,6 +3392,20 @@
       'opt-jpg-quality', 'opt-strip-meta', 'opt-notify'].forEach(function (id) {
       $(id).addEventListener('change', readOptionUI);
     });
+    // ── 한 명 모드 ──────────────────────────────────────────────────
+    // 본문과 서랍 두 곳에 같은 스위치가 있다 — 어느 쪽을 눌러도 같이 움직인다.
+    ['opt-one-char', 'drawer-one-char'].forEach(function (id) {
+      $(id).addEventListener('change', function () {
+        options.one_char_mode = $(id).checked;
+        Store.setOptions(options);
+        renderOneChar();
+        renderCharLimitHint();
+        renderCharDrawer();     // 「초과」 표시가 달라진다
+        renderNamingUI();       // 경로에 인물 폴더가 생기거나 사라진다
+        renderAnlas();
+      });
+    });
+
     $('opt-transparent').addEventListener('change', refreshTransparentRow);
     $('opt-format').addEventListener('change', refreshQualityRow);
     $('opt-jpg-quality').addEventListener('input', refreshQualityRow);

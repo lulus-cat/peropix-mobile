@@ -936,3 +936,8 @@ textarea.expandable { cursor: pointer; }
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* 서랍 안의 스위치 — 인물을 켜고 끄는 자리에서 「한 명씩 돌리기」 도 바로 켠다. */
+.drawer-check { margin: 10px 12px 0; }
+#drawer-one-char-hint { margin: 4px 12px 0; font-size: 12px; line-height: 1.5; }
+#one-char-hint { margin-top: -6px; }

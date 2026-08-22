@@ -136,6 +136,10 @@
       </span>
     </div>
     <p class="hint warn" id="char-limit-hint" hidden></p>
+    <label class="check">
+      <input id="opt-one-char" type="checkbox"> 한 명씩 돌리기
+    </label>
+    <p class="hint" id="one-char-hint"></p>
     <button id="open-chars" class="btn block drawer-open">
       <span id="chars-summary">인물 없음</span>
       <span class="drawer-open-cue">▶ 밀어서 열기</span>
@@ -459,6 +463,10 @@
     <button class="btn small" data-bulk="chars-invert">반전</button>
   </div>
   <p class="hint drawer-tip">동그라미를 <b>누른 채 위아래로 쓸면</b> 지나간 것이 한꺼번에 바뀝니다.</p>
+  <label class="check drawer-check">
+    <input id="drawer-one-char" type="checkbox"> 한 명씩 돌리기
+  </label>
+  <p class="hint" id="drawer-one-char-hint"></p>
   <p class="hint warn" id="drawer-chars-warn" hidden></p>
   <div id="drawer-chars-list" class="drawer-list"></div>
   <div class="drawer-foot">
@@ -748,6 +756,7 @@
 <script src="js/nai-tables.js"></script>
 <script src="js/nai-payload.js"></script>
 <script src="js/naming.js"></script>
+<script src="js/jobs.js"></script>
 <script src="js/perofix-import.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/nai-client.js"></script>

@@ -16,7 +16,9 @@ const Naming = (function () {
 
   // ★{persona} 는 예전 이름이다. 화면에서는 {folder} 로 부르지만, 이미 저장해 둔
   //   규칙이 깨지면 안 되므로 둘 다 같은 값으로 읽는다.
-  const TOKENS = ['folder', 'persona', 'label', 'seq', 'seed', 'date', 'time', 'model'];
+  // ★{char} 는 「한 명 모드」 에서 지금 뽑는 인물의 이름이다. 그 모드가 아니면 빈 값이라
+  //   경로에서 조용히 사라진다 (조각이 비면 폴더로 세지 않는다).
+  const TOKENS = ['folder', 'persona', 'char', 'label', 'seq', 'seed', 'date', 'time', 'model'];
 
   /** 경로 한 조각을 안전하게 만든다. 빈 값이면 대체어를 쓴다. */
   function sanitize(part, fallback) {
@@ -54,6 +56,7 @@ const Naming = (function () {
     const v = {
       folder: vars.persona,
       persona: vars.persona,
+      char: vars.char,
       label: vars.label,
       seq: vars.seq === undefined ? '' : pad(vars.seq, 3),
       seed: vars.seed === undefined ? '' : String(vars.seed),
@@ -115,15 +118,31 @@ const Naming = (function () {
     return candidate;
   }
 
+  /**
+   * 「한 명 모드」 용 규칙으로 바꾼다 — 인물 이름을 **폴더 한 겹**으로 끼운다.
+   *
+   * ★이게 없으면 인물이 달라도 경로가 같아 `_2`, `_3` 이 붙는다. 미아의 1-1 과 리사의 1-1 이
+   *   `1-1.png` 와 `1-1_2.png` 가 되어, 나중에 어느 것이 누구인지 알 수 없다.
+   * ★이미 {char} 를 넣어 둔 규칙은 건드리지 않는다 — 사용자가 정한 자리를 지킨다.
+   */
+  function withChar(template) {
+    const t = String(template || '');
+    if (t.indexOf('{char}') !== -1) return t;
+    const i = t.lastIndexOf('/');
+    return i === -1 ? ('{char}/' + t) : (t.slice(0, i + 1) + '{char}/' + t.slice(i + 1));
+  }
+
   const PRESETS = [
     { id: 'matrix', name: '폴더별로 나누기 (PeroFix 관례)', template: '{folder}/{label}.png' },
     { id: 'flat', name: '한 폴더에 모두', template: '{folder}_{label}_{seq}.png' },
     { id: 'dated', name: '날짜별 폴더', template: '{date}/{folder}_{label}.png' },
-    { id: 'seeded', name: '시드 포함 (겹침 없음)', template: '{folder}/{label}_{seed}.png' }
+    { id: 'seeded', name: '시드 포함 (겹침 없음)', template: '{folder}/{label}_{seed}.png' },
+    { id: 'perchar', name: '인물별 폴더 (한 명 모드)', template: '{folder}/{char}/{label}.png' }
   ];
 
   return {
     render: render,
+    withChar: withChar,
     dedupe: dedupe,
     sanitize: sanitize,
     TOKENS: TOKENS,

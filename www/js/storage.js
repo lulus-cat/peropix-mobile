@@ -100,7 +100,11 @@ const Store = (function () {
     //   같은 프롬프트라도 시드가 달라 매번 다른 그림이 나오고, 그중에서 골라 쓴다.
     count_per_slot: 1,
     // 인핸스가 성공하면 원본을 지울지. 최종본만 남기고 싶을 때 켠다.
-    enhance_replace_original: false
+    enhance_replace_original: false,
+    // ★한 명 모드 — 켠 인물을 한 명씩 보내고 인물 수만큼 바퀴를 더 돈다
+    //   (인물 × 슬롯 × 배수). 인물이 많고 슬롯이 적을 때 인물을 켰다 껐다 하며
+    //   여러 번 돌리던 왕복을 없앤다. 저장 경로에는 인물 폴더가 한 겹 끼어든다.
+    one_char_mode: false
   };
 
   async function getOptions() {
