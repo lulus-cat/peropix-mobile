@@ -261,6 +261,26 @@ const Store = (function () {
     await setRaw(KEY_WILDCARDS, text || '');
   }
 
+  // ── 작가·퀄리티 태그 모음 ────────────────────────────────────────────────
+  // ★프리셋(설정 전체)과 별개다. 태그 줄만 갈아 끼우고 싶을 때가 훨씬 잦다.
+  //   항목: { id, name, text }
+  const KEY_TAGSETS = 'tagsets';
+
+  async function getTagsets() {
+    const raw = await getRaw(KEY_TAGSETS);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setTagsets(list) {
+    await setRaw(KEY_TAGSETS, JSON.stringify(list || []));
+  }
+
   // ── 프리셋 ───────────────────────────────────────────────────────────────
   // 항목: { id, name, savedAt, data:{ options, persona, basePrompt, characters,
   //                                   slots, slotTarget, namingTemplate } }
@@ -312,6 +332,8 @@ const Store = (function () {
   return {
     getWildcardDoc: getWildcardDoc,
     setWildcardDoc: setWildcardDoc,
+    getTagsets: getTagsets,
+    setTagsets: setTagsets,
     getPresets: getPresets,
     setPresets: setPresets,
     getReferences: getReferences,

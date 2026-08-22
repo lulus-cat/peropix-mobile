@@ -109,6 +109,17 @@
       <span class="hint">슬롯 전체에 들어가는 프롬프트 입니다.</span>
     </label>
 
+    <div class="toolrow">
+      <select id="tagset-select" class="tool-select"></select>
+      <button id="tagset-load" class="btn small">불러오기</button>
+      <button id="tagset-save" class="btn small">저장</button>
+      <button id="tagset-del" class="btn small">삭제</button>
+    </div>
+    <p class="hint">
+      자주 쓰는 작가·퀄리티 태그를 이름 붙여 모아 둡니다.
+      불러오면 위 칸을 <b>덮어씁니다</b>.
+    </p>
+
     <label class="field">
       <span class="label">네거티브 프롬프트</span>
       <textarea id="opt-negative" rows="2"
@@ -296,9 +307,10 @@
     <div id="result-filters" class="chips"></div>
 
     <div class="toolrow" id="batch-row">
-      <button id="batch-enhance" class="btn small">보이는 것 인핸스</button>
-      <button id="batch-upscale" class="btn small">보이는 것 업스케일</button>
+      <button id="batch-enhance" class="btn small">인핸스</button>
+      <button id="batch-upscale" class="btn small">×4 확대</button>
     </div>
+    <p class="hint" id="batch-hint"></p>
     <div id="batch-msg" class="msg" hidden></div>
 
     <div id="results"></div>
@@ -405,9 +417,13 @@
   <div class="pad scroll">
     <p class="hint" id="import-help"></p>
 
+    <button id="import-file-btn" class="btn primary block">폰에서 JSON 파일 고르기</button>
+    <input id="import-file" type="file" accept=".json,application/json,text/plain" hidden>
+    <p class="hint" id="import-file-name"></p>
+
     <label class="field">
-      <span class="label">JSON</span>
-      <textarea id="import-text" rows="12" placeholder='{ "prefix": "...", "slots": [ ... ] }'
+      <span class="label">또는 직접 붙여넣기</span>
+      <textarea id="import-text" rows="10" placeholder='{ "prefix": "...", "slots": [ ... ] }'
                 autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
     </label>
 
@@ -422,6 +438,9 @@
 <!-- ★폰에서 2~3줄짜리 칸에 긴 프롬프트를 넣으면 앞뒤가 안 보인다.
      프롬프트 칸을 누르면 여기가 열려 전체를 펼쳐 놓고 고친다.
      ★고치는 즉시 원래 칸에 반영된다 — 「완료」 를 누르지 않아 잃는 일이 없게. -->
+<!-- 화면 어디서든 잠깐 뜨는 알림. 뒤로가기 안내처럼 자리를 차지하면 안 되는 것에 쓴다. -->
+<div id="toast" class="toast" hidden></div>
+
 <div id="editor" class="editor" hidden>
   <div class="editor-top">
     <span id="editor-title" class="editor-title"></span>
@@ -436,7 +455,6 @@
 
   <div class="editor-actions">
     <button id="editor-copy" class="btn small">복사</button>
-    <button id="editor-paste" class="btn small">붙여넣기</button>
     <button id="editor-undo" class="btn small">되돌리기</button>
     <button id="editor-clear" class="btn small danger">전체 삭제</button>
   </div>
@@ -464,7 +482,7 @@
   <div class="viewer-actions">
     <button id="viewer-prev-slot" class="btn small">‹ 이전 슬롯</button>
     <button id="viewer-enhance" class="btn small">인핸스</button>
-    <button id="viewer-upscale" class="btn small">×4</button>
+    <button id="viewer-upscale" class="btn small">×4 확대</button>
     <button id="viewer-next-slot" class="btn small">다음 슬롯 ›</button>
   </div>
   <div id="viewer-cap" class="viewer-cap"></div>

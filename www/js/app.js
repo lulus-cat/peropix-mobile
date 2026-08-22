@@ -25,12 +25,63 @@
   let subscription = null;      // Anlas 잔량 (없으면 표시 안 함)
 
   // ── 화면 전환 ────────────────────────────────────────────────────────────
+  // ★뒤로가기가 "어디서 눌렸는지" 알아야 해서 지금 화면을 들고 있는다.
+  let currentScreen = 'main';
+
   function show(which) {
+    currentScreen = which;
     ['setup', 'perms', 'main', 'settings', 'import', 'folders', 'results',
      'wildcards', 'enhance'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     window.scrollTo(0, 0);
+  }
+
+  // ── 안드로이드 뒤로가기 ──────────────────────────────────────────────────
+  // ★기본 동작은 "앱 종료" 다. 갤럭시 네비게이션 바로 뒤로 가면 작업 중이던 것이
+  //   통째로 날아간다. 그래서 직접 가로채, 열린 것부터 차례로 닫는다.
+  //     덮개(편집기·뷰어) → 하위 화면 → 메인 → (한 번 더 누르면) 종료
+  let backExitArmed = false;
+  let backExitTimer = null;
+
+  function handleBack() {
+    // 1) 덮개가 떠 있으면 그것부터 닫는다.
+    if (!$('editor').hidden) { closeEditor(); return; }
+    if (!$('viewer').hidden) { closeViewer(); return; }
+
+    // 2) 하위 화면이면 메인으로.
+    if (currentScreen !== 'main' && currentScreen !== 'setup' && currentScreen !== 'perms') {
+      show('main');
+      return;
+    }
+
+    // 3) 첫 설정 중에는 돌아갈 곳이 없다 — 그냥 내려놓는다(종료가 아니다).
+    const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (currentScreen === 'setup' || currentScreen === 'perms') {
+      if (App && App.minimizeApp) App.minimizeApp();
+      return;
+    }
+
+    // 4) 메인에서는 한 번 더 눌러야 나간다 — 실수로 나가는 일을 막는다.
+    if (backExitArmed) {
+      if (App && App.exitApp) App.exitApp();
+      return;
+    }
+    backExitArmed = true;
+    toast('한 번 더 누르면 앱이 닫힙니다.', 2000);
+    clearTimeout(backExitTimer);
+    backExitTimer = setTimeout(function () { backExitArmed = false; }, 2000);
+  }
+
+  function setupBackButton() {
+    const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (App && App.addListener) App.addListener('backButton', handleBack);
+    // PC 미리보기에서도 같은 길을 확인할 수 있게 브라우저 뒤로가기를 묶어 둔다.
+    window.addEventListener('popstate', function () {
+      history.pushState(null, '', location.href);
+      handleBack();
+    });
+    history.pushState(null, '', location.href);
   }
 
   // ── 저장 위치 ────────────────────────────────────────────────────────────
@@ -108,6 +159,16 @@
     el.textContent = text;
     el.className = 'msg' + (kind ? ' ' + kind : '');
     el.hidden = !text;
+  }
+
+  /** 잠깐 떴다 사라지는 알림. 화면 아래 고정이라 어디서 눌러도 보인다. */
+  let toastTimer = null;
+  function toast(text, ms) {
+    const el = $('toast');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 1800);
   }
 
   // ── 옵션 드롭다운 ────────────────────────────────────────────────────────
@@ -991,7 +1052,107 @@
         + '<code>prefix</code> 는 작가·퀄리티 태그로, 각 <code>slots</code> 는 생성 슬롯으로 들어갑니다.';
       $('import-text').placeholder = '{ "prefix": "...", "slots": [ ... ] }';
     }
+    $('import-file').value = '';       // 같은 파일을 다시 골라도 change 가 뜨게
+    $('import-file-name').textContent = '';
     show('import');
+  }
+
+  /**
+   * 폰에 있는 JSON 파일을 읽어 입력칸에 넣는다.
+   * ★클립보드보다 이 길이 낫다 — 긴 JSON 은 복사 도중 잘리는 일이 잦고,
+   *   안드로이드는 앱을 오갈 때 클립보드를 비우기도 한다.
+   */
+  async function loadImportFile(file) {
+    if (!file) return;
+    $('import-file-name').textContent = file.name + ' 읽는 중…';
+    try {
+      const text = await readTextFile(file);
+      $('import-text').value = text;
+      $('import-file-name').textContent = file.name + ' (' + text.length.toLocaleString() + '자)';
+      say($('import-msg'), '');
+    } catch (e) {
+      $('import-file-name').textContent = '';
+      say($('import-msg'), '파일을 읽지 못했습니다: ' + (e && e.message ? e.message : e), 'err');
+    }
+  }
+
+  /** File.text() 가 없는 구형 WebView 를 위해 FileReader 로 물러선다. */
+  function readTextFile(file) {
+    if (file.text) return file.text();
+    return new Promise(function (resolve, reject) {
+      const fr = new FileReader();
+      fr.onload = function () { resolve(String(fr.result || '')); };
+      fr.onerror = function () { reject(fr.error || new Error('읽기 실패')); };
+      fr.readAsText(file, 'utf-8');
+    });
+  }
+
+  // ── 작가 · 퀄리티 태그 모음 ──────────────────────────────────────────────
+  // ★프리셋(설정 전체)과 다른 축이다. 그림체만 갈아 끼우고 나머지는 그대로 두고 싶을 때 쓴다.
+  let tagsets = [];
+
+  function renderTagsetSelect() {
+    const sel = $('tagset-select');
+    const keep = sel.value;
+    sel.innerHTML = '';
+
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = tagsets.length ? '태그 모음 고르기' : '저장된 태그 모음 없음';
+    sel.appendChild(first);
+
+    tagsets.forEach(function (t) {
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      sel.appendChild(o);
+    });
+    if (keep && tagsets.some(function (t) { return t.id === keep; })) sel.value = keep;
+
+    const none = !tagsets.length;
+    $('tagset-load').disabled = none;
+    $('tagset-del').disabled = none;
+  }
+
+  async function saveTagset() {
+    const text = ($('base-prompt').value || '').trim();
+    if (!text) { toast('먼저 작가·퀄리티 태그를 적어주세요.'); return; }
+
+    const cur = $('tagset-select').value;
+    const existing = tagsets.find(function (t) { return t.id === cur; });
+    const name = (window.prompt('태그 모음 이름', existing ? existing.name : '') || '').trim();
+    if (!name) return;
+
+    // 같은 이름이면 덮어쓴다 — 이름을 다시 고르게 하면 목록만 지저분해진다.
+    const same = tagsets.find(function (t) { return t.name === name; });
+    if (same) {
+      same.text = text;
+    } else {
+      tagsets.push({ id: 't' + Date.now().toString(36), name: name, text: text });
+    }
+    await Store.setTagsets(tagsets);
+    renderTagsetSelect();
+    $('tagset-select').value = (same || tagsets[tagsets.length - 1]).id;
+    toast('"' + name + '" 저장했습니다.');
+  }
+
+  function loadTagset() {
+    const t = tagsets.find(function (x) { return x.id === $('tagset-select').value; });
+    if (!t) { toast('불러올 태그 모음을 먼저 고르세요.'); return; }
+    $('base-prompt').value = t.text || '';
+    Store.setBasePrompt($('base-prompt').value);
+    renderAnlas();
+    toast('"' + t.name + '" 을(를) 넣었습니다.');
+  }
+
+  async function deleteTagset() {
+    const t = tagsets.find(function (x) { return x.id === $('tagset-select').value; });
+    if (!t) { toast('지울 태그 모음을 먼저 고르세요.'); return; }
+    if (!window.confirm('"' + t.name + '" 을(를) 지울까요?')) return;
+    tagsets = tagsets.filter(function (x) { return x.id !== t.id; });
+    await Store.setTagsets(tagsets);
+    renderTagsetSelect();
+    toast('지웠습니다.');
   }
 
   async function runImportCharacters(append) {
@@ -1320,8 +1481,27 @@
         renderChars();
       });
 
+      // ★생성 슬롯과 같은 조작이다 — ● 는 이 인물에 슬롯 프롬프트가 붙는다는 뜻,
+      //   ○ 는 안 붙는다는 뜻. 내부 값(skipSlotPrompt)은 반대 뜻이라 뒤집어 읽고 쓴다.
+      const slotDot = document.createElement('button');
+      slotDot.className = 'btn icon' + (c.skipSlotPrompt ? ' dim' : '');
+      slotDot.textContent = c.skipSlotPrompt ? '○' : '●';
+      slotDot.title = '슬롯 프롬프트 붙이기';
+      slotDot.setAttribute('aria-label', '슬롯 프롬프트 붙이기');
+      slotDot.addEventListener('click', function () {
+        characters[i].skipSlotPrompt = !characters[i].skipSlotPrompt;
+        Store.setCharacters(characters);
+        renderChars();
+      });
+
+      const dotCap = document.createElement('span');
+      dotCap.className = 'dot-cap' + (c.skipSlotPrompt ? ' dim' : '');
+      dotCap.textContent = '슬롯';
+
       head.appendChild(title);
       head.appendChild(coord);
+      head.appendChild(slotDot);
+      head.appendChild(dotCap);
       head.appendChild(del);
       el.appendChild(head);
 
@@ -1348,21 +1528,6 @@
       el.appendChild(mkArea('프롬프트', 'prompt', 2, '예: 1girl, blonde hair, red dress'));
       // ★인물별 네거티브. 공통 네거티브와 별개로 이 인물에만 걸린다.
       el.appendChild(mkArea('네거티브 (UC)', 'uc', 2, '이 인물에만 걸리는 네거티브'));
-
-      // ★체크 = "이 인물에 슬롯 프롬프트가 들어간다".
-      //   내부 값(skipSlotPrompt)은 반대 뜻이므로 뒤집어 읽고 뒤집어 쓴다.
-      const skip = document.createElement('label');
-      skip.className = 'check';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = !c.skipSlotPrompt;
-      cb.addEventListener('change', function () {
-        characters[i].skipSlotPrompt = !cb.checked;
-        Store.setCharacters(characters);
-      });
-      skip.appendChild(cb);
-      skip.appendChild(document.createTextNode(' 체크하면 이 인물에 슬롯 프롬프트가 들어갑니다'));
-      el.appendChild(skip);
 
       box.appendChild(el);
     });
@@ -1518,6 +1683,7 @@
   function renderFilters() {
     const box = $('result-filters');
     box.innerHTML = '';
+    renderBatchHint();
     if (!results.length) return;
 
     ResultsModel.FILTERS.forEach(function (f) {
@@ -1538,6 +1704,15 @@
       });
       box.appendChild(chip);
     });
+  }
+
+  /** 일괄 버튼이 지금 몇 장에 걸리는지. "보이는 것" 이 무엇인지 짐작하지 않게 한다. */
+  function renderBatchHint() {
+    const n = visibleItems().length;
+    const name = (ResultsModel.FILTERS.find(function (f) { return f.id === resultFilter; }) || {}).name || '전체';
+    $('batch-hint').textContent = n
+      ? ('아래 두 버튼은 지금 고른 ‘' + name + '’ ' + n + '장에 한꺼번에 걸립니다.')
+      : '';
   }
 
   function renderResults() {
@@ -1760,26 +1935,6 @@
     return false;
   }
 
-  async function pasteText() {
-    const C = window.Capacitor;
-    if (C && C.Plugins && C.Plugins.Clipboard) {
-      try {
-        const r = await C.Plugins.Clipboard.read();
-        // 그림 등 글자가 아닌 것이 들어 있으면 null 로 둔다.
-        if (r && typeof r.value === 'string' && (!r.type || r.type.indexOf('text') !== -1)) {
-          return r.value;
-        }
-        return null;
-      } catch (e) { /* 아래 방법으로 */ }
-    }
-    try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        return await navigator.clipboard.readText();
-      }
-    } catch (e) { /* 권한이 없으면 null */ }
-    return null;
-  }
-
   /**
    * 이 칸을 누르면 전체화면 편집기가 열리게 만든다.
    * ★readonly 를 걸어 인라인 키보드가 먼저 뜨는 것을 막는다 — 두 곳에서 고치면 헷갈린다.
@@ -1805,18 +1960,6 @@
       if (!$('editor-text').value) { editorSay('복사할 내용이 없습니다.', false); return; }
       const ok = await copyFromEditor();
       editorSay(ok ? '복사했습니다.' : '복사하지 못했습니다. 글자를 길게 눌러 복사하세요.', ok);
-    });
-
-    $('editor-paste').addEventListener('click', async function () {
-      const v = await pasteText();
-      if (v === null) { editorSay('붙여넣기 권한이 없습니다. 길게 눌러 붙여넣으세요.', false); return; }
-      const t = $('editor-text');
-      // 커서 자리에 끼워 넣는다 (끝에만 붙이면 앞부분을 고칠 때 불편하다).
-      const s = t.selectionStart, e = t.selectionEnd;
-      t.value = t.value.slice(0, s) + v + t.value.slice(e);
-      t.setSelectionRange(s + v.length, s + v.length);
-      editorSync();
-      editorSay('붙여넣었습니다.');
     });
 
     $('editor-undo').addEventListener('click', function () {
@@ -2332,6 +2475,9 @@
     renderDestList();
     renderNamingUI();
     $('base-prompt').value = await Store.getBasePrompt();
+    tagsets = await Store.getTagsets();
+    renderTagsetSelect();
+    setupBackButton();
     $('persona').value = persona;
 
     renderAnlas();
@@ -2553,6 +2699,14 @@
     $('import-json').addEventListener('click', function () { openImport('slots'); });
     $('import-chars').addEventListener('click', function () { openImport('characters'); });
     $('import-back').addEventListener('click', function () { show('main'); });
+    $('import-file-btn').addEventListener('click', function () { $('import-file').click(); });
+    $('import-file').addEventListener('change', function () {
+      loadImportFile($('import-file').files && $('import-file').files[0]);
+    });
+
+    $('tagset-load').addEventListener('click', loadTagset);
+    $('tagset-save').addEventListener('click', saveTagset);
+    $('tagset-del').addEventListener('click', deleteTagset);
     $('import-run').addEventListener('click', function () { runImport(false); });
     $('import-append').addEventListener('click', function () { runImport(true); });
 
