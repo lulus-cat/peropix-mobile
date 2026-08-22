@@ -2827,6 +2827,13 @@
   let dragging = false;
   let startX = 0;
   let startY = 0;
+  // 확대·이동. ★확대해 둔 동안에는 스와이프(버리기·저장·넘기기)를 끄고 끌기를 이동으로 쓴다 —
+  //   확대한 채로 밀다가 그림이 버려지면 되돌릴 수 없다.
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+  const ZOOM_MAX = 6;
+  const ZOOM_STEP = 1.6;      // 단추 한 번 · 두 번 누르기의 배율
 
   /** 지금 필터로 화면에 보이는 그림들. 일괄 작업은 이걸 대상으로 한다 —
    *  필터로 골라 놓고 「보이는 것 인핸스」 를 누르는 흐름이 자연스럽다. */
@@ -2859,6 +2866,52 @@
     }
   }
 
+  function applyZoom(anim) {
+    const img = $('viewer-img');
+    img.style.transition = anim ? 'transform 0.18s ease' : 'none';
+    img.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    $('zoom-reset').textContent = zoom.toFixed(1) + '×';
+    $('zoom-out').disabled = (zoom <= 1.001);
+    $('zoom-in').disabled = (zoom >= ZOOM_MAX - 0.001);
+  }
+
+  /** 그림이 화면 밖으로 도망가지 않게 이동 범위를 자른다. */
+  function clampPan() {
+    const img = $('viewer-img');
+    const stage = $('viewer-stage');
+    const maxX = Math.max(0, (img.clientWidth * zoom - stage.clientWidth) / 2);
+    const maxY = Math.max(0, (img.clientHeight * zoom - stage.clientHeight) / 2);
+    panX = Math.max(-maxX, Math.min(maxX, panX));
+    panY = Math.max(-maxY, Math.min(maxY, panY));
+  }
+
+  function resetZoom() {
+    zoom = 1; panX = 0; panY = 0;
+    applyZoom(false);
+  }
+
+  /**
+   * 확대한다. cx·cy 를 주면 **그 점이 제자리에 남도록** 이동을 함께 맞춘다
+   * (두 손가락 가운데나 두 번 누른 자리). 안 주면 화면 가운데를 기준으로 한다.
+   */
+  function setZoom(next, cx, cy, anim) {
+    const stage = $('viewer-stage').getBoundingClientRect();
+    const prev = zoom;
+    const z = Math.max(1, Math.min(ZOOM_MAX, next));
+    if (z === prev) { applyZoom(!!anim); return; }
+
+    const dx = (cx === undefined ? stage.left + stage.width / 2 : cx) - (stage.left + stage.width / 2);
+    const dy = (cy === undefined ? stage.top + stage.height / 2 : cy) - (stage.top + stage.height / 2);
+    const k = z / prev;
+    // 손가락 밑의 점이 그대로 있으려면: pan' = d - (d - pan) × 배율
+    panX = dx - (dx - panX) * k;
+    panY = dy - (dy - panY) * k;
+    zoom = z;
+    if (zoom <= 1.001) { zoom = 1; panX = 0; panY = 0; }
+    clampPan();
+    applyZoom(anim !== false);
+  }
+
   function closeViewer() {
     $('viewer').hidden = true;
     document.body.style.overflow = '';
@@ -2882,9 +2935,11 @@
 
     const img = $('viewer-img');
     img.style.transition = 'none';
-    img.style.transform = 'translate(0, 0)';
     img.style.opacity = '1';
     img.src = r.url;
+    // ★장을 넘기면 확대는 풀린다. 확대한 채로 넘어가면 다음 장의 엉뚱한 구석이 보인다.
+    resetZoom();
+    setFlash('');
 
     $('viewer-count').textContent =
       g.label + '  ' + (viewIndex + 1) + '/' + g.items.length
@@ -2903,9 +2958,24 @@
     setViewerHint('');
   }
 
+  /**
+   * 화면 한가운데의 큰 글씨. p 는 0~1 로 문턱에 얼마나 다가갔는지 —
+   * 1 이 되면 「놓으면 실행」 이라는 뜻이라 한 번 커진다.
+   */
+  function setFlash(text, kind, p) {
+    const el = $('viewer-flash');
+    if (!text) { el.hidden = true; return; }
+    const ratio = Math.max(0, Math.min(1, p === undefined ? 1 : p));
+    el.hidden = false;
+    el.textContent = text;
+    el.className = 'viewer-flash' + (kind ? ' act-' + kind : '') + (ratio >= 1 ? ' ready' : '');
+    el.style.opacity = String(0.4 + ratio * 0.6);
+  }
+
   function setViewerHint(text, kind) {
     const el = $('viewer-hint');
-    el.textContent = text || '↑ 버리기   ↓ 저장   ←→ 슬롯 안에서 넘기기';
+    el.textContent = text
+      || '↑ 버리기   ↓ 저장   ←→ 넘기기   ·   두 번 누르거나 손가락 두 개로 확대';
     el.className = 'viewer-hint' + (kind ? ' act-' + kind : '');
   }
 
@@ -2928,25 +2998,46 @@
   }
 
   function bounce(dx, dy) {
+    // ★확대 배율을 함께 써야 한다. 빼먹으면 튕기는 순간 확대가 풀려 보인다.
     const img = $('viewer-img');
     img.style.transition = 'transform 0.18s ease';
-    img.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-    setTimeout(function () { img.style.transform = 'translate(0, 0)'; }, 120);
+    img.style.transform = 'translate(' + (panX + dx) + 'px,' + (panY + dy) + 'px) scale(' + zoom + ')';
+    setTimeout(function () { applyZoom(true); }, 120);
   }
 
-  /** 위로 밀어 버리기. 저장돼 있었으면 파일도 지운다. */
+  /**
+   * 위로 밀어 버리기. 저장돼 있었으면 파일도 지운다.
+   *
+   * ★버린 뒤에는 **그 슬롯의 다음 장**을 보여 준다 (자리를 그대로 두면 지운 자리에
+   *   다음 장이 들어온다). 그 슬롯이 비면 **다음 슬롯**의 첫 장으로 넘어간다.
+   *   훑으면서 버리는 흐름이라, 버릴 때마다 손으로 다시 찾아 들어가면 안 된다.
+   */
   async function swipeDelete() {
     const r = currentItem();
     if (!r) return;
+    const g = viewGroups[viewSlot];
+    const label = g ? g.label : null;
+
     const img = $('viewer-img');
     img.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
-    img.style.transform = 'translate(0, -60%)';
+    img.style.transform = 'translate(0, -60%) scale(' + zoom + ')';
     img.style.opacity = '0';
 
     await deleteItem(r);
     rebuildViewGroups();
     if (!viewGroups.length) { closeViewer(); return; }
-    if (viewSlot >= viewGroups.length) viewSlot = viewGroups.length - 1;
+
+    const at = viewGroups.findIndex(function (x) { return x.label === label; });
+    if (at === -1) {
+      // 이 슬롯의 마지막 장이었다 — 사라진 자리에 다음 슬롯이 들어와 있다.
+      // 뒤에 아무것도 없으면 마지막 슬롯으로 물러난다.
+      viewSlot = Math.min(viewSlot, viewGroups.length - 1);
+      viewIndex = 0;
+    } else {
+      viewSlot = at;
+      // 자리를 그대로 두면 지운 자리에 다음 장이 들어온다. 끝이었으면 한 칸 앞으로.
+      if (viewIndex >= viewGroups[at].items.length) viewIndex = viewGroups[at].items.length - 1;
+    }
     setTimeout(paintViewer, 200);
   }
 
@@ -2972,46 +3063,151 @@
     // ★세로 문턱은 더 크게 잡는다 — 실수로 버리면 되돌릴 수 없다.
     const V_THRESHOLD = 90;
 
+    let pinching = false;
+    let panning = false;
+    let pinchDist = 0;
+    let pinchZoom = 1;
+    let pinchX = 0;
+    let pinchY = 0;
+    let panFromX = 0;
+    let panFromY = 0;
+    let lastTapAt = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    function dist(t) {
+      return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    }
+
+    /** 두 번 누르면 확대·원래대로를 오간다 (누른 자리를 기준으로). */
+    function doubleTap(x, y) {
+      if (zoom > 1.001) resetZoom();
+      else setZoom(ZOOM_STEP * 1.5, x, y, true);
+    }
+
     stage.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) {
+        // 손가락 두 개 — 벌려서 확대. 밀기는 취소한다.
+        pinching = true;
+        dragging = false;
+        panning = false;
+        setFlash('');
+        pinchDist = dist(e.touches);
+        pinchZoom = zoom;
+        pinchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        pinchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        return;
+      }
       if (e.touches.length !== 1) return;
-      dragging = true;
+
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       dragX = 0; dragY = 0;
-      img.style.transition = 'none';
+      if (zoom > 1.001) {
+        // ★확대해 둔 동안에는 끌기가 **이동**이다. 스와이프는 끈다 —
+        //   확대한 채로 밀다가 버려지면 되돌릴 수 없다.
+        panning = true;
+        dragging = false;
+        panFromX = panX;
+        panFromY = panY;
+      } else {
+        dragging = true;
+        img.style.transition = 'none';
+      }
     }, { passive: true });
 
     stage.addEventListener('touchmove', function (e) {
+      if (pinching && e.touches.length === 2) {
+        const d = dist(e.touches);
+        if (pinchDist > 0) setZoom(pinchZoom * (d / pinchDist), pinchX, pinchY, false);
+        return;
+      }
+      if (panning && e.touches.length === 1) {
+        panX = panFromX + (e.touches[0].clientX - startX);
+        panY = panFromY + (e.touches[0].clientY - startY);
+        clampPan();
+        applyZoom(false);
+        return;
+      }
       if (!dragging || e.touches.length !== 1) return;
+
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
 
       if (Math.abs(dy) > Math.abs(dx)) {
         dragY = dy; dragX = 0;
         img.style.transform = 'translate(0,' + dy + 'px)';
-        // 문턱을 넘으면 무엇이 일어날지 미리 알려 준다.
-        if (dy <= -V_THRESHOLD) setViewerHint('놓으면 버립니다', 'delete');
-        else if (dy >= V_THRESHOLD) setViewerHint('놓으면 저장합니다', 'save');
-        else setViewerHint('');
+        // 문턱을 넘으면 무엇이 일어날지 미리 알려 준다 — 화면 한가운데에 크게.
+        const p = Math.abs(dy) / V_THRESHOLD;
+        if (dy < 0) {
+          setFlash('버리기', 'delete', p);
+          setViewerHint(p >= 1 ? '놓으면 버립니다' : '', 'delete');
+        } else {
+          setFlash('저장', 'save', p);
+          setViewerHint(p >= 1 ? '놓으면 저장합니다' : '', 'save');
+        }
       } else {
         dragX = dx; dragY = 0;
         img.style.transform = 'translate(' + dx + 'px, 0)';
+        const p = Math.abs(dx) / THRESHOLD;
+        // 왼쪽으로 밀면 다음 장, 오른쪽으로 밀면 이전 장.
+        setFlash(dx < 0 ? '다음 ›' : '‹ 이전', '', p);
         setViewerHint('');
       }
     }, { passive: true });
 
-    stage.addEventListener('touchend', function () {
+    stage.addEventListener('touchend', function (e) {
+      if (pinching) {
+        if (e.touches.length === 0) {
+          pinching = false;
+          // 거의 원래 크기면 딱 맞춰 놓는다 (1.02 배로 남아 스와이프가 막히지 않게).
+          if (zoom <= 1.02) resetZoom();
+        }
+        return;
+      }
+      if (panning) {
+        if (e.touches.length === 0) panning = false;
+        return;
+      }
       if (!dragging) return;
       dragging = false;
       img.style.transition = 'transform 0.18s ease';
+      setFlash('');
+
+      // 거의 안 움직였으면 「두 번 누르기」 인지 본다.
+      if (Math.abs(dragX) < 10 && Math.abs(dragY) < 10) {
+        const now = Date.now();
+        const x = startX;
+        const y = startY;
+        if (now - lastTapAt < 300 && Math.hypot(x - lastTapX, y - lastTapY) < 40) {
+          lastTapAt = 0;
+          doubleTap(x, y);
+        } else {
+          lastTapAt = now; lastTapX = x; lastTapY = y;
+        }
+        img.style.transform = 'translate(0, 0) scale(' + zoom + ')';
+        setViewerHint('');
+        return;
+      }
 
       if (dragY <= -V_THRESHOLD) { swipeDelete(); return; }
       if (dragY >= V_THRESHOLD) { swipeSave(); return; }
       if (dragX <= -THRESHOLD) { step(1); return; }
       if (dragX >= THRESHOLD) { step(-1); return; }
-      img.style.transform = 'translate(0, 0)';
+      img.style.transform = 'translate(0, 0) scale(' + zoom + ')';
       setViewerHint('');
     });
+
+    // PC 미리보기 — 휠로 확대, 두 번 누르기는 dblclick 으로.
+    stage.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      setZoom(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY, false);
+    }, { passive: false });
+    stage.addEventListener('dblclick', function (e) { doubleTap(e.clientX, e.clientY); });
+
+    $('zoom-in').addEventListener('click', function () { setZoom(zoom * ZOOM_STEP); });
+    $('zoom-out').addEventListener('click', function () { setZoom(zoom / ZOOM_STEP); });
+    $('zoom-reset').addEventListener('click', resetZoom);
 
     $('viewer-prev').addEventListener('click', function () { step(-1); });
     $('viewer-next').addEventListener('click', function () { step(1); });
@@ -3026,6 +3222,9 @@
       else if (e.key === 'ArrowRight') step(1);
       else if (e.key === 'ArrowUp') swipeDelete();
       else if (e.key === 'ArrowDown') swipeSave();
+      else if (e.key === '+' || e.key === '=') setZoom(zoom * ZOOM_STEP);
+      else if (e.key === '-') setZoom(zoom / ZOOM_STEP);
+      else if (e.key === '0') resetZoom();
       else if (e.key === 'Escape') closeViewer();
     });
   }

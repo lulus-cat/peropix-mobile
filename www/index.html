@@ -320,7 +320,7 @@
 
     <div class="toolrow" id="batch-row">
       <button id="batch-enhance" class="btn small">인핸스</button>
-      <button id="batch-upscale" class="btn small">×4 확대</button>
+      <button id="batch-upscale" class="btn small">×4 업스케일</button>
       <button id="batch-compose" class="btn small">배경 합성</button>
     </div>
     <p class="hint" id="batch-hint"></p>
@@ -551,6 +551,17 @@
     <button id="viewer-prev" class="viewer-nav prev" aria-label="이전">‹</button>
     <img id="viewer-img" alt="">
     <button id="viewer-next" class="viewer-nav next" aria-label="다음">›</button>
+
+    <!-- ★밀 때 무엇이 일어날지 화면 한가운데에 크게 띄운다. 아래쪽 작은 글씨는
+         손가락에 가려 안 보인다. -->
+    <div id="viewer-flash" class="viewer-flash" hidden></div>
+
+    <!-- 손가락 두 개로 벌려도 되고, 두 번 눌러도 되고, 이 단추로도 된다. -->
+    <div class="viewer-zoom">
+      <button id="zoom-out" class="btn icon" aria-label="축소">−</button>
+      <button id="zoom-reset" class="btn small" aria-label="원래 크기">1.0×</button>
+      <button id="zoom-in" class="btn icon" aria-label="확대">＋</button>
+    </div>
   </div>
 
   <div id="viewer-hint" class="viewer-hint"></div>
@@ -558,7 +569,7 @@
   <div class="viewer-actions">
     <button id="viewer-prev-slot" class="btn small">‹ 이전 슬롯</button>
     <button id="viewer-enhance" class="btn small">인핸스</button>
-    <button id="viewer-upscale" class="btn small">×4 확대</button>
+    <button id="viewer-upscale" class="btn small">×4 업스케일</button>
     <button id="viewer-compose" class="btn small">배경</button>
     <button id="viewer-next-slot" class="btn small">다음 슬롯 ›</button>
   </div>

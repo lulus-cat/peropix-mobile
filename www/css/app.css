@@ -320,7 +320,57 @@ code {
   display: block;
   /* 스와이프 중 손가락을 따라가는 느낌. 놓으면 app.js 가 transition 을 켠다. */
   will-change: transform;
+  /* ★확대는 가운데를 기준으로 한다 — app.js 의 팬 계산이 이걸 전제로 한다. */
+  transform-origin: center center;
 }
+
+/* ★밀 때 무엇이 일어날지 한가운데에 크게 띄운다.
+   아래쪽 작은 글씨는 손가락과 손등에 가려 실제로는 안 보인다. */
+.viewer-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 28px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+  transition: transform 0.12s ease;
+}
+.viewer-flash[hidden] { display: none; }
+.viewer-flash.act-delete { color: var(--danger); }
+.viewer-flash.act-save { color: var(--ok); }
+/* 문턱을 넘은 순간 — 놓으면 실행된다는 뜻이라 한 번 커진다. */
+.viewer-flash.ready { transform: translate(-50%, -50%) scale(1.16); }
+
+/* 확대 단추 — 손가락 두 개를 쓰기 어려운 상황(한 손)을 위해 둔다. */
+.viewer-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.viewer-zoom .btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: transparent;
+  color: #fff;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 8px;
+}
+.viewer-zoom .btn.small { min-width: 54px; font-variant-numeric: tabular-nums; }
 
 /* 좌우 화살표 — 터치에서는 스와이프가 주 조작이라 반투명하게 둔다. */
 .viewer-nav {
