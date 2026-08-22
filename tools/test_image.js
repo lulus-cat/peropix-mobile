@@ -9,6 +9,16 @@ const path = require('path');
 const IU = require('../www/js/image-util.js');
 
 const FIX = path.join(__dirname, 'fixtures');
+
+// ★기준 이미지는 약 7MB 라 저장소에 넣지 않는다 (make_image_fixtures.py 로 만든다).
+//   없을 때 터지지 않고 건너뛴다 — GitHub 가 APK 를 빌드할 때는 기준 이미지가
+//   없는데, 그 때문에 빌드가 통째로 멈추면 안 된다.
+if (!fs.existsSync(path.join(FIX, 'meta.json'))) {
+  console.log('이미지 처리 검사 — 건너뜀 (기준 이미지 없음: '
+    + 'python tools/make_image_fixtures.py 로 만듭니다)');
+  process.exit(0);
+}
+
 const meta = JSON.parse(fs.readFileSync(path.join(FIX, 'meta.json'), 'utf8'));
 
 let pass = 0;

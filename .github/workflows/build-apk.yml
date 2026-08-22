@@ -1,0 +1,92 @@
+# APK 를 GitHub 가 대신 빌드해 Releases 에 붙인다.
+#
+# ★손으로 돌리는 것이 아니라 올릴 때마다 돈다. 안드로이드 스튜디오를 켜지 않아도
+#   폰에 넣을 파일이 늘 준비되어 있다.
+# ★디버그 서명이다. 안드로이드가 만들어 주는 열쇠로 서명하므로 곧바로 설치된다.
+#   (서명 없는 release APK 는 설치 자체가 안 된다.)
+# ★API 키는 APK 에 들어가지 않는다 — 앱을 처음 켤 때 사람이 넣는다.
+
+name: APK 빌드
+
+on:
+  push:
+    branches: [main]
+  # 필요할 때 손으로도 돌릴 수 있게 (Actions 탭 → Run workflow)
+  workflow_dispatch:
+
+permissions:
+  contents: write        # Releases 에 파일을 붙이려면 필요하다
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 준비
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ★검사가 깨지면 APK 를 만들지 않는다. NAI 페이로드가 틀리면 돈만 쓰고
+      #   다른 그림이 나오므로, 나가는 파일은 검사를 통과한 것이어야 한다.
+      - name: 검사
+        run: |
+          npm ci
+          npm test
+
+      - name: JDK 21 준비
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 안드로이드 SDK 준비
+        uses: android-actions/setup-android@v3
+
+      - name: 웹 파일을 안드로이드 쪽으로 옮기기
+        run: npx cap sync android
+
+      # 태그를 그대로 versionName 에 넣는다. 폰에서 어느 판을 깔았는지 알 수 있다.
+      - name: 판 번호 새기기
+        run: |
+          RUN=${{ github.run_number }}
+          NAME="1.0.$RUN"
+          sed -i "s/versionCode 1/versionCode $((RUN + 1))/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"$NAME\"/" android/app/build.gradle
+          echo "VERSION_NAME=$NAME" >> $GITHUB_ENV
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      - name: APK 빌드
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
+
+      - name: 이름 붙이기
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "out/peropix-lkit-${{ env.VERSION_NAME }}.apk"
+          ls -lh out/
+
+      # Actions 탭에서도 받을 수 있게 (Release 를 안 만들더라도)
+      - name: 산출물 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: peropix-lkit-apk
+          path: out/*.apk
+
+      - name: Release 에 붙이기
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: Peropix Lkit ${{ env.VERSION_NAME }}
+          body: |
+            폰에서 아래 `.apk` 를 눌러 받은 뒤 열면 설치됩니다.
+
+            처음 설치할 때 「출처를 알 수 없는 앱」 허용을 한 번 물어봅니다.
+            NovelAI API 키는 앱을 처음 켤 때 넣습니다 — 이 파일에는 들어 있지 않습니다.
+
+            커밋: ${{ github.sha }}
+          files: out/*.apk
