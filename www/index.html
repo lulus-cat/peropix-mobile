@@ -97,28 +97,26 @@
     </div>
 
     <label class="field">
-      <span class="label">페르소나 / 캐릭터 이름</span>
+      <span class="label">폴더 이름</span>
       <input id="persona" type="text" placeholder="예: 미아">
-      <span class="hint">저장 폴더 이름에 쓰입니다.</span>
+      <span class="hint">뽑은 그림이 이 이름의 폴더에 들어갑니다.</span>
     </label>
 
-    <label class="field">
+    <div class="row-head">
       <span class="label">작가 태그 · 퀄리티 태그</span>
-      <textarea id="base-prompt" rows="3"
-                placeholder="예: artist:wlop, masterpiece, best quality"></textarea>
-      <span class="hint">슬롯 전체에 들어가는 프롬프트 입니다.</span>
-    </label>
-
+    </div>
     <div class="toolrow">
       <select id="tagset-select" class="tool-select"></select>
       <button id="tagset-load" class="btn small">불러오기</button>
       <button id="tagset-save" class="btn small">저장</button>
       <button id="tagset-del" class="btn small">삭제</button>
     </div>
-    <p class="hint">
-      자주 쓰는 작가·퀄리티 태그를 이름 붙여 모아 둡니다.
-      불러오면 위 칸을 <b>덮어씁니다</b>.
-    </p>
+
+    <label class="field">
+      <textarea id="base-prompt" rows="3"
+                placeholder="예: artist:wlop, masterpiece, best quality"></textarea>
+      <span class="hint">슬롯 전체에 들어가는 프롬프트 입니다.</span>
+    </label>
 
     <label class="field">
       <span class="label">네거티브 프롬프트</span>
@@ -137,10 +135,7 @@
         <button id="add-char" class="btn small">+ 캐릭터</button>
       </span>
     </div>
-    <p class="hint">
-      위 태그와는 <b>별개</b>입니다. 다인물 장면에서 인물별로 나눠 넣습니다.
-      <span id="char-limit-hint"></span>
-    </p>
+    <p class="hint warn" id="char-limit-hint" hidden></p>
     <div id="chars"></div>
 
     <div class="row-head">
@@ -167,9 +162,9 @@
 
       <label class="field">
         <span class="label">규칙 직접 쓰기</span>
-        <input id="naming-template" type="text" placeholder="{persona}/{label}.png">
+        <input id="naming-template" type="text" placeholder="{folder}/{label}.png">
         <span class="hint">
-          쓸 수 있는 토큰: <code>{persona} {label} {seq} {seed} {date} {time} {model}</code>
+          쓸 수 있는 토큰: <code>{folder} {label} {seq} {seed} {date} {time} {model}</code>
         </span>
       </label>
 
@@ -380,7 +375,7 @@
 
   <div class="pad scroll">
     <label class="field">
-      <span class="label">어디를 볼까</span>
+      <span class="label">저장소 선택</span>
       <select id="folders-dest"></select>
     </label>
 

@@ -1,7 +1,7 @@
 // 저장 경로·파일 이름 규칙.
 //
-// PeroFix 정리 관례(페르소나 폴더 + 라벨 파일명)를 그대로 따른다.
-//   기본:  {persona}/{label}.png   →  "미아/happy.png"
+// PeroFix 정리 관례(폴더 이름 + 라벨 파일명)를 그대로 따른다.
+//   기본:  {folder}/{label}.png   →  "미아/happy.png"
 // ★같은 라벨이 여러 장 나오면 뒤에 _2, _3 이 붙는다 (덮어쓰지 않는다).
 // ★H 장면은 접두를 붙여 한 폴더 안에서 앞뒤로 갈린다.
 'use strict';
@@ -14,7 +14,9 @@ const Naming = (function () {
   // 윈도우 예약 이름 — 폴더·파일 이름으로 쓰면 저장이 실패한다.
   const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
-  const TOKENS = ['persona', 'label', 'seq', 'seed', 'date', 'time', 'model'];
+  // ★{persona} 는 예전 이름이다. 화면에서는 {folder} 로 부르지만, 이미 저장해 둔
+  //   규칙이 깨지면 안 되므로 둘 다 같은 값으로 읽는다.
+  const TOKENS = ['folder', 'persona', 'label', 'seq', 'seed', 'date', 'time', 'model'];
 
   /** 경로 한 조각을 안전하게 만든다. 빈 값이면 대체어를 쓴다. */
   function sanitize(part, fallback) {
@@ -50,6 +52,7 @@ const Naming = (function () {
   function render(template, vars) {
     const st = stamps(vars.now);
     const v = {
+      folder: vars.persona,
       persona: vars.persona,
       label: vars.label,
       seq: vars.seq === undefined ? '' : pad(vars.seq, 3),
@@ -113,10 +116,10 @@ const Naming = (function () {
   }
 
   const PRESETS = [
-    { id: 'matrix', name: '페르소나 폴더 (PeroFix 관례)', template: '{persona}/{label}.png' },
-    { id: 'flat', name: '한 폴더에 모두', template: '{persona}_{label}_{seq}.png' },
-    { id: 'dated', name: '날짜별 폴더', template: '{date}/{persona}_{label}.png' },
-    { id: 'seeded', name: '시드 포함 (겹침 없음)', template: '{persona}/{label}_{seed}.png' }
+    { id: 'matrix', name: '폴더별로 나누기 (PeroFix 관례)', template: '{folder}/{label}.png' },
+    { id: 'flat', name: '한 폴더에 모두', template: '{folder}_{label}_{seq}.png' },
+    { id: 'dated', name: '날짜별 폴더', template: '{date}/{folder}_{label}.png' },
+    { id: 'seeded', name: '시드 포함 (겹침 없음)', template: '{folder}/{label}_{seed}.png' }
   ];
 
   return {

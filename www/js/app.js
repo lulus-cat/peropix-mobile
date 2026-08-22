@@ -11,7 +11,10 @@
 
   let references = [];          // Precise Reference [{name,image,mode,strength,fidelity}]
   let favorites = [];           // 즐겨찾기 폴더 [{destId,path,label}]
-  let characters = [];          // [{prompt, uc, coord, skipSlotPrompt}] — 공통 프롬프트와 별개 축
+  // [{prompt, uc, coord, enabled, skipSlotPrompt}] — 공통 프롬프트와 별개 축
+  // ★skipSlotPrompt 는 화면에 조작이 없다. 가져온 JSON 이 정해 둔 값을 그대로 지킬 뿐이다
+  //   (PC 에서 JSON 을 쓰는 쪽이 인물별로 정한다). 폰에서는 건드리지 않는다.
+  let characters = [];
   let slotTarget = 'char';      // 슬롯 프롬프트를 'base'(공통) / 'char'(캐릭터) 중 어디에 붙일지
   let destinations = [];        // [{id, name, url, token}]
   let activeDestId = Store.DEVICE_ID;
@@ -330,7 +333,7 @@
   function renderNamingPreview() {
     const first = slots.filter(function (s) { return s.enabled !== false; })[0];
     const sample = Naming.render(namingTemplate, {
-      persona: persona || '페르소나',
+      persona: persona || '폴더이름',
       label: (first && first.label) || 'happy',
       seq: 1,
       seed: 1234567,
@@ -1098,7 +1101,7 @@
 
     const first = document.createElement('option');
     first.value = '';
-    first.textContent = tagsets.length ? '태그 모음 고르기' : '저장된 태그 모음 없음';
+    first.textContent = tagsets.length ? '저장된 작가태그 선택' : '저장된 작가태그 없음';
     sel.appendChild(first);
 
     tagsets.forEach(function (t) {
@@ -1165,11 +1168,10 @@
     renderSlotTargetHint();
 
     const lim = charLimit();
-    const over = characters.length > lim
-      ? ' 다만 현재 모델 상한이 ' + lim + '명이라 뒤 ' + (characters.length - lim) + '명은 전송되지 않습니다.'
-      : '';
+    const over = activeChars().length > lim;
     say($('import-msg'),
-      '캐릭터 ' + r.characters.length + '명을 ' + (append ? '추가했습니다.' : '가져왔습니다.') + over,
+      '캐릭터 ' + r.characters.length + '명을 ' + (append ? '추가했습니다.' : '가져왔습니다.')
+      + (over ? ' 켠 인물이 모델 상한(' + lim + '명)을 넘습니다 — 안 쓸 인물을 꺼 주세요.' : ''),
       over ? 'err' : 'ok');
     setTimeout(function () { show('main'); }, over ? 1600 : 700);
   }
@@ -1286,7 +1288,7 @@
 
   function renderRefHint() {
     $('ref-hint').innerHTML = refsSupported()
-      ? '인물이나 화풍을 그림으로 지정합니다. <b>참조 1장당 약 5 Anlas</b> 가 더 듭니다.'
+      ? '<b>참조 1장당 약 5 Anlas</b> 가 더 듭니다.'
       : '<b>이 모델은 Precise Reference 를 지원하지 않습니다</b> (V4.5 계열에서만 됩니다). 등록해 두어도 전송하지 않습니다.';
     $('ref-hint').className = refsSupported() ? 'hint' : 'hint warn';
   }
@@ -1429,13 +1431,29 @@
     return cap.max_characters;
   }
 
+  /** 켜 둔 인물만 전송한다. 꺼 둔 인물은 목록에 남아 있어도 이번 생성에 안 들어간다. */
+  function activeChars(list) {
+    return (list || characters).filter(function (c) { return c.enabled !== false; });
+  }
+
+  /**
+   * 인원 경고.
+   * ★목록 길이는 제한하지 않는다 — 인물을 쌓아 두고 골라 쓰는 것이 이 화면의 쓸모다.
+   *   막아야 하는 것은 "한 번에 켜 둔 인물이 모델 상한을 넘는" 경우뿐이다.
+   *   그때 조용히 잘라 보내면 돈만 쓰고 다른 그림이 나오므로 반드시 보여 준다.
+   */
   function renderCharLimitHint() {
     const lim = charLimit();
-    const over = characters.length > lim;
-    $('char-limit-hint').textContent = over
-      ? ('현재 모델은 ' + lim + '명까지입니다 — 뒤 ' + (characters.length - lim) + '명은 전송되지 않습니다.')
-      : ('현재 모델 상한: ' + lim + '명');
-    $('char-limit-hint').className = over ? 'warn' : '';
+    const on = activeChars().length;
+    const el = $('char-limit-hint');
+    if (on > lim) {
+      el.textContent = '켜 둔 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
+        + '명까지라 뒤 ' + (on - lim) + '명은 전송되지 않습니다 — 안 쓸 인물은 꺼 주세요.';
+      el.hidden = false;
+    } else {
+      el.textContent = '';
+      el.hidden = true;
+    }
   }
 
   function renderChars() {
@@ -1445,11 +1463,11 @@
 
     if (!characters.length) return;
 
-    const lim = charLimit();
-
     characters.forEach(function (c, i) {
       const el = document.createElement('div');
-      el.className = 'slot' + (i >= lim ? ' off' : '');
+      // ★생성 슬롯과 같은 규칙 — 꺼진 카드는 통째로 어두워진다.
+      //   목록에 몇 명을 쌓아 두든 상관없고, 켜 둔 인물만 전송된다.
+      el.className = 'slot' + (c.enabled === false ? ' off' : '');
 
       const head = document.createElement('div');
       head.className = 'slot-head';
@@ -1481,27 +1499,24 @@
         renderChars();
       });
 
-      // ★생성 슬롯과 같은 조작이다 — ● 는 이 인물에 슬롯 프롬프트가 붙는다는 뜻,
-      //   ○ 는 안 붙는다는 뜻. 내부 값(skipSlotPrompt)은 반대 뜻이라 뒤집어 읽고 쓴다.
-      const slotDot = document.createElement('button');
-      slotDot.className = 'btn icon' + (c.skipSlotPrompt ? ' dim' : '');
-      slotDot.textContent = c.skipSlotPrompt ? '○' : '●';
-      slotDot.title = '슬롯 프롬프트 붙이기';
-      slotDot.setAttribute('aria-label', '슬롯 프롬프트 붙이기');
-      slotDot.addEventListener('click', function () {
-        characters[i].skipSlotPrompt = !characters[i].skipSlotPrompt;
+      const toggle = document.createElement('button');
+      toggle.className = 'btn icon';
+      toggle.textContent = c.enabled === false ? '○' : '●';
+      toggle.title = '켜기/끄기';
+      toggle.setAttribute('aria-label', '이 인물 켜기/끄기');
+      toggle.addEventListener('click', function () {
+        const on = (characters[i].enabled === false);   // 꺼져 있었으면 켠다
+        characters[i].enabled = on;
         Store.setCharacters(characters);
-        renderChars();
+        el.classList.toggle('off', !on);
+        toggle.textContent = on ? '●' : '○';
+        renderCharLimitHint();
+        renderSlotTargetHint();
       });
-
-      const dotCap = document.createElement('span');
-      dotCap.className = 'dot-cap' + (c.skipSlotPrompt ? ' dim' : '');
-      dotCap.textContent = '슬롯';
 
       head.appendChild(title);
       head.appendChild(coord);
-      head.appendChild(slotDot);
-      head.appendChild(dotCap);
+      head.appendChild(toggle);
       head.appendChild(del);
       el.appendChild(head);
 
@@ -1536,9 +1551,9 @@
   function renderSlotTargetHint() {
     const t = $('slot-target').value;
     $('slot-target-hint').textContent = (t === 'char')
-      ? (characters.length
+      ? (activeChars().length
         ? '슬롯 프롬프트가 각 인물 뒤에 붙습니다. 공통 프롬프트는 그대로입니다.'
-        : '캐릭터가 없으면 공통 프롬프트에 붙습니다.')
+        : '켠 인물이 없으면 공통 프롬프트에 붙습니다.')
       : '슬롯 프롬프트가 공통 프롬프트 뒤에 붙습니다.';
   }
 
@@ -1547,7 +1562,9 @@
    * ★데스크톱판(backend.py 의 promptTarget 분기)과 같은 규칙이어야 한다.
    */
   function composePrompts(base, slotContent, target, charsIn) {
-    const chars = (charsIn || characters).slice(0, charLimit());
+    // 켠 인물만 추린 뒤 모델 상한까지 자른다. 순서를 뒤집으면 꺼 둔 인물이
+    // 상한 자리를 차지해 정작 쓰려던 인물이 밀려난다.
+    const chars = activeChars(charsIn || characters).slice(0, charLimit());
     const hasChars = chars.length > 0;
     const strip = function (s) { return s.replace(/^[, ]+|[, ]+$/g, ''); };
 
@@ -1555,6 +1572,7 @@
       return {
         basePrompt: base,
         characters: chars.map(function (c) {
+          // 가져온 JSON 이 "이 인물에는 붙이지 말라" 고 표시해 둔 경우
           if (c.skipSlotPrompt) return c;
           return {
             prompt: c.prompt ? strip(c.prompt + ', ' + slotContent) : slotContent,
@@ -1605,9 +1623,11 @@
       toggle.textContent = slot.enabled === false ? '○' : '●';
       toggle.title = '켜기/끄기';
       toggle.addEventListener('click', function () {
-        slots[i].enabled = (slots[i].enabled === false);
+        const on = (slots[i].enabled === false);
+        slots[i].enabled = on;
         Store.setSlots(slots);
-        renderSlots();
+        el.classList.toggle('off', !on);
+        toggle.textContent = on ? '●' : '○';
         renderAnlas();
       });
 
@@ -2600,7 +2620,7 @@
     $('folders-star').addEventListener('click', toggleFav);
 
     $('add-char').addEventListener('click', function () {
-      characters.push({ prompt: '', uc: '', coord: null, skipSlotPrompt: false });
+      characters.push({ prompt: '', uc: '', coord: null, skipSlotPrompt: false, enabled: true });
       Store.setCharacters(characters);
       renderChars();
       renderSlotTargetHint();

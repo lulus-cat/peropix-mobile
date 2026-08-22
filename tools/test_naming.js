@@ -12,10 +12,23 @@ const NOW = new Date(2026, 7, 21, 9, 5, 3); // 2026-08-21 09:05:03
 
 const cases = [
   {
-    why: '기본 — 페르소나 폴더 + 라벨',
+    why: '기본 — 폴더 이름 + 라벨',
+    t: '{folder}/{label}.png',
+    v: { persona: '미아', label: 'happy' },
+    want: '미아/happy.png'
+  },
+  {
+    // ★{persona} 는 예전 이름이다. 이미 저장해 둔 규칙이 깨지면 안 된다.
+    why: '예전 이름 {persona} 도 그대로 읽힌다',
     t: '{persona}/{label}.png',
     v: { persona: '미아', label: 'happy' },
     want: '미아/happy.png'
+  },
+  {
+    why: '{folder} 와 {persona} 를 섞어 써도 같은 값이 들어간다',
+    t: '{folder}/{persona}_{label}.png',
+    v: { persona: '미아', label: 'happy' },
+    want: '미아/미아_happy.png'
   },
   {
     why: '좌표형 라벨의 하이픈은 살아 있어야 한다',
