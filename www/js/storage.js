@@ -360,6 +360,18 @@ const Store = (function () {
     await setRaw(KEY_W_RANGE, JSON.stringify(r));
   }
 
+  const KEY_RECO_MIN = 'artist_reco_min';
+
+  /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
+  async function getRecoMin() {
+    const n = parseInt(await getRaw(KEY_RECO_MIN), 10);
+    return (isFinite(n) && n > 0) ? n : 100;
+  }
+
+  async function setRecoMin(n) {
+    await setRaw(KEY_RECO_MIN, String(parseInt(n, 10) || 100));
+  }
+
   async function getRecoOff() {
     return (await getRaw(KEY_RECO_OFF)) === '1';
   }
@@ -482,6 +494,8 @@ const Store = (function () {
     setGithub: setGithub,
     getWeightRange: getWeightRange,
     setWeightRange: setWeightRange,
+    getRecoMin: getRecoMin,
+    setRecoMin: setRecoMin,
     getRecoOff: getRecoOff,
     setRecoOff: setRecoOff,
     getArtists: getArtists,

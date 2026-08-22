@@ -138,41 +138,6 @@ const Danbooru = (function () {
     });
   }
 
-  /**
-   * ★「이 태그를 그리는 작가」 를 물어본다 — 추천의 근거다.
-   *
-   * category=1 로 좁히면 작가만 온다. 여기서 쓰는 눈금은 `overlap_coefficient` —
-   * **그 작가 작업의 몇 할이 이 태그를 달고 있는가** 다. frequency(전체에서 차지하는
-   * 비중)로 줄 세우면 무조건 대형 작가만 올라와 추천이 매번 똑같아진다.
-   *
-   * @param {Array<string>|string} tags 내용 태그 (여러 개면 다 가진 그림 기준)
-   */
-  function relatedUrl(tags, limit) {
-    const list = Array.isArray(tags) ? tags : String(tags || '').split(/[,\s]+/);
-    const q = list.map(normalize).filter(Boolean).slice(0, 3).join(' ');
-    if (!q) return '';
-    return API + '/related_tag.json?' + qs({
-      'search[query]': q,
-      'search[category]': CAT.artist,
-      limit: Math.min(Math.max(limit || 10, 1), 30)
-    });
-  }
-
-  /** related_tag 응답 → [{name, count, share}] (share = 그 작가 작업 중 이 태그 비율) */
-  function parseRelated(body) {
-    const d = asJson(body);
-    const list = (d && Array.isArray(d.related_tags)) ? d.related_tags : [];
-    return list.filter(function (r) {
-      return r && r.tag && r.tag.name && r.tag.category === CAT.artist && !r.tag.is_deprecated;
-    }).map(function (r) {
-      return {
-        name: r.tag.name,
-        count: r.tag.post_count || 0,
-        share: Math.round((Number(r.overlap_coefficient) || 0) * 100)
-      };
-    }).sort(function (a, b) { return b.share - a.share; });
-  }
-
   /** Danbooru 전체 장수 — 특징 태그의 분모다. */
   function totalUrl() {
     return API + '/counts/posts.json';
@@ -182,6 +147,34 @@ const Danbooru = (function () {
     const d = asJson(body);
     const n = d && d.counts ? Number(d.counts.posts) : 0;
     return n > 0 ? n : 0;
+  }
+
+  /**
+   * ★목록에서 겹치지 않게 n 개를 고른다.
+   *
+   * 추천은 「장수 100 이상」 인 작가 **약 2만 4천 명** 중에서 뽑는다. 한 번에 다 받을 수는
+   * 없으므로 무작위 쪽(페이지)을 받아 와 그중에서 다시 고른다. 여기가 그 「다시 고르는」
+   * 자리다.
+   *
+   * ★난수를 넣어 줄 수 있게 해 두었다. Math.random 을 안에서 쓰면 검사에서 「같은 것을
+   *   두 번 고르지 않는가」 를 확인할 방법이 없다.
+   */
+  function sample(list, n, rand) {
+    const r = rand || Math.random;
+    const pool = (list || []).slice();
+    const out = [];
+    while (out.length < (n || 5) && pool.length) {
+      out.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    }
+    return out;
+  }
+
+  /**
+   * 몇 페이지까지 있는지 모를 때 다음에 볼 페이지. ★빈 페이지가 나오면 절반으로 줄인다 —
+   * 문턱(장수)을 올리면 작가가 확 줄어서, 늘 같은 깊이를 노리면 계속 빈손이 된다.
+   */
+  function backoffPage(page) {
+    return Math.max(1, Math.floor((Number(page) || 1) / 2));
   }
 
   /** parseTags 결과를 {태그: 장수} 로. distinctive() 에 그대로 넣는다. */
@@ -473,8 +466,8 @@ const Danbooru = (function () {
     totalUrl: totalUrl,
     parseTotal: parseTotal,
     countMap: countMap,
-    relatedUrl: relatedUrl,
-    parseRelated: parseRelated,
+    sample: sample,
+    backoffPage: backoffPage,
     GENRES: GENRES,
     GENRE_CUT: GENRE_CUT,
     genres: genres,

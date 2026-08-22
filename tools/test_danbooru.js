@@ -182,36 +182,31 @@ check('장수 표를 만든다',
   D.countMap(D.parseTags([{ name: 'a', post_count: 5 }, { name: 'b', post_count: 7 }])).b === 7);
 
 
-// ── 9. 추천 (이 태그를 그리는 작가) ───────────────────────────────────────
-const ru = D.relatedUrl(['scenery', 'Night']);
-check('★작가만 물어본다 (category=1)', ru.indexOf('category%5D=1') !== -1, ru);
-check('여러 태그를 함께', decodeURIComponent(ru).indexOf('query]=scenery night') !== -1,
-  decodeURIComponent(ru));
-check('쉼표로 준 것도 읽는다', D.relatedUrl('a, b').indexOf('query') !== -1);
-check('★세 개까지만 (많이 넣을수록 걸리는 작가가 없어진다)',
-  decodeURIComponent(D.relatedUrl(['a', 'b', 'c', 'd'])).indexOf('a b c&') !== -1,
-  decodeURIComponent(D.relatedUrl(['a', 'b', 'c', 'd'])));
-check('빈 값이면 빈 주소', D.relatedUrl([]) === '' && D.relatedUrl('') === '');
+// ── 9. 추천 — 100장 이상에서 무작위로 ─────────────────────────────────────
+// ★추천의 근거는 「장수 100 이상」 이다 (약 2만 4천 명, 100개씩 246쪽).
+const du = D.artistTagsUrl({ min: 100, limit: 100, page: 37 });
+check('★장수 문턱을 걸어 부른다', decodeURIComponent(du).indexOf('post_count]=>100') !== -1,
+  decodeURIComponent(du));
+check('무작위 쪽을 부를 수 있다', du.indexOf('page=37') !== -1, du);
+check('작가만', du.indexOf('search%5Bcategory%5D=1') !== -1);
 
-const REL = { related_tags: [
-  { tag: { name: 'zandra', post_count: 880, category: 1, is_deprecated: false },
-    overlap_coefficient: 0.22, frequency: 0.021 },
-  { tag: { name: 'rune_xiao', post_count: 244, category: 1, is_deprecated: false },
-    overlap_coefficient: 0.454, frequency: 0.012 },
-  { tag: { name: 'touhou', post_count: 900000, category: 3, is_deprecated: false },
-    overlap_coefficient: 0.9, frequency: 0.5 },
-  { tag: { name: 'old_artist', post_count: 100, category: 1, is_deprecated: true },
-    overlap_coefficient: 0.99, frequency: 0.001 }
-] };
-const rel = D.parseRelated(REL);
-check('★작가가 아닌 것은 뺀다 (판권이 섞여 온다)',
-  rel.every(function (r) { return r.name !== 'touhou'; }),
-  rel.map(function (r) { return r.name; }).join(','));
-check('버려진 태그도 뺀다', rel.every(function (r) { return r.name !== 'old_artist'; }));
-check('★그 작가 작업 중 몇 %인지로 줄 세운다 (대형 작가만 올라오지 않게)',
-  rel[0].name === 'rune_xiao' && rel[0].share === 45,
-  rel.map(function (r) { return r.name + ':' + r.share; }).join(' '));
-check('깨진 응답이면 빈 목록', D.parseRelated('깨진').length === 0 && D.parseRelated('{}').length === 0);
+// 고르기 — 난수를 넣어 결과를 못 박는다
+const TEN = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+let calls = 0;
+const fake = function () { const v = [0.0, 0.5, 0.9, 0.1, 0.7][calls % 5]; calls++; return v; };
+const got = D.sample(TEN, 5, fake);
+check('다섯을 고른다', got.length === 5, got.join(','));
+check('★같은 것을 두 번 고르지 않는다', new Set(got).size === 5, got.join(','));
+check('목록보다 많이 달라고 해도 있는 만큼만', D.sample(['a', 'b'], 5).length === 2);
+check('빈 목록이면 빈 결과', D.sample([], 5).length === 0 && D.sample(null, 5).length === 0);
+check('원본을 건드리지 않는다', (function () {
+  const src = ['a', 'b', 'c'];
+  D.sample(src, 2);
+  return src.length === 3;
+})());
+
+check('★빈 쪽이 나오면 절반으로 줄여 다시 본다', D.backoffPage(246) === 123);
+check('1 아래로는 안 내려간다', D.backoffPage(1) === 1 && D.backoffPage(0) === 1);
 
 // ── 10. 장르 자동 분류 ────────────────────────────────────────────────────
 function mk(n, general, rating) {

@@ -1774,6 +1774,7 @@
   let lastBaked = '';          // 작가 태그 칸에 넣어 둔 조합 (다시 넣을 때 갈아 끼우려고)
   let wRange = null;           // 세기 범위 (사람이 정한다. null 이면 기본값)
   let recoOff = false;         // 「이런 작태는 어떠세요」 를 껐나
+  let recoMin = 100;           // 추천할 작가의 최소 장수
   let recoBusy = false;
   let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
   let bisSel = [];             // 그중 고른 것 (최대 20)
@@ -2527,71 +2528,47 @@
   }
 
   // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
-  // ★뽑고 난 직후에 띄운다. 그때가 다음 판을 궁리하는 순간이라, 그 자리에서 담아 두면
-  //   다음 판에 바로 쓴다. 뽑기 전에 띄우면 하려던 일을 가로막는 셈이다.
-  // ★근거는 **지금 프롬프트의 내용 태그**다 — 「이 태그를 실제로 그리는 작가」 를
-  //   Danbooru 에 물어본다. 아무나 골라 보여 주면 매번 똑같은 대형 작가만 나온다.
+  // ★**앱을 켤 때** 한 번 띄운다. 뽑고 난 뒤가 아니다 — 다 뽑고 나면 이미 그 판은 끝났고,
+  //   새 작가는 다음 판을 짜기 **전에** 알아야 쓸모가 있다.
+  // ★근거는 **장수 100 이상**이다. 그 아래는 NAI 가 배울 거리가 없어 태그를 넣어도
+  //   그림에 안 나온다 — 권해 봐야 헛걸음을 시키는 셈이다.
+  // ★100장 이상인 작가가 약 2만 4천 명이라 한 번에 다 받을 수 없다. 무작위 쪽(페이지)을
+  //   받아 그중에서 다시 고른다. 그래서 켤 때마다 다른 얼굴이 나온다.
 
-  /** 프롬프트에서 추천의 씨앗이 될 내용 태그를 고른다. */
-  function recoSeeds() {
-    const text = ($('base-prompt').value + ', '
-      + slots.filter(function (x) { return x.enabled; })
-        .map(function (x) { return x.prompt || ''; }).join(', '));
-    // 서랍에 있는 작가와 흔한 품질 태그는 씨앗이 못 된다.
-    const SKIP = /^(masterpiece|best quality|good quality|amazing quality|very aesthetic|absurdres|highres|general|sensitive|nsfw|no text|lowres|bad anatomy)$/i;
-    const drawer = artDrawer.map(function (e) { return e.tag; });
-    const seen = Object.create(null);
-    return text.split(/[,\n]/).map(function (t) {
-      return t.replace(/^\s*[\d.]+\s*::/, '').replace(/::\s*$/, '')
-        .replace(/[{}\[\]]/g, '').trim().toLowerCase();
-    }).filter(function (t) {
-      if (!t || t.length < 3 || seen[t]) return false;
-      if (SKIP.test(t)) return false;
-      if (drawer.indexOf(Danbooru.normalize(t)) !== -1) return false;
-      if (/[#|]/.test(t)) return false;                 // 와일드카드 자리는 뺀다
-      seen[t] = true;
-      return true;
-    }).slice(0, 3);
+  const RECO_PAGE_MAX = 246;   // 100장 이상 · 한 쪽 100명 기준 (2026-08 실측 24,602명)
+
+  /** 한 쪽을 받아 온다. ★빈 쪽이면 절반으로 줄여 다시 본다 (문턱을 올리면 쪽수가 준다). */
+  async function recoPage(min) {
+    let page = 1 + Math.floor(Math.random() * RECO_PAGE_MAX);
+    for (let i = 0; i < 4; i++) {
+      const rows = Danbooru.parseTags(
+        await dbGet(Danbooru.artistTagsUrl({ min: min, limit: 100, page: page })));
+      if (rows.length) return rows;
+      if (page === 1) return [];
+      page = Danbooru.backoffPage(page);
+    }
+    return [];
   }
 
   async function openReco(force) {
     if (recoBusy) return;
     if (recoOff && !force) return;
-    const seeds = recoSeeds();
-    if (!seeds.length) {
-      if (force) toast('프롬프트에 내용 태그가 있어야 추천할 수 있습니다.', 2600);
-      return;
-    }
     recoBusy = true;
-    $('reco-why').textContent = seeds.join(' · ') + ' 를 실제로 그리는 작가입니다.';
+    const min = recoMin;
+    $('reco-why').textContent = '그림 ' + min.toLocaleString() + '장 이상인 작가 중에서 골랐습니다.';
     $('reco-list').innerHTML = '<p class="hint">찾는 중…</p>';
     $('reco-off').checked = recoOff;
+    $('reco-min').value = String(min);
     $('reco').hidden = false;
     try {
-      const rows = Danbooru.parseRelated(await dbGet(Danbooru.relatedUrl(seeds, 24)))
-        // 이미 서랍에 있는 사람은 추천할 것이 없다.
-        .filter(function (r) { return !Artists.has(artDrawer, r.name); })
-        // ★너무 적은 작가는 빼 둔다 — 태그는 맞아도 NAI 가 모른다.
-        .filter(function (r) { return r.count >= 50; });
-      await renderReco(pickFive(rows));
+      const rows = (await recoPage(min))
+        // 이미 서랍에 있는 사람은 권할 것이 없다.
+        .filter(function (r) { return !r.deprecated && !Artists.has(artDrawer, r.name); });
+      await renderReco(Danbooru.sample(rows, 5));
     } catch (e) {
       $('reco-list').innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
     }
     recoBusy = false;
-  }
-
-  /**
-   * 다섯을 고른다. ★맨 위 다섯만 주면 「다른 작가」 를 눌러도 같은 얼굴이다.
-   *   위쪽을 좀 더 자주 뽑되 아래쪽도 섞이게 한다.
-   */
-  function pickFive(rows) {
-    const pool = rows.slice(0, 20);
-    const out = [];
-    while (out.length < 5 && pool.length) {
-      const i = Math.floor(Math.pow(Math.random(), 1.6) * pool.length);
-      out.push(pool.splice(i, 1)[0]);
-    }
-    return out;
   }
 
   async function renderReco(rows) {
@@ -2616,9 +2593,7 @@
       nm.textContent = r.name.replace(/_/g, ' ');
       const sub = document.createElement('div');
       sub.className = 'reco-sub';
-      const rc = Danbooru.reach(r.count);
-      sub.textContent = rc.label + ' · ' + r.count.toLocaleString() + '장 · 이 태그 '
-        + r.share + '%';
+      sub.textContent = Danbooru.reach(r.count).label + ' · ' + r.count.toLocaleString() + '장';
       main.appendChild(nm);
       main.appendChild(sub);
       row.appendChild(main);
@@ -2626,28 +2601,37 @@
       const keep = document.createElement('button');
       keep.className = 'btn small';
       keep.textContent = '담기';
-      keep.addEventListener('click', async function () {
-        artDrawer = Artists.add(artDrawer, { tag: r.name, count: r.count }, Date.now());
-        await Store.setArtists(artDrawer);
-        keep.textContent = '담았음';
-        keep.disabled = true;
-        renderDrawer();
-      });
       row.appendChild(keep);
       box.appendChild(row);
 
-      // 그림은 뒤따라 채운다 — 다섯 명을 다 기다리면 시트가 한참 비어 있다.
-      dbGet(Danbooru.postsUrl({ name: r.name, rating: $('art-rating').value, limit: 6 }))
+      // ★그림과 장르는 뒤따라 채운다. 다섯 명을 다 기다리면 시트가 한참 비어 있다.
+      //   같은 응답에서 장르까지 재므로 부르는 횟수가 늘지 않는다.
+      dbGet(Danbooru.postsUrl({ name: r.name, rating: $('art-rating').value, limit: 12 }))
         .then(function (body) {
-          Danbooru.images(JSON.parse(body || '[]'), { max: 2 }).forEach(function (im) {
+          const posts = JSON.parse(body || '[]');
+          Danbooru.images(posts, { max: 2 }).forEach(function (im) {
             const img = document.createElement('img');
             img.loading = 'lazy';
             img.src = im.thumb;
             img.alt = '';
             th.appendChild(img);
           });
+          const gs = Danbooru.genres(posts);
+          r.genres = gs.map(function (g) { return g.key; });
+          if (gs.length) {
+            sub.textContent += ' · ' + gs.map(function (g) { return g.label; }).join(' ');
+          }
         })
-        .catch(function () { /* 그림이 없어도 이름과 숫자는 쓸모가 있다 */ });
+        .catch(function () { /* 그림이 없어도 이름과 장수는 쓸모가 있다 */ });
+
+      keep.addEventListener('click', async function () {
+        artDrawer = Artists.add(artDrawer,
+          { tag: r.name, count: r.count, genres: r.genres || [] }, Date.now());
+        await Store.setArtists(artDrawer);
+        keep.textContent = '담았음';
+        keep.disabled = true;
+        renderDrawer();
+      });
     });
   }
 
@@ -4878,11 +4862,6 @@
     if (options.notify_on_complete && !cancelRequested) {
       Notify.done('생성이 끝났습니다', (persona ? persona + ' · ' : '') + summary);
     }
-
-    // ★뽑고 난 직후가 다음 판을 궁리하는 순간이라 여기서 권한다.
-    //   깎기 중에는 띄우지 않는다 — 한창 범인을 좁히는 중에 다른 작가를 들이밀면
-    //   그 판이 흐트러진다. 중지했거나 한 장도 못 만들었으면 권할 자리가 아니다.
-    if (!bis && !bisScan && !cancelRequested && done > 0) openReco(false);
   }
 
   // ── 권한 ─────────────────────────────────────────────────────────────────
@@ -5021,6 +5000,7 @@
     artMix = await Store.getArtistMix();
     wRange = await Store.getWeightRange();
     recoOff = await Store.getRecoOff();
+    recoMin = await Store.getRecoMin();
     renderWeightUI();
     renderGhRows();
     $('jobs-auto').checked = jobsAuto;
@@ -5033,6 +5013,12 @@
     show((await Store.hasToken()) ? 'main' : 'setup');
     // 잔량은 통신이 필요하므로 화면을 먼저 띄우고 뒤따라 채운다.
     refreshAnlas();
+
+    // ★앱을 켤 때 한 번 권한다 — 새 작가는 판을 짜기 **전에** 알아야 쓸모가 있다.
+    //   키를 아직 안 넣은 첫 실행에는 띄우지 않는다 (그때 할 일은 키 넣기다).
+    if (await Store.hasToken()) {
+      setTimeout(function () { openReco(false); }, 1200);
+    }
 
     // ★설정을 다 읽은 뒤에 인트로를 걷는다. 먼저 걷으면 빈 화면이 잠깐 보인다.
     const intro = $('intro');
@@ -5285,6 +5271,11 @@
       if (recoOff) toast('설정에서 다시 켤 수 있습니다.', 2400);
     });
     $('reco-more').addEventListener('click', function () { openReco(true); });
+    $('reco-min').addEventListener('change', async function () {
+      recoMin = parseInt($('reco-min').value, 10) || 100;
+      await Store.setRecoMin(recoMin);
+      openReco(true);
+    });
     $('bis-start').addEventListener('click', bisStart);
     $('bis-shoot').addEventListener('click', bisShoot);
     $('bis-undo').addEventListener('click', function () {
