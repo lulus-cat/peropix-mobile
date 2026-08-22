@@ -22,7 +22,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ★지난 판 이후 무엇이 바뀌었는지 쓰려면 **역사와 태그가 다 있어야 한다.**
+      #   기본값(fetch-depth: 1)이면 커밋이 하나뿐이라 릴리즈 노트가 통째로 빈다.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Node 준비
         uses: actions/setup-node@v4
@@ -95,16 +99,20 @@ jobs:
           name: peropix-lkit-apk
           path: out/*.apk
 
+      # ★"뭐가 바뀐 판인지" 를 릴리즈에 적는다. 파일만 올려 두면 받는 사람은 판 번호만
+      #   보고 깔지 말지를 정해야 한다. 커밋 제목을 그대로 쓰고, 자세한 설명은 접어 둔다.
+      - name: 이번 판에 바뀐 것 모으기
+        run: tools/release_notes.sh > out/NOTES.md
+
       - name: Release 에 붙이기
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION_NAME }}
+          # ★태그를 **이 빌드가 만들어진 커밋**에 붙인다. 이걸 빼면 GitHub 이 태그를
+          #   기본 브랜치(main) 끝에 만들어 버린다 — APK 는 브랜치에서 나왔는데 태그와
+          #   소스 묶음(zip)은 다른 코드를 가리키게 되고, "지난 판 이후 무엇이 바뀌었나"
+          #   도 계산할 수 없다. 실제로 v1.0.6~v1.0.9 가 그렇게 붙어 있었다.
+          target_commitish: ${{ github.sha }}
           name: Peropix Lkit ${{ env.VERSION_NAME }}
-          body: |
-            폰에서 아래 `.apk` 를 눌러 받은 뒤 열면 설치됩니다.
-
-            처음 설치할 때 「출처를 알 수 없는 앱」 허용을 한 번 물어봅니다.
-            NovelAI API 키는 앱을 처음 켤 때 넣습니다 — 이 파일에는 들어 있지 않습니다.
-
-            커밋: ${{ github.sha }}
+          body_path: out/NOTES.md
           files: out/*.apk

@@ -421,6 +421,9 @@ img.내도메인.com {
 폰 브라우저로 위 링크를 열고 `.apk` 파일을 누르면 바로 받아집니다.
 받은 파일을 눌러 설치하면 끝입니다 (「출처를 알 수 없는 앱」 허용은 아래 참고).
 
+**릴리즈마다 「이번 판에서 바뀐 것」 이 적혀 있습니다.** 지난 판 이후의 커밋 제목을 그대로
+모으고, 왜 그렇게 고쳤는지는 「자세한 설명」 을 펼치면 나옵니다 (`tools/release_notes.sh`).
+
 직접 돌리고 싶으면 **Actions 탭 → APK 빌드 → Run workflow** 를 누르면 됩니다.
 
 ---
@@ -550,6 +553,7 @@ tools/
   deploy/install.sh       리눅스 서버에 상시 실행으로 설치
   deploy/DEPLOY.md        서버 설치 안내
   make_icons.py           icon.png → 안드로이드 아이콘 전 크기
+  release_notes.sh        릴리즈에 붙일 「이번 판에서 바뀐 것」
   serve.js                PC 미리보기 서버
   verify_payload.js       NAI 페이로드 대조        ← 검사
   test_jobs.js            생성 목록 검사            ← 검사
