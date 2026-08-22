@@ -92,7 +92,7 @@ const Bisect = (function () {
       return {
         kind: 'reference',
         group: [],
-        note: '아무것도 빼지 않은 원래 조합입니다. 이 그림을 기준으로 봅니다.',
+        note: '아무도 빼지 않은 원래 조합입니다. 이 그림을 기준으로 삼습니다.',
         shots: shotsFor(state, [], 'ref')
       };
     }
@@ -110,7 +110,7 @@ const Bisect = (function () {
       kind: 'split',
       group: left,
       other: right,
-      note: left.length + '명을 뺀 그림입니다. 그 요소가 사라졌으면 범인은 뺀 쪽에 있습니다.',
+      note: left.length + '명을 뺀 그림입니다. 찾던 부분이 사라졌으면 범인은 뺀 쪽에 있습니다.',
       shots: shots
     };
   }
@@ -248,21 +248,21 @@ const Bisect = (function () {
   function summary(state) {
     if (!state) return '';
     if (state.shared) {
-      return '한 명이 만든 것이 아닙니다 — 여러 태그가 함께 만들고 있습니다.';
+      return '한 명이 만든 게 아닙니다. 여러 작가가 같이 만들어내고 있습니다.';
     }
     if (state.culprit) {
       const who = state.culprit.replace(/_/g, ' ');
       return state.goal === 'drop'
-        ? ('범인은 ' + who + ' 입니다. 빼거나 세기를 낮추세요.')
-        : ('그 요소는 ' + who + ' 덕입니다. 세기를 올려 보세요.');
+        ? ('범인은 ' + who + ' 입니다. 빼거나 세기를 낮춰 보세요.')
+        : ('그 부분은 ' + who + ' 덕입니다. 세기를 올려 보세요.');
     }
     if (state.done && !state.candidates.length) {
-      return '후보가 남지 않았습니다 — 작가 태그 때문이 아닐 수 있습니다.';
+      return '후보가 다 떨어졌습니다. 작가 태그 때문이 아닐 수도 있습니다.';
     }
     if (!state.rounds.length) {
-      return '먼저 원래 조합을 한 장 뽑아 기준을 잡습니다.';
+      return '먼저 원래 조합을 한 장 뽑아서 기준을 잡습니다.';
     }
-    return '남은 후보 ' + state.candidates.length + '명 · 앞으로 ' + roundsLeft(state) + '라운드';
+    return '남은 후보 ' + state.candidates.length + '명 · 앞으로 ' + roundsLeft(state) + '번';
   }
 
   return {

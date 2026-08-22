@@ -106,7 +106,7 @@ let sh = B.answer(B.start({ tags: ['a', 'b', 'c', 'd'], seed: 1 }), {});
 sh = B.answer(sh, { L: true, R: true });
 check('★양쪽 다 남으면 합작으로 본다', sh.shared === true && sh.done === true);
 check('합작이면 범인을 지목하지 않는다', sh.culprit === null);
-check('합작을 말로 알려 준다', /여러 태그가 함께/.test(B.summary(sh)), B.summary(sh));
+check('합작을 말로 알려 준다', /여러 작가가 같이/.test(B.summary(sh)), B.summary(sh));
 
 let bo = B.answer(B.start({ tags: ['a', 'b', 'c', 'd'], seed: 1 }), {});
 bo = B.answer(bo, { L: false, R: false });
@@ -150,7 +150,7 @@ check('도는 중에는 남은 후보 수를 알려 준다',
   /남은 후보 2명/.test(B.summary(B.answer(B.start({ tags: ['a', 'b'] }), {}))),
   B.summary(B.answer(B.start({ tags: ['a', 'b'] }), {})));
 check('★없애려던 것이면 「빼라」 고 말한다',
-  /빼거나 세기를 낮추/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'drop' }))),
+  /빼거나 세기를 낮춰/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'drop' }))),
   B.summary(solve(['a', 'b'], 'a', { goal: 'drop' })));
 check('★살리려던 것이면 「올려 보라」 고 말한다',
   /세기를 올려/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'keep' }))),

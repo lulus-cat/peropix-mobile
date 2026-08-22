@@ -591,7 +591,7 @@
   <div class="pad scroll">
     <p class="hint">
       <code>#이름</code> 을 한 줄에 홀로 쓰면 풀 정의, 프롬프트 안에 쓰면 그 풀에서 하나를 뽑습니다.
-      <b>슬롯마다 따로 뽑습니다</b> — 한 배치 안에서도 장마다 다른 조합이 나옵니다.
+      <b>슬롯마다 따로 뽑습니다</b> 한 번 돌릴 때도 장마다 다른 조합이 나옵니다.
       <code>{a|b}</code> 와 <code>||a|b||</code> 도 씁니다.
     </p>
 
@@ -707,10 +707,10 @@
            두면 안 된다 — 만들기부터 안내한다. 앱은 저장소를 만들지도, 쓰지도 못한다
            (그럴 권한을 폰에 주지 않는다). 파일은 AI 에게 시켜 넣는다. -->
       <details class="panel" id="gh-setup">
-        <summary>처음이면 — 지시함 저장소 만들기</summary>
+        <summary>처음이라면: 지시함 저장소 만들기</summary>
         <ol class="steps">
-          <li><b>새 저장소를 만듭니다.</b> 이름은 아무거나, 공개 여부는 <b>Private 을 권합니다</b>
-            — 프롬프트가 그대로 남는 곳입니다.
+          <li><b>새 저장소를 만듭니다.</b> 이름은 아무거나, 공개 여부는 <b>Private 을 권합니다</b>.
+            프롬프트가 그대로 남는 곳이니까요.
             <button id="gh-new" class="btn small block">GitHub 에서 새 저장소 만들기</button>
           </li>
           <li><b>AI 에게 세팅을 시킵니다.</b> 아래 문구를 복사해 Claude Code·Codex 에 그대로
@@ -721,7 +721,7 @@
             (Settings → Developer settings → Fine-grained tokens → 그 저장소에 Contents: Read).</li>
           <li>위 <b>저장소</b> 칸에 <code>내이름/저장소이름</code> 을 적고 <b>저장하고 확인</b>.</li>
         </ol>
-        <p class="hint">폴더는 이렇게 갑니다 — 작품마다 하나씩, 그 안에 인물과 슬롯:</p>
+        <p class="hint">폴더는 이렇게 만듭니다. 작품마다 하나씩, 그 안에 인물과 슬롯:</p>
         <pre class="code-block">미아/
   characters/미아.json     ← 인물 (그 작품 안에서 공용)
   slots/일상.json          ← 슬롯 묶음 = 작업 하나
@@ -730,7 +730,7 @@
   characters/리사.json
   slots/교복.json</pre>
         <p class="hint">★<b>슬롯 파일이 새로 생기거나 내용이 바뀌면</b> 그것이 새 작업이 됩니다.
-          인물 파일을 고치는 것은 작업을 만들지 않습니다 — 다음에 그 작품을 돌릴 때 최신 인물을 씁니다.</p>
+          인물 파일을 고치는 건 작업이 되지 않습니다. 다음에 그 작품을 돌릴 때 최신 인물이 쓰입니다.</p>
       </details>
     </div>
 
@@ -758,7 +758,7 @@
       <p class="hint"><b>인물 파일</b> — <code>미아/characters/미아.json</code></p>
       <pre class="code-block">{ "name": "미아", "content": "1girl, silver hair, blue eyes" }</pre>
       <p class="hint">저장 폴더는 <b>작품 폴더 이름</b>을 씁니다. 슬롯 파일에 <code>folder</code> 를
-        적으면 그것이 이깁니다. <code>options</code> 는 아는 값만 받습니다 — 모델·크기·steps·cfg·
+        적으면 그것이 이깁니다. <code>options</code> 는 아는 값만 받습니다. 모델, 크기, steps, cfg, 
         샘플러·UC·퀄리티·네거티브·배수·한 명 모드·투명 배경·저장 형식·Variety+·시드.</p>
     </details>
 
@@ -797,9 +797,9 @@
     <label class="field">
       <span class="label">배치</span>
       <select id="cmp-mode">
-        <option value="auto">고정 — 모든 장이 같은 자리에 선다</option>
-        <option value="random">무작위 — 장마다 다른 자리 (잘리지 않는 범위)</option>
-        <option value="as-is">그대로 얹기 — 원본 크기</option>
+        <option value="auto">고정 (모든 장이 같은 자리)</option>
+        <option value="random">무작위 (잘리지 않는 선에서 장마다 다른 자리)</option>
+        <option value="as-is">그대로 얹기 (원본 크기)</option>
         <option value="manual">직접 맞추기</option>
       </select>
       <span class="hint" id="cmp-mode-hint"></span>
@@ -897,10 +897,11 @@
   </div>
 </section>
 
-<!-- ★작가 태그를 다루는 곳. 세 가지 일을 한 화면에서 한다.
-       찾기 — Danbooru 에 실시간으로 물어 반영율(장수)과 화풍을 확인한다
-       서랍 — 엄선한 것을 갈래로 나눠 두고 섞는다 (세기 배분 포함)
-       깎기 — 여러 명을 넣고 뽑은 그림에서 「그 요소를 만든 범인」 을 찾는다 -->
+<!-- ★작가 태그를 다루는 곳. 네 가지 일을 한 화면에서 한다.
+       찾기: Danbooru 에 실시간으로 물어 반영율(그림 수)과 그림체를 확인한다
+       서랍: 골라 둔 작가를 갈래로 나누고 섞는다 (세기 배분 포함)
+       추천: 그림 100장 이상인 작가 중에서 무작위로 권한다
+       그림체: 조합(무작위 가중치)과 깎기(범인 찾기) -->
 <section id="screen-artists" class="screen" hidden>
   <header class="topbar">
     <button id="artists-back" class="btn icon" aria-label="뒤로">
@@ -922,7 +923,7 @@
       <span class="label">작가 이름</span>
       <input id="art-q" type="text" placeholder="예: wlop · 별명으로도 찾습니다"
              autocomplete="off" autocapitalize="off" spellcheck="false">
-      <span class="hint">Danbooru 에 그때그때 물어봅니다. 목록을 앱에 넣어 두지 않으니 늘 최신입니다.</span>
+      <span class="hint">찾을 때마다 Danbooru 에 물어보기 때문에 항상 최신 정보입니다.</span>
     </label>
     <div id="art-ac" class="art-ac" hidden></div>
 
@@ -935,7 +936,7 @@
       </select>
       <button id="art-open" class="btn small">Danbooru</button>
     </div>
-    <p class="hint">★미리보기 그림은 Danbooru 에서 그대로 옵니다. 수위는 여기서 정합니다.</p>
+    <p class="hint">미리보기는 Danbooru 의 실제 그림입니다. 어디까지 볼지 여기서 고르세요.</p>
 
     <div id="art-msg" class="msg" hidden></div>
     <div id="art-detail" hidden>
@@ -961,12 +962,12 @@
 
     <details class="panel">
       <summary>반영율이란</summary>
-      <p class="hint">★정직하게 말하면 <b>추정</b>입니다. NAI 가 무엇을 얼마나 배웠는지는 공개되지
-        않았습니다. 다만 학습이 Danbooru 를 바탕으로 한 이상 <b>그림 수가 곧 학습량</b>이고,
-        그림이 적은 작가는 실제로 잘 안 나옵니다. 그래서 장수를 그대로 눈금으로 쓰되
-        「몇 장이라 이 등급인지」를 같이 적어 직접 판단하실 수 있게 했습니다.</p>
-      <p class="hint">★장수가 많아도 <b>최근에 몰려 있으면</b> 학습 시점 이후라 안 먹을 수
-        있습니다. 그래서 「몇 %가 몇 년 이전인지」도 함께 적습니다.</p>
+      <p class="hint">솔직히 말하면 <b>짐작</b>입니다. NAI 가 뭘 얼마나 배웠는지는 공개된 적이
+        없습니다. 다만 NAI 는 Danbooru 로 학습했으니 <b>그림이 많은 작가일수록 많이 배웠다</b>고
+        볼 수 있고, 실제로 그림이 적은 작가는 태그를 넣어도 잘 안 나옵니다. 그래서 그림 수를
+        그대로 기준으로 쓰되, 몇 장이라서 이 등급인지 같이 적어 뒀습니다. 판단은 직접 하세요.</p>
+      <p class="hint">그림이 많아도 <b>최근 것만 잔뜩</b>이면 NAI 가 배운 뒤에 올라온 그림이라
+        안 먹힐 수 있습니다. 그래서 몇 년 이전 그림이 몇 %인지도 같이 보여 줍니다.</p>
     </details>
   </div>
 
@@ -984,14 +985,14 @@
 
     <div class="row-head"><span class="label">섞기</span></div>
     <div id="mix-list" class="mix-list"></div>
-    <p id="mix-empty" class="hint">위에서 작가를 눌러 담으면 여기서 섞습니다.</p>
+    <p id="mix-empty" class="hint">위에서 작가를 누르면 여기에 담깁니다.</p>
 
     <!-- ★숫자 칸을 폰에서 톡톡 치는 것은 성가시다. 자주 쓰는 폭을 단추로 두고,
          꼭 필요할 때만 숫자를 편다. -->
     <details class="panel">
       <summary>가중치 범위 정하기</summary>
-      <p class="hint">작가 세기를 어디까지 올리고 내릴지의 폭입니다. 넓힐수록 변화가 크지만
-        <b>1.5 를 넘으면 그 작가가 그림을 잡아먹고 0.5 아래면 없는 것과 다르지 않습니다.</b></p>
+      <p class="hint">작가 세기를 어디까지 올리고 내릴 수 있는지 정합니다. 넓힐수록 차이가
+        커지지만, <b>1.5 를 넘으면 그 작가가 그림을 다 덮어버리고 0.5 아래면 넣으나 마나입니다.</b></p>
       <div class="row-head"><span class="label">폭</span></div>
       <div id="w-presets" class="chips"></div>
       <div class="row-head"><span class="label">간격</span></div>
@@ -1017,9 +1018,9 @@
     <label class="check">
       <input id="mix-norm" type="checkbox" checked> 세기 합을 작가 수로 고정
     </label>
-    <p class="hint">★끄면 절대값이 됩니다. 다섯 명한테 전부 1.2 를 주면 프롬프트가 작가 쪽으로
-      쏠려 구도·표정·의상 태그가 밀려납니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩
-      내려가서, 「이 작가를 더 세게」가 다른 것을 망가뜨리지 않습니다.</p>
+    <p class="hint">다섯 명한테 전부 1.2 를 주면 프롬프트가 작가 쪽으로 쏠려서 구도, 표정,
+      옷 태그가 밀립니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩 내려가니까, 세기를
+      올려도 다른 게 망가지지 않습니다. 끄면 적은 값이 그대로 나갑니다.</p>
 
     <label class="field">
       <span class="label">이렇게 들어갑니다</span>
@@ -1030,16 +1031,16 @@
       <button id="mix-copy" class="btn small">복사</button>
       <button id="mix-clear" class="btn small">비우기</button>
     </div>
-    <p class="hint">세기는 <code>숫자::태그::</code> 로 적힙니다. 1.0 인 작가는 문법을 안 붙입니다 —
-      뜻은 같은데 프롬프트만 지저분해지기 때문입니다.</p>
+    <p class="hint">세기는 <code>숫자::태그::</code> 모양으로 나갑니다. 1.0 인 작가는 그냥
+      이름만 씁니다. 어차피 같은 뜻인데 프롬프트만 지저분해지니까요.</p>
   </div>
 
   <!-- ── 추천 ───────────────────────────────────────────────────────── -->
   <!-- ★앱을 켤 때 뜨는 시트와 **같은 코드**로 그린다. 두 벌로 두면 한쪽만 고쳐져
        팝업과 메뉴가 다른 것을 보여 주게 된다. -->
   <div class="pad scroll" id="pane-reco" hidden>
-    <p class="hint">그림이 <b>많은</b> 작가일수록 NAI 가 잘 알아봅니다. 그 문턱을 정해 두고
-      무작위로 골라 보여 드립니다 — 누를 때마다 다른 얼굴이 나옵니다.</p>
+    <p class="hint">그림이 <b>많은</b> 작가일수록 NAI 가 잘 알아봅니다. 최소 몇 장 이상으로
+      할지 정해 두면 그중에서 아무나 골라 보여 줍니다. 누를 때마다 다른 작가가 나옵니다.</p>
     <div class="toolrow">
       <select id="reco-tab-min" class="tool-select">
         <option value="100">100장 이상</option>
@@ -1050,7 +1051,7 @@
       <button id="reco-tab-go" class="btn primary">다시 뽑기</button>
     </div>
     <div id="reco-tab-list" class="reco-list"></div>
-    <p class="hint">★이미 서랍에 있는 사람은 권하지 않습니다. 담으면 장르까지 함께 들어갑니다.</p>
+    <p class="hint">서랍에 이미 있는 작가는 빼고 보여 줍니다. 담으면 장르도 같이 저장됩니다.</p>
   </div>
 
   <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
@@ -1060,30 +1061,31 @@
   <div class="pad scroll" id="pane-style" hidden>
 
     <details class="panel" id="st-panel">
-      <summary>시험 판 — 작가 말고는 다 고정</summary>
-      <p class="hint">★그림체를 견주려면 <b>작가 말고는 아무것도 달라지면 안 됩니다.</b>
-        평소 쓰던 슬롯으로 돌리면 베이스·네거티브·인물이 전부 딸려 들어와, 그림이 달라진 것이
-        작가 때문인지 원래 프롬프트 때문인지 알 수 없습니다. 그래서 여기는 <b>자기 프롬프트
-        한 벌</b>을 따로 씁니다 — 평소 것은 손대지 않고, 시험이 끝나면 그대로 돌려놓습니다.</p>
+      <summary>테스트 설정 (작가만 빼고 전부 고정)</summary>
+      <p class="hint">그림체를 비교하려면 <b>작가 말고는 아무것도 달라지면 안 됩니다.</b>
+        평소 쓰던 슬롯으로 돌리면 베이스, 네거티브, 캐릭터 프롬프트가 전부 같이 딸려 와서,
+        그림이 달라진 게 작가 때문인지 원래 프롬프트 때문인지 알 수가 없습니다. 그래서 여기서는
+        <b>테스트용 프롬프트를 따로</b> 씁니다. 평소 쓰던 건 건드리지 않고, 다 뽑고 나면
+        그대로 돌아옵니다.</p>
 
       <label class="field">
         <span class="label">구도</span>
         <select id="st-preset" class="tool-select"></select>
-        <span class="hint">같은 작가라도 상반신이냐 전신이냐로 인상이 달라집니다. 구도를
-          고정해야 작가 사이의 차이만 남습니다.</span>
+        <span class="hint">같은 작가라도 상반신이냐 전신이냐에 따라 느낌이 꽤 다릅니다.
+          구도를 고정해야 작가끼리의 차이만 남습니다.</span>
       </label>
       <label class="field" id="st-comp-row" hidden>
         <span class="label">구도 태그</span>
         <textarea id="st-comp" rows="2" placeholder="예: 2girls, kiss, upper body"></textarea>
       </label>
       <label class="field">
-        <span class="label">인물 (시험용)</span>
+        <span class="label">테스트용 캐릭터</span>
         <textarea id="st-char" rows="2"></textarea>
       </label>
       <label class="field">
         <span class="label">품질</span>
         <textarea id="st-base" rows="2"></textarea>
-        <span class="hint">★화풍을 건드리는 말(수채·러프 같은)을 넣으면 작가 차이가 덮입니다.</span>
+        <span class="hint">수채화, 러프처럼 그림체를 바꾸는 말은 넣지 마세요. 작가 차이가 묻힙니다.</span>
       </label>
       <label class="field">
         <span class="label">네거티브</span>
@@ -1105,9 +1107,9 @@
 
     <!-- ── 조합 ─────────────────────────────────────────────────────── -->
     <div id="sub-combo">
-      <p class="hint">고른 작가들에게 <b>무작위 가중치</b>를 여러 벌 매겨 한 번에 뽑습니다.
-        어느 배합이 좋은지는 눈으로만 알 수 있으니, 손으로 슬라이더를 옮기는 것보다
-        여러 벌을 뽑아 견주는 편이 빠릅니다.</p>
+      <p class="hint">고른 작가들에게 <b>가중치를 아무렇게나</b> 매긴 조합을 여러 개 만들어
+        한 번에 뽑습니다. 어떤 조합이 좋은지는 결국 눈으로 봐야 아니까, 슬라이더를 하나씩
+        옮기는 것보다 여러 개 뽑아서 고르는 게 빠릅니다.</p>
 
       <div class="row-head">
         <span class="label">섞을 작가</span>
@@ -1120,27 +1122,32 @@
       </div>
       <div id="cmb-pick" class="bis-pick"></div>
 
+      <div class="row-head"><span class="label">가중치 폭</span></div>
+      <div id="cmb-presets" class="chips"></div>
+      <div class="row-head"><span class="label">간격</span></div>
+      <div id="cmb-steps" class="chips"></div>
+      <p class="hint" id="cmb-range"></p>
+
       <label class="field">
-        <span class="label">몇 벌 뽑을까</span>
+        <span class="label">몇 개 뽑을까</span>
         <div class="range-row">
           <input id="cmb-n" type="range" min="2" max="12" step="1" value="6">
           <span id="cmb-n-val" class="range-val"></span>
         </div>
       </label>
-      <p class="hint" id="cmb-range"></p>
 
       <label class="check">
         <input id="cmb-seed-fix" type="checkbox" checked> 시드 고정
       </label>
-      <p class="hint">★켜 두면 배합만 다르고 나머지는 같은 그림이 나옵니다. 끄면 배합과
-        시드가 같이 달라져 무엇 때문에 달라졌는지 알 수 없습니다.</p>
+      <p class="hint">켜 두면 가중치만 다르고 나머지는 똑같은 그림이 나옵니다. 끄면 가중치와
+        시드가 같이 바뀌어서, 뭐 때문에 달라졌는지 알 수 없게 됩니다.</p>
 
       <div id="cmb-est" class="cost-est"></div>
-      <button id="cmb-run" class="btn primary block">무작위 조합 뽑기</button>
+      <button id="cmb-run" class="btn primary block">조합 뽑기</button>
 
       <div id="cmb-result" hidden>
-        <div class="row-head"><span class="label">뽑은 배합</span></div>
-        <p class="hint">결과 화면에서 마음에 든 것을 찾아 여기서 같은 이름을 눌러 쓰면 됩니다.</p>
+        <div class="row-head"><span class="label">뽑은 조합</span></div>
+        <p class="hint">결과에서 마음에 든 그림을 찾았으면, 여기서 같은 이름을 눌러 가져가세요.</p>
         <div id="cmb-list"></div>
       </div>
     </div>
@@ -1149,9 +1156,9 @@
     <div id="sub-bisect" hidden>
 
     <div id="bis-setup">
-      <p class="hint">작가 태그를 잔뜩 넣고 뽑았는데 그림의 어떤 요소가 <b>누구 때문인지</b>
-        모를 때 씁니다. 20개를 하나씩 빼 보면 20장이 들지만, 절반씩 빼며 좁히면
-        <b>5라운드</b>면 끝납니다.</p>
+      <p class="hint">작가 태그를 잔뜩 넣고 뽑았는데 그림의 어떤 부분이 <b>누구 때문인지</b>
+        모를 때 씁니다. 20명을 한 명씩 빼 보면 20장이 들지만, 절반씩 빼면서 좁히면
+        <b>5번</b>이면 끝납니다.</p>
 
       <div class="row-head">
         <span class="label">후보 고르기</span>
@@ -1164,9 +1171,9 @@
         <button id="bis-none" class="btn small">모두 끄기</button>
       </div>
       <div id="bis-pick" class="bis-pick"></div>
-      <p class="hint">★한 판에 <b>20명까지</b> 입니다. 그 위로는 이분 탐색이 한 라운드 더 늘고,
-        무엇보다 한 그림에 작가가 스무 명 넘게 들어가면 화풍이 뭉개져 무엇이 무엇인지
-        볼 수 없게 됩니다.</p>
+      <p class="hint">한 번에 <b>20명까지</b> 고를 수 있습니다. 더 넣으면 찾는 횟수도 늘고,
+        무엇보다 한 그림에 작가가 스무 명 넘게 들어가면 그림체가 뭉개져서 뭐가 뭔지
+        구분이 안 됩니다.</p>
 
       <details class="panel">
         <summary>직접 적기</summary>
@@ -1177,23 +1184,23 @@
       <label class="field">
         <span class="label">무엇을 찾나</span>
         <select id="bis-goal" class="tool-select">
-          <option value="keep">마음에 드는 요소 — 누구 덕인지</option>
-          <option value="drop">거슬리는 요소 — 누구 탓인지</option>
+          <option value="keep">마음에 드는 부분, 누구 덕인지 찾기</option>
+          <option value="drop">거슬리는 부분, 누구 탓인지 찾기</option>
         </select>
       </label>
 
       <label class="field">
         <span class="label">시드</span>
         <input id="bis-seed" type="number" inputmode="numeric" placeholder="비우면 무작위로 하나 정합니다">
-        <span class="hint">★깎기에서 시드는 설정이 아니라 전제입니다. 시드가 바뀌면 그림이 달라진 것이
+        <span class="hint">깎기에서는 시드를 반드시 고정합니다. 시드가 바뀌면 그림이 달라진 게
           태그 때문인지 시드 때문인지 구분할 수 없습니다.</span>
       </label>
 
       <label class="check">
         <input id="bis-cross" type="checkbox" checked> 양쪽을 다 빼 본다 (교차 확인)
       </label>
-      <p class="hint">장수가 두 배로 늘지만, <b>한 명이 만든 것이 아닌 경우</b>를 알아낼 수 있습니다.
-        왼쪽을 빼도 남고 오른쪽을 빼도 남으면 그 요소는 여럿이 함께 만든 것입니다.</p>
+      <p class="hint">뽑는 장수가 두 배가 되는 대신, <b>한 명이 만든 게 아닌 경우</b>를 잡아냅니다.
+        왼쪽을 빼도 남아 있고 오른쪽을 빼도 남아 있으면, 여러 명이 같이 만들어낸 겁니다.</p>
 
       <div id="bis-est" class="cost-est"></div>
       <button id="bis-start" class="btn primary block">깎기 시작</button>
@@ -1214,29 +1221,29 @@
       </div>
       <div id="bis-done" hidden>
         <div class="row-head"><span class="label">세기 맞추기</span></div>
-        <p class="hint">범인을 찾았으니 이제 <b>얼마나</b>를 정합니다. 한 명만 1차원으로 훑으므로
-          가짓수가 곱해지지 않습니다.</p>
-        <button id="bis-scan" class="btn primary block">세기 5칸으로 뽑아 보기</button>
+        <p class="hint">범인을 찾았으니 이제 <b>얼마나 세게</b> 쓸지 정합니다. 한 명만 세기를
+          바꿔가며 뽑으니까 장수가 확 늘지 않습니다.</p>
+        <button id="bis-scan" class="btn primary block">세기 바꿔가며 뽑아 보기</button>
       </div>
     </div>
 
     <details class="panel">
       <summary>왜 절반씩 빼는가</summary>
-      <p class="hint">★<b>넣기가 아니라 빼기</b>여야 합니다. 절반만 넣고 뽑으면 그림이 통째로 달라져
-        무엇 때문에 달라졌는지 알 수 없습니다. 전체를 유지한 채 절반을 빼야 나머지 화풍이
-        남은 상태에서 그 요소만 사라졌는지 보입니다.</p>
-      <p class="hint">★<b>누구인지</b>와 <b>얼마나</b>를 절대 같이 돌리지 않습니다. on/off 20개는
-        2<sup>20</sup>, 거기에 세기 5단계를 곱하면 5<sup>20</sup> 이라 훑을 수 없습니다.
-        범인을 먼저 on/off 로만 찾고(세기는 전부 1.0 으로 묶습니다), 세기는 그 뒤에
-        한 명만 훑습니다. 합쳐서 10장 안팎이면 끝납니다.</p>
+      <p class="hint"><b>넣는 게 아니라 빼야</b> 합니다. 절반만 넣고 뽑으면 그림이 통째로 달라져서
+        뭐 때문에 달라졌는지 알 수 없습니다. 전부 넣은 채로 절반만 빼야, 나머지 그림체는
+        그대로인 상태에서 그 부분만 사라졌는지 보입니다.</p>
+      <p class="hint"><b>누구인지</b>와 <b>얼마나 세게</b>를 같이 찾으면 안 됩니다. 켜고 끄는
+        것만 해도 20명이면 100만 가지가 넘는데, 여기에 세기 5단계를 곱하면 손댈 수 없는
+        숫자가 됩니다. 그래서 범인은 세기를 전부 1.0 으로 묶고 켜고 끄기만으로 찾고,
+        세기는 범인을 찾은 다음에 그 한 명만 바꿔 봅니다. 다 합쳐서 10장쯤이면 끝납니다.</p>
     </details>
     </div>
   </div>
 </section>
 
-<!-- ★「이런 작태는 어떠세요」 — 뽑고 난 직후에 띄운다. 그때가 다음 판을 궁리하는
-     순간이기 때문이다. 근거는 지금 프롬프트의 내용 태그로 물어본 「이 태그를 실제로
-     그리는 작가」 다 (Danbooru related_tag). 끌 수 있다. -->
+<!-- ★「이런 작태는 어떠세요」 — 앱을 켤 때 띄운다. 다 뽑고 나면 그 판은 이미 끝났고,
+     새 작가는 판을 짜기 전에 알아야 쓸모가 있다. 고르는 기준은 「그림 100장 이상」 이며,
+     그 아래는 NAI 가 배운 것이 없어 태그를 넣어도 안 나온다. 끌 수 있다. -->
 <div id="reco" class="reco" hidden>
   <div class="reco-sheet">
     <div class="reco-top">

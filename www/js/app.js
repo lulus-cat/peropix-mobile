@@ -1988,7 +1988,7 @@
       const c = document.createElement('span');
       c.className = 'chip';
       c.textContent = t.name.replace(/_/g, ' ') + ' ×' + t.times;
-      c.title = '남들보다 ' + t.times + '배 자주 그립니다';
+      c.title = '다른 작가보다 ' + t.times + '배 자주 그리는 태그';
       chips.appendChild(c);
     });
     (st ? st.topTags : []).slice(0, 8).forEach(function (t) {
@@ -2142,7 +2142,7 @@
       const before = artMix.length;
       artMix = Artists.mix(artMix.concat([{ tag: tag }]), wRange);
       if (artMix.length === before) {
-        toast('한 조합에 ' + Artists.MAX_TAGS + '명까지입니다.', 2400);
+        toast('한 조합에 ' + Artists.MAX_TAGS + '명까지 담을 수 있습니다.', 2400);
       }
     }
     await Store.setArtistMix(artMix);
@@ -2168,42 +2168,52 @@
   ];
   const W_STEPS = [0.05, 0.1, 0.25];
 
+  /**
+   * 폭·간격 단추를 그린다.
+   * ★서랍과 조합 두 군데에 똑같이 나온다. 조합을 하다가 폭을 바꾸려고 서랍으로 갔다
+   *   오게 만들면 흐름이 끊긴다. 값은 한 벌이라 어느 쪽에서 바꿔도 같이 움직인다.
+   */
+  function renderWeightChips(presetsId, stepsId) {
+    const r = wr();
+    const pbox = $(presetsId);
+    if (pbox) {
+      pbox.innerHTML = '';
+      W_PRESETS.forEach(function (w) {
+        const c = document.createElement('button');
+        c.className = 'chip' + ((r.min === w.min && r.max === w.max) ? ' on' : '');
+        c.textContent = w.label + ' ' + w.min + '~' + w.max;
+        c.addEventListener('click', function () {
+          $('w-min').value = String(w.min);
+          $('w-max').value = String(w.max);
+          readWeightUI();
+        });
+        pbox.appendChild(c);
+      });
+    }
+    const sbox = $(stepsId);
+    if (sbox) {
+      sbox.innerHTML = '';
+      W_STEPS.forEach(function (st) {
+        const c = document.createElement('button');
+        c.className = 'chip' + (r.step === st ? ' on' : '');
+        c.textContent = String(st);
+        c.addEventListener('click', function () {
+          $('w-step').value = String(st);
+          readWeightUI();
+        });
+        sbox.appendChild(c);
+      });
+    }
+  }
+
   function renderWeightUI() {
     const r = wr();
     $('w-min').value = String(r.min);
     $('w-max').value = String(r.max);
     $('w-step').value = String(r.step);
-
-    const pbox = $('w-presets');
-    pbox.innerHTML = '';
-    W_PRESETS.forEach(function (w) {
-      const c = document.createElement('button');
-      const on = (r.min === w.min && r.max === w.max);
-      c.className = 'chip' + (on ? ' on' : '');
-      c.textContent = w.label + ' ' + w.min + '~' + w.max;
-      c.addEventListener('click', function () {
-        $('w-min').value = String(w.min);
-        $('w-max').value = String(w.max);
-        readWeightUI();
-      });
-      pbox.appendChild(c);
-    });
-
-    const sbox = $('w-steps');
-    sbox.innerHTML = '';
-    W_STEPS.forEach(function (st) {
-      const c = document.createElement('button');
-      c.className = 'chip' + (r.step === st ? ' on' : '');
-      c.textContent = String(st);
-      c.addEventListener('click', function () {
-        $('w-step').value = String(st);
-        readWeightUI();
-      });
-      sbox.appendChild(c);
-    });
-
-    $('w-hint').textContent = '지금 ' + r.min + ' ~ ' + r.max + ' · ' + r.step + ' 간격'
-      + ' · 훑을 때 ' + Artists.scanSteps(wRange).join(' / ');
+    renderWeightChips('w-presets', 'w-steps');
+    $('w-hint').textContent = '지금 ' + r.min + ' ~ ' + r.max + ', ' + r.step + ' 간격'
+      + ' (세기 훑기는 ' + Artists.scanSteps(wRange).join(' / ') + ')';
   }
 
   async function readWeightUI() {
@@ -2221,6 +2231,9 @@
     await Store.setArtistMix(artMix);
     renderWeightUI();
     renderMix();
+    // ★조합 쪽에도 같은 단추가 있다. 안 그려 주면 한쪽만 바뀌어, 어느 폭이 쓰이는지
+    //   화면마다 다르게 보인다.
+    if (!$('pane-style').hidden) renderCombo();
   }
 
   function renderMix() {
@@ -2390,7 +2403,7 @@
     });
     const e = Bisect.estimate(st);
     $('bis-est').textContent = tags.length < 2
-      ? '후보를 두 명 이상 적어 주세요.'
+      ? '후보를 두 명 이상 골라 주세요.'
       : ('후보 ' + tags.length + '명 · ' + e.rounds + '라운드 · 모두 ' + e.total + '장'
         + (bisCost(e.total) ? (' · 약 ' + bisCost(e.total) + ' Anlas') : ''));
     $('bis-start').disabled = tags.length < 2;
@@ -2435,12 +2448,12 @@
         d.className = 'bis-shot';
         const nm = document.createElement('div');
         nm.className = 'nm';
-        nm.textContent = s.name + ' — 작가 ' + s.tags.length + '명'
+        nm.textContent = s.name + ' · 작가 ' + s.tags.length + '명'
           + (s.removed.length ? (' (뺀 사람 ' + s.removed.length + ')') : '');
         const tg = document.createElement('div');
         tg.className = 'tags';
         tg.textContent = s.removed.length
-          ? ('뺌: ' + s.removed.map(function (t) { return t.replace(/_/g, ' '); }).join(', '))
+          ? ('뺀 사람: ' + s.removed.map(function (t) { return t.replace(/_/g, ' '); }).join(', '))
           : '아무도 빼지 않음';
         d.appendChild(nm);
         d.appendChild(tg);
@@ -2462,7 +2475,7 @@
     ask.hidden = false;
 
     if (step.kind === 'reference') {
-      $('bis-ask-q').textContent = '기준 그림을 보셨나요? 이 그림에 있는 요소를 앞으로 찾습니다.';
+      $('bis-ask-q').textContent = '기준 그림을 보셨나요? 이 그림에서 찾을 부분을 정하고 시작합니다.';
       const b = document.createElement('button');
       b.className = 'btn primary';
       b.textContent = '봤습니다 · 다음';
@@ -2471,8 +2484,8 @@
       return;
     }
 
-    const word = bis.goal === 'drop' ? '거슬리는 요소' : '그 요소';
-    $('bis-ask-q').textContent = '뽑은 그림에서 ' + word + '가 아직 보이나요?';
+    const word = bis.goal === 'drop' ? '거슬리는 부분' : '그 부분';
+    $('bis-ask-q').textContent = '뽑은 그림에 ' + word + '이 아직 보이나요?';
     const rows = bis.cross ? ['L', 'R'] : ['L'];
     const answers = {};
     rows.forEach(function (side) {
@@ -2508,11 +2521,11 @@
 
     const n = step.shots.length;
     if (!window.confirm('이번 라운드 ' + n + '장을 뽑을까요?\n\n'
-      + '★슬롯·베이스·네거티브·인물이 잠깐 시험용으로 바뀌고, 끝나면 그대로 돌아옵니다.\n'
+      + '슬롯과 프롬프트가 잠깐 테스트용으로 바뀌었다가, 끝나면 원래대로 돌아옵니다.\n'
       + '시드는 ' + bis.seeds[0] + ' 로 고정됩니다.')) return;
 
     bis.shot = true;
-    toast('깎기 ' + n + '장을 뽑습니다. 끝나면 결과를 보고 돌아와 답해 주세요.', 3500);
+    toast(n + '장을 뽑습니다. 결과를 본 다음 여기로 돌아와서 답해 주세요.', 3500);
     await styleRun(step.shots.map(function (s) {
       return { label: s.name, prompt: Artists.bake(Artists.mix(s.tags, wRange), { cfg: wRange }),
         enabled: true };
@@ -2582,7 +2595,7 @@
 
     const b = StyleTest.build(stCfg);
     $('st-preview').value = b.base
-      + (b.character ? ('\n인물: ' + b.character) : '\n(인물 없음 — 배경만 보는 판)')
+      + (b.character ? ('\n캐릭터: ' + b.character) : '\n(캐릭터 없음, 배경만 보는 구도)')
       + '\n네거티브: ' + b.negative;
     // 인물 칸은 배경만 보는 판에서 쓰이지 않는다 — 흐려 두어 알려 준다.
     $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
@@ -2706,14 +2719,15 @@
     });
     $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
 
+    renderWeightChips('cmb-presets', 'cmb-steps');
     const n = parseInt($('cmb-n').value, 10) || 6;
     $('cmb-n-val').textContent = n + '벌';
     const r = wr();
-    $('cmb-range').textContent = '가중치는 ' + r.min + ' ~ ' + r.max + ' 사이에서 '
-      + r.step + ' 간격으로 무작위로 매깁니다 (서랍에서 바꿉니다).';
+    $('cmb-range').textContent = r.min + '부터 ' + r.max + '까지 ' + r.step
+      + '씩 끊어서 아무 값이나 뽑습니다. 서랍에서 바꿔도 같이 바뀝니다.';
     $('cmb-est').textContent = cmbSel.length
       ? (n + '장' + (bisCost(n) ? (' · 약 ' + bisCost(n) + ' Anlas') : ''))
-      : '작가를 한 명 이상 고르세요.';
+      : '작가를 한 명 이상 골라 주세요.';
     $('cmb-run').disabled = !cmbSel.length;
   }
 
@@ -2724,10 +2738,10 @@
     const sets = Artists.combos(base, n, wRange);
     if (!sets.length) return;
     if (sets.length < n) {
-      toast('서로 다른 배합이 ' + sets.length + '벌뿐입니다 (범위가 좁습니다).', 2800);
+      toast('서로 다른 조합이 ' + sets.length + '개밖에 안 나옵니다. 가중치 폭을 넓혀 보세요.', 3000);
     }
     if (!window.confirm(sets.length + '장을 뽑을까요?\n\n'
-      + '★슬롯·베이스·네거티브·인물이 잠깐 시험용으로 바뀌고, 끝나면 그대로 돌아옵니다.')) {
+      + '슬롯과 프롬프트가 잠깐 테스트용으로 바뀌었다가, 끝나면 원래대로 돌아옵니다.')) {
       return;
     }
     cmbLast = sets.map(function (m, i) {
@@ -2765,7 +2779,7 @@
         renderMix();
         renderDrawer();
         setArtTab('drawer');
-        toast(c.name + ' 을 섞기로 옮겼습니다.', 2400);
+        toast(c.name + ' 을 섞기로 가져왔습니다.', 2400);
       });
       row.appendChild(nm);
       row.appendChild(ws);
@@ -2880,7 +2894,7 @@
       const nm = document.createElement('button');
       nm.className = 'reco-name';
       nm.textContent = r.name.replace(/_/g, ' ');
-      nm.title = 'Danbooru 에서 이 작가 보기';
+      nm.title = '눌러서 이 작가 자세히 보기';
       nm.addEventListener('click', function () { showArtist(r.name); });
       const sub = document.createElement('div');
       sub.className = 'reco-sub';
@@ -5661,7 +5675,7 @@
     $('gh-new').addEventListener('click', function () {
       // ★앱은 저장소를 만들지 못한다 (그 권한을 폰에 주지 않는다). 만드는 화면만 열어 준다.
       window.open('https://github.com/new', '_blank');
-      toast('Private 로 만드시길 권합니다 — 프롬프트가 그대로 남는 곳입니다.', 3200);
+      toast('Private 을 권합니다. 프롬프트가 그대로 남는 곳이니까요.', 3200);
     });
     $('gh-copy-setup').addEventListener('click', async function () {
       const ok = await copyText(ghSetupPrompt());
