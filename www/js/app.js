@@ -1776,10 +1776,15 @@
   let recoOff = false;         // 「이런 작태는 어떠세요」 를 껐나
   let recoMin = 100;           // 추천할 작가의 최소 장수
   let recoBusy = false;
+  let stCfg = null;            // 그림체 시험 판 (구도·인물·품질·네거티브)
+  let styleSaved = null;       // 시험 전 상태 — 끝나면 그대로 돌려놓는다
+  let cmbPool = [];            // 조합에 쓸 작가 풀
+  let cmbSel = [];             // 그중 고른 것
+  let cmbLast = [];            // 방금 뽑은 배합들 (어느 그림이 어느 배합인지)
+  let styleMode = 'combo';
   let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
   let bisSel = [];             // 그중 고른 것 (최대 20)
   let bis = null;              // 깎기 상태
-  let bisSaved = null;         // 깎기 전 슬롯·프롬프트·시드 (그만두면 되돌린다)
   let bisScan = null;          // 세기 훑기 중인가
 
   /**
@@ -1819,6 +1824,10 @@
     renderDrawer();
     renderMix();
     renderWeightUI();
+    renderStyleUI();
+    renderCombo();
+    renderComboResult();
+    setStyleMode(styleMode);
     renderBisPick();
     // ★깎기는 뽑으러 메인으로 갔다가 돌아온다. 다시 그리지 않으면 「답하기」 가 안 뜬다.
     renderBis();
@@ -1830,7 +1839,7 @@
 
   function setArtTab(name) {
     artTab = name;
-    ['find', 'drawer', 'reco', 'bisect'].forEach(function (n) {
+    ['find', 'drawer', 'reco', 'style'].forEach(function (n) {
       $('tab-' + n).classList.toggle('on', n === name);
       $('pane-' + n).hidden = (n !== name);
     });
@@ -2150,12 +2159,51 @@
     return Artists.range(wRange);
   }
 
+  // ★자주 쓰는 폭을 단추로. 폰에서 숫자 칸을 톡톡 치는 것은 성가시다.
+  const W_PRESETS = [
+    { label: '좁게', min: 0.85, max: 1.15 },
+    { label: '보통', min: 0.6, max: 1.4 },
+    { label: '넓게', min: 0.4, max: 1.7 },
+    { label: '아주 넓게', min: 0.3, max: 2 }
+  ];
+  const W_STEPS = [0.05, 0.1, 0.25];
+
   function renderWeightUI() {
     const r = wr();
     $('w-min').value = String(r.min);
     $('w-max').value = String(r.max);
     $('w-step').value = String(r.step);
-    $('w-hint').textContent = '훑을 때 ' + Artists.scanSteps(wRange).join(' / ');
+
+    const pbox = $('w-presets');
+    pbox.innerHTML = '';
+    W_PRESETS.forEach(function (w) {
+      const c = document.createElement('button');
+      const on = (r.min === w.min && r.max === w.max);
+      c.className = 'chip' + (on ? ' on' : '');
+      c.textContent = w.label + ' ' + w.min + '~' + w.max;
+      c.addEventListener('click', function () {
+        $('w-min').value = String(w.min);
+        $('w-max').value = String(w.max);
+        readWeightUI();
+      });
+      pbox.appendChild(c);
+    });
+
+    const sbox = $('w-steps');
+    sbox.innerHTML = '';
+    W_STEPS.forEach(function (st) {
+      const c = document.createElement('button');
+      c.className = 'chip' + (r.step === st ? ' on' : '');
+      c.textContent = String(st);
+      c.addEventListener('click', function () {
+        $('w-step').value = String(st);
+        readWeightUI();
+      });
+      sbox.appendChild(c);
+    });
+
+    $('w-hint').textContent = '지금 ' + r.min + ' ~ ' + r.max + ' · ' + r.step + ' 간격'
+      + ' · 훑을 때 ' + Artists.scanSteps(wRange).join(' / ');
   }
 
   async function readWeightUI() {
@@ -2203,9 +2251,18 @@
 
       const w = document.createElement('span');
       w.className = 'mix-w';
-      // ★합 고정을 켜면 실제로 나가는 값은 다르다. 슬라이더가 가리키는 값이 아니라
-      //   **나가는 값**을 보여 준다 — 안 그러면 프롬프트와 화면이 어긋난다.
-      w.textContent = shown[i].weight.toFixed(2);
+      // ★손으로 정한 값을 크게 보여 준다. 여기에 「나가는 값」(합 고정을 거친 것)을 적으면,
+      //   ＋ 를 눌러도 정규화가 도로 깎아 **숫자가 안 움직이는 것처럼 보인다** — 셋을 섞어
+      //   놓고 한 명을 올리면 셋이 같이 조정되기 때문이다. 고장으로 보이는 자리다.
+      //   대신 나가는 값이 다르면 옆에 작게 덧붙인다. 둘 다 알아야 하기 때문이다.
+      w.textContent = m.weight.toFixed(2);
+      if (Math.abs(shown[i].weight - m.weight) >= 0.005) {
+        const out = document.createElement('span');
+        out.className = 'mix-out-w';
+        out.textContent = '→' + shown[i].weight.toFixed(2);
+        out.title = '합 고정을 거쳐 실제로 나가는 값';
+        w.appendChild(out);
+      }
 
       const del = document.createElement('button');
       del.className = 'btn small';
@@ -2222,9 +2279,23 @@
       top.appendChild(w);
       top.appendChild(del);
 
+      // ★슬라이더만으로는 폰에서 0.05 를 맞추기 어렵다. 양쪽에 단추를 둔다.
+      const rr = wr();
+      const bar = document.createElement('div');
+      bar.className = 'mix-bar';
+      const nudge = function (text, delta) {
+        const b = document.createElement('button');
+        b.className = 'mix-nudge';
+        b.textContent = text;
+        b.addEventListener('click', async function () {
+          artMix = Artists.setWeight(artMix, m.tag, m.weight + delta, wRange);
+          await Store.setArtistMix(artMix);
+          renderMix();
+        });
+        return b;
+      };
       const range = document.createElement('input');
       range.type = 'range';
-      const rr = wr();
       range.min = String(rr.min);
       range.max = String(rr.max);
       range.step = String(rr.step);
@@ -2235,8 +2306,12 @@
       });
       range.addEventListener('change', function () { Store.setArtistMix(artMix); });
 
+      bar.appendChild(nudge('−', -rr.step));
+      bar.appendChild(range);
+      bar.appendChild(nudge('＋', rr.step));
+
       row.appendChild(top);
-      row.appendChild(range);
+      row.appendChild(bar);
       box.appendChild(row);
     });
 
@@ -2433,24 +2508,15 @@
 
     const n = step.shots.length;
     if (!window.confirm('이번 라운드 ' + n + '장을 뽑을까요?\n\n'
-      + '★지금 슬롯이 깎기용으로 바뀝니다 (그만두면 되돌립니다).\n'
+      + '★슬롯·베이스·네거티브·인물이 잠깐 시험용으로 바뀌고, 끝나면 그대로 돌아옵니다.\n'
       + '시드는 ' + bis.seeds[0] + ' 로 고정됩니다.')) return;
 
-    slots = step.shots.map(function (s) {
+    bis.shot = true;
+    toast('깎기 ' + n + '장을 뽑습니다. 끝나면 결과를 보고 돌아와 답해 주세요.', 3500);
+    await styleRun(step.shots.map(function (s) {
       return { label: s.name, prompt: Artists.bake(Artists.mix(s.tags, wRange), { cfg: wRange }),
         enabled: true };
-    });
-    options.seed = bis.seeds[0];
-    options.count_per_slot = 1;
-    await Store.setSlots(slots);
-    await Store.setOptions(options);
-    fillOptionUI();
-    renderSlots();
-
-    bis.shot = true;
-    show('main');
-    toast('깎기 ' + n + '장을 뽑습니다. 끝나면 결과를 보고 돌아와 답해 주세요.', 3500);
-    await runGeneration();
+    }), bis.seeds[0]);
   }
 
   /** 범인의 세기를 훑는다 — 1차원이라 가짓수가 곱해지지 않는다. */
@@ -2461,18 +2527,10 @@
     if (!window.confirm('세기 ' + steps.length + '칸을 뽑을까요? ('
       + steps.map(function (s) { return s.weight; }).join(' / ') + ')')) return;
 
-    slots = steps.map(function (s) {
-      return { label: '세기-' + s.weight, prompt: s.prompt, enabled: true };
-    });
-    options.seed = bis.seeds[0];
-    options.count_per_slot = 1;
-    await Store.setSlots(slots);
-    await Store.setOptions(options);
-    fillOptionUI();
-    renderSlots();
     bisScan = true;
-    show('main');
-    await runGeneration();
+    await styleRun(steps.map(function (s) {
+      return { label: '세기-' + s.weight, prompt: s.prompt, enabled: true };
+    }), bis.seeds[0]);
   }
 
   async function bisStart() {
@@ -2482,49 +2540,238 @@
     const seed = (isFinite(seedRaw) && seedRaw >= 0) ? seedRaw : Math.floor(Math.random() * 1e9);
     $('bis-seed').value = String(seed);
 
-    // ★깎기 전 상태를 챙겨 둔다. 그만두면 그대로 되돌린다 —
-    //   남의 슬롯을 말없이 갈아 치우고 끝내면 하던 작업이 날아간다.
-    bisSaved = {
-      slots: JSON.parse(JSON.stringify(slots)),
-      base: $('base-prompt').value,
-      seed: options.seed,
-      per: options.count_per_slot
-    };
     bis = Bisect.start({
       tags: tags, seed: seed, cross: $('bis-cross').checked, goal: $('bis-goal').value
     });
     bis.shot = false;
     bisScan = null;
 
-    // 작가 태그 칸에서 후보를 빼 둔다 — 슬롯으로 들어가므로 두 번 실리면 안 된다.
-    const el = $('base-prompt');
-    let text = el.value;
-    tags.forEach(function (t) {
-      const plain = t.replace(/_/g, ' ').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      text = text.replace(new RegExp('(^|,)\\s*[\\d.]*:?:?\\s*' + plain + '\\s*:?:?\\s*(?=,|$)', 'gi'), '$1');
-    });
-    el.value = text.replace(/,\s*,/g, ',').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
-    await Store.setBasePrompt(el.value);
-
+    // ★평소 베이스에서 후보를 빼낼 필요가 없다. 시험은 자기 베이스를 쓰기 때문이다.
     renderBis();
   }
 
   async function bisStop() {
-    if (bisSaved && window.confirm('깎기를 그만두고 원래 슬롯으로 되돌릴까요?')) {
-      slots = bisSaved.slots;
-      $('base-prompt').value = bisSaved.base;
-      options.seed = bisSaved.seed;
-      options.count_per_slot = bisSaved.per;
-      await Store.setSlots(slots);
-      await Store.setBasePrompt(bisSaved.base);
-      await Store.setOptions(options);
-      fillOptionUI();
-      renderSlots();
-    }
+    // ★슬롯·프롬프트는 뽑을 때마다 styleRun 이 되돌려 놓으므로 여기서 할 일이 없다.
+    if (!window.confirm('깎기를 그만둘까요?')) return;
     bis = null;
-    bisSaved = null;
     renderBis();
-    renderBisSetup();
+    renderBisPick();
+  }
+
+  // ── 그림체 시험 판 ───────────────────────────────────────────────────────
+  // ★그림체를 견주려면 작가 말고는 아무것도 달라지면 안 된다. 평소 슬롯으로 돌리면
+  //   베이스·네거티브·인물이 전부 딸려 들어와 무엇 때문에 달라졌는지 알 수 없다.
+  //   그래서 시험은 **자기 프롬프트 한 벌**을 쓰고, 끝나면 평소 것을 그대로 돌려놓는다.
+
+  function renderStyleUI() {
+    const sel = $('st-preset');
+    if (!sel.options.length) {
+      StyleTest.PRESETS.forEach(function (p) {
+        const o = document.createElement('option');
+        o.value = p.key;
+        o.textContent = p.label;
+        sel.appendChild(o);
+      });
+    }
+    sel.value = stCfg.preset;
+    $('st-comp-row').hidden = (stCfg.preset !== 'custom');
+    $('st-comp').value = stCfg.comp;
+    $('st-char').value = stCfg.char;
+    $('st-base').value = stCfg.base;
+    $('st-neg').value = stCfg.negative;
+
+    const b = StyleTest.build(stCfg);
+    $('st-preview').value = b.base
+      + (b.character ? ('\n인물: ' + b.character) : '\n(인물 없음 — 배경만 보는 판)')
+      + '\n네거티브: ' + b.negative;
+    // 인물 칸은 배경만 보는 판에서 쓰이지 않는다 — 흐려 두어 알려 준다.
+    $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
+  }
+
+  async function readStyleUI() {
+    stCfg = StyleTest.settings({
+      preset: $('st-preset').value,
+      comp: $('st-comp').value,
+      char: $('st-char').value,
+      base: $('st-base').value,
+      negative: $('st-neg').value
+    });
+    await Store.setStyleTest(stCfg);
+    renderStyleUI();
+  }
+
+  /**
+   * 시험용 프롬프트 한 벌로 갈아 끼운다.
+   * ★건드리는 것을 전부 챙겨 두고 styleRestore() 로 되돌린다. 남의 작업을 말없이
+   *   날리지 않기 위해서다. 저장은 하지 않는다 — 저장까지 하면 되돌릴 것이 없어진다.
+   */
+  function styleApply(shots, seed) {
+    if (!styleSaved) {
+      styleSaved = {
+        slots: JSON.parse(JSON.stringify(slots)),
+        chars: JSON.parse(JSON.stringify(characters)),
+        base: $('base-prompt').value,
+        neg: options.negative_prompt,
+        seed: options.seed,
+        per: options.count_per_slot,
+        persona: persona,
+        target: slotTarget,
+        one: options.one_char_mode
+      };
+    }
+    const b = StyleTest.build(stCfg);
+    slots = shots;
+    characters = b.character
+      ? [{ prompt: b.character, uc: '', coord: null, name: '시험', skipSlotPrompt: false, enabled: true }]
+      : [];
+    $('base-prompt').value = b.base;
+    options.negative_prompt = b.negative;
+    options.count_per_slot = 1;
+    options.one_char_mode = false;
+    // ★작가 태그는 슬롯으로 들어간다. 슬롯을 인물 쪽에 붙이면 작가가 인물 프롬프트에
+    //   실려 화풍이 인물에만 걸린다 — 공통(base)에 붙여야 그림 전체에 걸린다.
+    slotTarget = 'base';
+    if (seed !== undefined && seed !== null) options.seed = seed;
+    persona = '그림체';
+    $('persona').value = persona;
+    fillOptionUI();
+    renderSlots();
+  }
+
+  /** 시험이 끝나면 평소 것으로. */
+  function styleRestore() {
+    if (!styleSaved) return;
+    slots = styleSaved.slots;
+    characters = styleSaved.chars;
+    $('base-prompt').value = styleSaved.base;
+    options.negative_prompt = styleSaved.neg;
+    options.seed = styleSaved.seed;
+    options.count_per_slot = styleSaved.per;
+    options.one_char_mode = styleSaved.one;
+    slotTarget = styleSaved.target;
+    persona = styleSaved.persona;
+    $('persona').value = persona;
+    styleSaved = null;
+    fillOptionUI();
+    renderSlots();
+    renderCharDrawer();
+  }
+
+  /** 시험 한 판을 돌린다. ★끝나면 반드시 되돌린다 (실패해도). */
+  async function styleRun(shots, seed) {
+    if (running) { toast('지금 뽑는 중입니다.', 2000); return false; }
+    styleApply(shots, seed);
+    show('main');
+    try {
+      await runGeneration();
+    } finally {
+      styleRestore();
+    }
+    return true;
+  }
+
+  function setStyleMode(m) {
+    styleMode = m;
+    $('mode-combo').classList.toggle('on', m === 'combo');
+    $('mode-bisect').classList.toggle('on', m === 'bisect');
+    $('sub-combo').hidden = (m !== 'combo');
+    $('sub-bisect').hidden = (m !== 'bisect');
+  }
+
+  // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
+  function cmbAdd(tags, pick) {
+    (tags || []).forEach(function (t) {
+      if (cmbPool.indexOf(t) === -1) cmbPool.push(t);
+      if (pick && cmbSel.indexOf(t) === -1 && cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
+    });
+    renderCombo();
+  }
+
+  function renderCombo() {
+    const box = $('cmb-pick');
+    box.innerHTML = '';
+    if (!cmbPool.length) box.innerHTML = '<p class="hint">위 단추로 작가를 불러오세요.</p>';
+    cmbPool.forEach(function (t) {
+      const on = cmbSel.indexOf(t) !== -1;
+      const b = document.createElement('button');
+      b.className = on ? 'on' : '';
+      b.textContent = t.replace(/_/g, ' ');
+      b.disabled = !on && cmbSel.length >= Artists.MAX_TAGS;
+      b.addEventListener('click', function () {
+        if (on) cmbSel = cmbSel.filter(function (x) { return x !== t; });
+        else if (cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
+        renderCombo();
+      });
+      box.appendChild(b);
+    });
+    $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
+
+    const n = parseInt($('cmb-n').value, 10) || 6;
+    $('cmb-n-val').textContent = n + '벌';
+    const r = wr();
+    $('cmb-range').textContent = '가중치는 ' + r.min + ' ~ ' + r.max + ' 사이에서 '
+      + r.step + ' 간격으로 무작위로 매깁니다 (서랍에서 바꿉니다).';
+    $('cmb-est').textContent = cmbSel.length
+      ? (n + '장' + (bisCost(n) ? (' · 약 ' + bisCost(n) + ' Anlas') : ''))
+      : '작가를 한 명 이상 고르세요.';
+    $('cmb-run').disabled = !cmbSel.length;
+  }
+
+  async function cmbRun() {
+    if (!cmbSel.length) return;
+    const n = parseInt($('cmb-n').value, 10) || 6;
+    const base = Artists.mix(cmbSel, wRange);
+    const sets = Artists.combos(base, n, wRange);
+    if (!sets.length) return;
+    if (sets.length < n) {
+      toast('서로 다른 배합이 ' + sets.length + '벌뿐입니다 (범위가 좁습니다).', 2800);
+    }
+    if (!window.confirm(sets.length + '장을 뽑을까요?\n\n'
+      + '★슬롯·베이스·네거티브·인물이 잠깐 시험용으로 바뀌고, 끝나면 그대로 돌아옵니다.')) {
+      return;
+    }
+    cmbLast = sets.map(function (m, i) {
+      return { name: '조합' + (i + 1), mix: m, prompt: Artists.bake(m, { cfg: wRange }) };
+    });
+    renderComboResult();
+    const seed = $('cmb-seed-fix').checked
+      ? Math.floor(Math.random() * 1e9) : undefined;
+    await styleRun(cmbLast.map(function (c) {
+      return { label: c.name, prompt: c.prompt, enabled: true };
+    }), seed);
+  }
+
+  function renderComboResult() {
+    $('cmb-result').hidden = !cmbLast.length;
+    const box = $('cmb-list');
+    box.innerHTML = '';
+    cmbLast.forEach(function (c) {
+      const row = document.createElement('div');
+      row.className = 'cmb-row';
+      const nm = document.createElement('span');
+      nm.className = 'nm';
+      nm.textContent = c.name;
+      const ws = document.createElement('span');
+      ws.className = 'ws';
+      ws.textContent = c.mix.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+      const use = document.createElement('button');
+      use.className = 'btn small';
+      use.textContent = '이걸로';
+      // ★마음에 든 배합을 섞기로 옮겨 준다. 숫자를 손으로 옮겨 적게 하면 반드시 틀린다.
+      use.addEventListener('click', async function () {
+        artMix = c.mix.map(function (x) { return { tag: x.tag, weight: x.weight, on: x.on }; });
+        await Store.setArtistMix(artMix);
+        renderMix();
+        renderDrawer();
+        setArtTab('drawer');
+        toast(c.name + ' 을 섞기로 옮겼습니다.', 2400);
+      });
+      row.appendChild(nm);
+      row.appendChild(ws);
+      row.appendChild(use);
+      box.appendChild(row);
+    });
   }
 
   // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
@@ -5046,6 +5293,7 @@
     wRange = await Store.getWeightRange();
     recoOff = await Store.getRecoOff();
     recoMin = await Store.getRecoMin();
+    stCfg = StyleTest.settings(await Store.getStyleTest());
     $('reco-tab-min').value = String(recoMin);
     renderWeightUI();
     renderGhRows();
@@ -5224,9 +5472,11 @@
     // ── 작가 태그 ───────────────────────────────────────────────────
     $('go-artists').addEventListener('click', openArtists);
     $('artists-back').addEventListener('click', function () { show('main'); });
-    ['find', 'drawer', 'reco', 'bisect'].forEach(function (n) {
+    ['find', 'drawer', 'reco', 'style'].forEach(function (n) {
       $('tab-' + n).addEventListener('click', function () { setArtTab(n); });
     });
+    $('mode-combo').addEventListener('click', function () { setStyleMode('combo'); });
+    $('mode-bisect').addEventListener('click', function () { setStyleMode('bisect'); });
 
     $('art-q').addEventListener('input', onArtInput);
     $('art-q').addEventListener('keydown', function (e) {
@@ -5299,6 +5549,37 @@
     ['w-min', 'w-max', 'w-step'].forEach(function (id) {
       $(id).addEventListener('change', readWeightUI);
     });
+    $('mix-rand').addEventListener('click', async function () {
+      if (!artMix.length) { toast('섞은 작가가 없습니다.', 2000); return; }
+      artMix = Artists.randomize(artMix, wRange);
+      await Store.setArtistMix(artMix);
+      renderMix();
+    });
+
+    // 그림체 시험 판
+    ['st-preset', 'st-comp', 'st-char', 'st-base', 'st-neg'].forEach(function (id) {
+      $(id).addEventListener('change', readStyleUI);
+    });
+    $('st-reset').addEventListener('click', async function () {
+      stCfg = StyleTest.settings(null);
+      await Store.setStyleTest(stCfg);
+      renderStyleUI();
+    });
+
+    // 조합
+    $('cmb-from-drawer').addEventListener('click', function () {
+      cmbAdd(artDrawer.map(function (e) { return e.tag; }), true);
+    });
+    $('cmb-from-mix').addEventListener('click', function () {
+      cmbAdd(artMix.map(function (m) { return m.tag; }), true);
+    });
+    $('cmb-none').addEventListener('click', function () {
+      cmbSel = [];
+      renderCombo();
+    });
+    $('cmb-n').addEventListener('input', renderCombo);
+    $('cmb-run').addEventListener('click', cmbRun);
+
     $('w-reset').addEventListener('click', async function () {
       wRange = null;
       await Store.setWeightRange(null);

@@ -1146,7 +1146,15 @@ textarea.expandable { cursor: pointer; }
 .mix-row.off { opacity: .45; }
 .mix-top { display: flex; align-items: center; gap: 8px; }
 .mix-top .nm { flex: 1; word-break: break-all; }
-.mix-w { width: 44px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.mix-w {
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* 합 고정을 거쳐 실제로 나가는 값 — 손으로 정한 값과 다를 때만 붙는다 */
+.mix-out-w { color: var(--text-dim); font-size: 11px; margin-left: 3px; }
 .mix-row input[type=range] { width: 100%; margin-top: 6px; }
 
 /* 깎기 */
@@ -1245,3 +1253,45 @@ textarea.expandable { cursor: pointer; }
 .reco-sub { color: var(--text-dim); font-size: 12px; }
 .reco-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .reco-row.kept { opacity: .5; }
+
+/* 그림체 조작 — 조합/깎기 가르는 작은 탭 */
+.tabs.sub { border-bottom: 0; padding: 0; margin: 4px 0 10px; gap: 6px; }
+.tabs.sub .tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+.tabs.sub .tab.on {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+/* 작가 세기 — 슬라이더만으로는 폰에서 정밀하게 못 맞춘다. 양쪽에 단추를 둔다. */
+.mix-nudge {
+  width: 30px;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.mix-bar { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.mix-bar input[type=range] { flex: 1; margin: 0; }
+
+/* 조합 결과 */
+.cmb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+.cmb-row .nm { font-weight: 600; white-space: nowrap; }
+.cmb-row .ws { flex: 1; color: var(--text-dim); font-size: 12px; word-break: break-all; }

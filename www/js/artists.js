@@ -261,6 +261,47 @@ const Artists = (function () {
     });
   }
 
+  /**
+   * ★켠 작가마다 세기를 **무작위로** 준다 — 조합 시험의 씨앗이다.
+   *
+   * 손으로 슬라이더를 다섯 번 움직여 한 조합을 만드는 것보다, 무작위로 여러 벌을 뽑아
+   * 그림으로 견주는 편이 빠르다. 어느 배합이 좋은지는 눈으로만 알 수 있기 때문이다.
+   *
+   * ★난수를 넣어 줄 수 있게 해 두었다. 안에서 Math.random 을 쓰면 검사에서 「정말 범위
+   *   안에서만 나오는가」 를 확인할 방법이 없다.
+   */
+  function randomize(m, cfg, rand) {
+    const r = range(cfg);
+    const rnd = rand || Math.random;
+    const steps = Math.max(1, Math.round((r.max - r.min) / r.step));
+    return (m || []).map(function (x) {
+      if (!x.on) return x;
+      const w = r.min + Math.floor(rnd() * (steps + 1)) * r.step;
+      return { tag: x.tag, weight: clampWeight(w, cfg), on: true };
+    });
+  }
+
+  /**
+   * 무작위 조합을 n 벌 만든다. 그대로 슬롯이 되어 한 번에 뽑힌다.
+   * ★같은 배합이 두 번 나오면 Anlas 를 헛되이 쓴다 — 겹치면 다시 뽑는다.
+   */
+  function combos(m, n, cfg, rand) {
+    const want = Math.max(1, Math.min(n || 5, 30));
+    const seen = Object.create(null);
+    const out = [];
+    // ★넉넉히 돌되 끝은 있다. 작가가 하나뿐이고 눈금이 두 칸이면 서로 다른 배합이
+    //   두 가지뿐이라, 못 채우는 것이 정상이다 — 그때는 만든 만큼만 돌려준다.
+    for (let i = 0; i < want * 20 && out.length < want; i++) {
+      const c = randomize(m, cfg, rand);
+      const key = c.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag + ':' + x.weight; }).join('|');
+      if (!key || seen[key]) continue;
+      seen[key] = true;
+      out.push(c);
+    }
+    return out;
+  }
+
   // ── 프롬프트로 굽기 ───────────────────────────────────────────────────────
   /**
    * NAI 프롬프트 조각으로.
@@ -332,6 +373,8 @@ const Artists = (function () {
     setWeight: setWeight,
     toggleOn: toggleOn,
     normalize: normalize,
+    randomize: randomize,
+    combos: combos,
     bake: bake,
     activeCount: activeCount,
     scan: scan

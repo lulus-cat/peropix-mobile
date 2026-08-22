@@ -913,7 +913,7 @@
     <button id="tab-find" class="tab on" role="tab">찾기</button>
     <button id="tab-drawer" class="tab" role="tab">서랍 <span id="tab-drawer-n" class="tab-n"></span></button>
     <button id="tab-reco" class="tab" role="tab">추천</button>
-    <button id="tab-bisect" class="tab" role="tab">깎기</button>
+    <button id="tab-style" class="tab" role="tab">그림체</button>
   </div>
 
   <!-- ── 찾기 ───────────────────────────────────────────────────────── -->
@@ -986,22 +986,31 @@
     <div id="mix-list" class="mix-list"></div>
     <p id="mix-empty" class="hint">위에서 작가를 눌러 담으면 여기서 섞습니다.</p>
 
+    <!-- ★숫자 칸을 폰에서 톡톡 치는 것은 성가시다. 자주 쓰는 폭을 단추로 두고,
+         꼭 필요할 때만 숫자를 편다. -->
     <details class="panel">
-      <summary>세기 범위 정하기</summary>
-      <p class="hint">기본은 <b>0.6 ~ 1.4, 0.05 간격</b> 입니다. 1.5 를 넘으면 그 작가가 그림을
-        잡아먹고 0.5 아래면 없는 것과 다르지 않아서 그렇게 잡아 두었지만, 더 넓게 쓰고
-        싶으시면 여기서 바꾸세요.</p>
-      <div class="grid3">
-        <label class="field"><span class="label">최소</span>
-          <input id="w-min" type="number" step="0.05" min="0.05" max="5"></label>
-        <label class="field"><span class="label">최대</span>
-          <input id="w-max" type="number" step="0.05" min="0.05" max="5"></label>
-        <label class="field"><span class="label">간격</span>
-          <input id="w-step" type="number" step="0.01" min="0.01" max="1"></label>
-      </div>
+      <summary>가중치 범위 정하기</summary>
+      <p class="hint">작가 세기를 어디까지 올리고 내릴지의 폭입니다. 넓힐수록 변화가 크지만
+        <b>1.5 를 넘으면 그 작가가 그림을 잡아먹고 0.5 아래면 없는 것과 다르지 않습니다.</b></p>
+      <div class="row-head"><span class="label">폭</span></div>
+      <div id="w-presets" class="chips"></div>
+      <div class="row-head"><span class="label">간격</span></div>
+      <div id="w-steps" class="chips"></div>
+      <p class="hint" id="w-hint"></p>
+      <details>
+        <summary class="hint">숫자로 직접 적기</summary>
+        <div class="grid3">
+          <label class="field"><span class="label">최소</span>
+            <input id="w-min" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">최대</span>
+            <input id="w-max" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">간격</span>
+            <input id="w-step" type="number" step="0.01" min="0.01" max="1" inputmode="decimal"></label>
+        </div>
+      </details>
       <div class="toolrow">
         <button id="w-reset" class="btn small">기본으로</button>
-        <span id="w-hint" class="hint"></span>
+        <button id="mix-rand" class="btn small">가중치 무작위로</button>
       </div>
     </details>
 
@@ -1045,7 +1054,100 @@
   </div>
 
   <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
-  <div class="pad scroll" id="pane-bisect" hidden>
+  <!-- ── 그림체 조작 ─────────────────────────────────────────────────── -->
+  <!-- ★조합과 깎기는 같은 판 위에서 논다. 시험 판(구도·인물·품질·네거티브)을 위에 한 번만
+       두고 두 모드가 나눠 쓴다 — 판이 다르면 두 모드의 결과를 서로 견줄 수 없다. -->
+  <div class="pad scroll" id="pane-style" hidden>
+
+    <details class="panel" id="st-panel">
+      <summary>시험 판 — 작가 말고는 다 고정</summary>
+      <p class="hint">★그림체를 견주려면 <b>작가 말고는 아무것도 달라지면 안 됩니다.</b>
+        평소 쓰던 슬롯으로 돌리면 베이스·네거티브·인물이 전부 딸려 들어와, 그림이 달라진 것이
+        작가 때문인지 원래 프롬프트 때문인지 알 수 없습니다. 그래서 여기는 <b>자기 프롬프트
+        한 벌</b>을 따로 씁니다 — 평소 것은 손대지 않고, 시험이 끝나면 그대로 돌려놓습니다.</p>
+
+      <label class="field">
+        <span class="label">구도</span>
+        <select id="st-preset" class="tool-select"></select>
+        <span class="hint">같은 작가라도 상반신이냐 전신이냐로 인상이 달라집니다. 구도를
+          고정해야 작가 사이의 차이만 남습니다.</span>
+      </label>
+      <label class="field" id="st-comp-row" hidden>
+        <span class="label">구도 태그</span>
+        <textarea id="st-comp" rows="2" placeholder="예: 2girls, kiss, upper body"></textarea>
+      </label>
+      <label class="field">
+        <span class="label">인물 (시험용)</span>
+        <textarea id="st-char" rows="2"></textarea>
+      </label>
+      <label class="field">
+        <span class="label">품질</span>
+        <textarea id="st-base" rows="2"></textarea>
+        <span class="hint">★화풍을 건드리는 말(수채·러프 같은)을 넣으면 작가 차이가 덮입니다.</span>
+      </label>
+      <label class="field">
+        <span class="label">네거티브</span>
+        <textarea id="st-neg" rows="2"></textarea>
+      </label>
+      <div class="toolrow">
+        <button id="st-reset" class="btn small">기본으로</button>
+      </div>
+      <label class="field">
+        <span class="label">이렇게 나갑니다</span>
+        <textarea id="st-preview" rows="3" readonly></textarea>
+      </label>
+    </details>
+
+    <div class="tabs sub" role="tablist">
+      <button id="mode-combo" class="tab on" role="tab">조합</button>
+      <button id="mode-bisect" class="tab" role="tab">깎기</button>
+    </div>
+
+    <!-- ── 조합 ─────────────────────────────────────────────────────── -->
+    <div id="sub-combo">
+      <p class="hint">고른 작가들에게 <b>무작위 가중치</b>를 여러 벌 매겨 한 번에 뽑습니다.
+        어느 배합이 좋은지는 눈으로만 알 수 있으니, 손으로 슬라이더를 옮기는 것보다
+        여러 벌을 뽑아 견주는 편이 빠릅니다.</p>
+
+      <div class="row-head">
+        <span class="label">섞을 작가</span>
+        <span id="cmb-count" class="hint"></span>
+      </div>
+      <div class="toolrow">
+        <button id="cmb-from-drawer" class="btn small">서랍</button>
+        <button id="cmb-from-mix" class="btn small">섞기</button>
+        <button id="cmb-none" class="btn small">모두 끄기</button>
+      </div>
+      <div id="cmb-pick" class="bis-pick"></div>
+
+      <label class="field">
+        <span class="label">몇 벌 뽑을까</span>
+        <div class="range-row">
+          <input id="cmb-n" type="range" min="2" max="12" step="1" value="6">
+          <span id="cmb-n-val" class="range-val"></span>
+        </div>
+      </label>
+      <p class="hint" id="cmb-range"></p>
+
+      <label class="check">
+        <input id="cmb-seed-fix" type="checkbox" checked> 시드 고정
+      </label>
+      <p class="hint">★켜 두면 배합만 다르고 나머지는 같은 그림이 나옵니다. 끄면 배합과
+        시드가 같이 달라져 무엇 때문에 달라졌는지 알 수 없습니다.</p>
+
+      <div id="cmb-est" class="cost-est"></div>
+      <button id="cmb-run" class="btn primary block">무작위 조합 뽑기</button>
+
+      <div id="cmb-result" hidden>
+        <div class="row-head"><span class="label">뽑은 배합</span></div>
+        <p class="hint">결과 화면에서 마음에 든 것을 찾아 여기서 같은 이름을 눌러 쓰면 됩니다.</p>
+        <div id="cmb-list"></div>
+      </div>
+    </div>
+
+    <!-- ── 깎기 ─────────────────────────────────────────────────────── -->
+    <div id="sub-bisect" hidden>
+
     <div id="bis-setup">
       <p class="hint">작가 태그를 잔뜩 넣고 뽑았는데 그림의 어떤 요소가 <b>누구 때문인지</b>
         모를 때 씁니다. 20개를 하나씩 빼 보면 20장이 들지만, 절반씩 빼며 좁히면
@@ -1128,6 +1230,7 @@
         범인을 먼저 on/off 로만 찾고(세기는 전부 1.0 으로 묶습니다), 세기는 그 뒤에
         한 명만 훑습니다. 합쳐서 10장 안팎이면 끝납니다.</p>
     </details>
+    </div>
   </div>
 </section>
 
@@ -1172,6 +1275,7 @@
 <script src="js/danbooru.js"></script>
 <script src="js/artists.js"></script>
 <script src="js/bisect.js"></script>
+<script src="js/styletest.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>

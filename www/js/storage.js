@@ -360,6 +360,24 @@ const Store = (function () {
     await setRaw(KEY_W_RANGE, JSON.stringify(r));
   }
 
+  const KEY_STYLE = 'style_test';
+
+  /** 그림체 시험 판 (구도·인물·품질·네거티브). */
+  async function getStyleTest() {
+    const raw = await getRaw(KEY_STYLE);
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw);
+      return (v && typeof v === 'object') ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function setStyleTest(cfg) {
+    await setRaw(KEY_STYLE, JSON.stringify(cfg || {}));
+  }
+
   const KEY_RECO_MIN = 'artist_reco_min';
 
   /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
@@ -494,6 +512,8 @@ const Store = (function () {
     setGithub: setGithub,
     getWeightRange: getWeightRange,
     setWeightRange: setWeightRange,
+    getStyleTest: getStyleTest,
+    setStyleTest: setStyleTest,
     getRecoMin: getRecoMin,
     setRecoMin: setRecoMin,
     getRecoOff: getRecoOff,

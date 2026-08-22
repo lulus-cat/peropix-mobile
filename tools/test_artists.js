@@ -184,6 +184,43 @@ check('굽기도 설정한 범위를 따른다',
   A.bake(A.setWeight(A.mix(['a', 'b']), 'a', 1.9, WIDE), { cfg: WIDE }).indexOf('1.9::a::') === 0,
   A.bake(A.setWeight(A.mix(['a', 'b']), 'a', 1.9, WIDE), { cfg: WIDE }));
 
+// ── 7. 무작위 배합 (조합 시험의 씨앗) ─────────────────────────────────────
+// 난수를 넣어 결과를 못 박는다
+let n = 0;
+const seq = function () { const v = [0, 0.99, 0.5, 0.2, 0.8, 0.35][n % 6]; n++; return v; };
+
+const rm = A.randomize(A.mix(['a', 'b', 'c']), null, seq);
+check('★무작위여도 범위 안에서만 나온다',
+  rm.every(function (x) { return x.weight >= 0.6 && x.weight <= 1.4; }),
+  rm.map(function (x) { return x.weight; }).join(','));
+check('★눈금에도 맞는다 (0.05 배수)',
+  rm.every(function (x) { return Math.abs(Math.round(x.weight / 0.05) * 0.05 - x.weight) < 1e-9; }),
+  rm.map(function (x) { return x.weight; }).join(','));
+check('양 끝이 다 나올 수 있다 (0 → 최소, 0.99 → 최대)',
+  rm[0].weight === 0.6 && rm[1].weight === 1.4,
+  rm.map(function (x) { return x.weight; }).join(','));
+check('★꺼 둔 사람은 건드리지 않는다',
+  A.randomize(A.toggleOn(A.mix(['a', 'b']), 'b'), null, seq)[1].weight === 1);
+
+const wide = A.randomize(A.mix(['a', 'b']), { min: 0.3, max: 2, step: 0.1 }, seq);
+check('넓힌 범위도 따른다',
+  wide.every(function (x) { return x.weight >= 0.3 && x.weight <= 2; }),
+  wide.map(function (x) { return x.weight; }).join(','));
+
+const cs = A.combos(A.mix(['a', 'b', 'c']), 5);
+check('조합을 다섯 벌 만든다', cs.length === 5, String(cs.length));
+check('★같은 배합이 두 번 나오지 않는다 (Anlas 를 헛되이 쓴다)',
+  new Set(cs.map(function (c) {
+    return c.map(function (x) { return x.tag + x.weight; }).join('|');
+  })).size === cs.length);
+check('각 벌이 그대로 구워진다', A.bake(cs[0]).indexOf('a') !== -1);
+check('★만들 수 있는 배합보다 많이 달라고 해도 안 멈춘다',
+  A.combos(A.mix(['a']), 30, { min: 1, max: 1.05, step: 0.05 }).length <= 2,
+  String(A.combos(A.mix(['a']), 30, { min: 1, max: 1.05, step: 0.05 }).length));
+check('상한 30벌', A.combos(A.mix(['a', 'b', 'c']), 999).length <= 30);
+check('빈 조합이면 빈 결과', A.combos([], 5).length === 0);
+
+
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });
