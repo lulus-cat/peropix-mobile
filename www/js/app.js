@@ -451,6 +451,49 @@
     return { bytes: out, path: relPath };
   }
 
+  /**
+   * NAI 가 붙여 둔 tEXt(Title·Source 등)를 원본에서 옮겨 심는다.
+   * ★다시 인코딩하면 사라지는데, 사라지면 그 그림을 NAI 산출물로 되읽지 못한다.
+   */
+  function copyNaiTexts(outBytes, srcBytes) {
+    try {
+      const texts = ImageUtil.getTexts(srcBytes);
+      const keep = {};
+      ImageUtil.NAI_TEXT_KEYS.forEach(function (k) {
+        if (texts[k] !== undefined) keep[k] = texts[k];
+      });
+      return Object.keys(keep).length ? ImageUtil.setTexts(outBytes, keep) : outBytes;
+    } catch (e) {
+      return outBytes;   // 메타데이터를 못 옮겨도 그림은 그대로 쓴다.
+    }
+  }
+
+  /**
+   * 인핸스·업스케일 결과에 **원본의 투명도를 되살린다.**
+   *
+   * ★NAI 에 보내는 베이스 이미지는 알파를 흰 배경에 평탄화해서 보낸다 (backend.py 와
+   *   같은 절차). 그래서 투명 배경으로 뽑은 그림을 인핸스하면 배경이 하얗게 붙어 돌아온다.
+   * ★NAI 가 알파를 담아 돌려주면 그것을 그대로 쓰고, 불투명하게 왔을 때만 되살린다.
+   * ★모양이 크게 달라지는 편집에는 쓸 수 없다 — 인핸스는 같은 그림을 다시 그리는 것이라
+   *   실루엣이 거의 그대로여서 성립한다.
+   */
+  async function keepTransparency(outBytes, srcBytes) {
+    try {
+      const src = await ImageUtil.toImageData(srcBytes, 'image/png');
+      if (Compose.detectAlpha(src.data) === 'none') return outBytes;   // 원본이 불투명하면 할 일이 없다
+      const out = await ImageUtil.toImageData(outBytes, 'image/png');
+      if (Compose.detectAlpha(out.data) !== 'none') return outBytes;   // 알파가 살아 왔으면 건드리지 않는다
+
+      const fixed = Compose.restoreAlpha(
+        { data: out.data, width: out.width, height: out.height },
+        { data: src.data, width: src.width, height: src.height });
+      const cv = ImageUtil.fromImageData(new ImageData(fixed.data, fixed.width, fixed.height));
+      return copyNaiTexts(await ImageUtil.canvasToBytes(cv, 'image/png'), outBytes);
+    } catch (e) {
+      return outBytes;   // 되살리지 못해도 그림 자체는 내준다
+    }
+  }
+
   async function saveOne(bytes, relPath) {
     const dest = activeDest();
     if (!dest) {
@@ -1106,6 +1149,14 @@
       : '이 그림을 해상도를 키워 다시 그립니다.';
     $('enh-preview').src = first.url;
 
+    // ★투명 배경 그림은 인핸스해도 투명을 지킨다는 것을 알려 준다. 예전에는 배경이
+    //   하얗게 붙어 나와서, 투명하게 뽑아 놓고도 인핸스를 못 쓰는 상태였다.
+    ImageUtil.toImageData(first.bytes, 'image/png').then(function (d) {
+      if (enhTarget && Compose.detectAlpha(d.data) !== 'none') {
+        $('enh-help').textContent += ' 투명 배경은 그대로 지킵니다.';
+      }
+    }).catch(function () { /* 못 읽어도 안내만 빠질 뿐이다 */ });
+
     // 원본 크기는 저장해 둔 정보에서 읽는다 (없으면 현재 설정값).
     const info = first.saveInfo || {};
     const w = info.width || options.width;
@@ -1234,6 +1285,12 @@
           base_image_processed: processed,
           base_strength: strength,
           base_noise: noise,
+          // ★투명 배경으로 뽑은 그림은 인핸스도 투명으로 요청한다. 지금 화면의 체크박스를
+          //   그대로 쓰면, 그 사이에 체크를 껐거나 모델을 바꿨을 때 배경이 붙어 나온다.
+          transparent_bg: (info.transparent_bg === undefined)
+            ? options.transparent_bg : info.transparent_bg,
+          straight_alpha: (info.straight_alpha === undefined)
+            ? options.straight_alpha : info.straight_alpha,
           enhance_prompt_add: true
         });
         const built = buildNaiPayload(req);
@@ -1241,7 +1298,10 @@
           say($('enh-msg'), src.name + ' — ' + NaiClient.networkMessage(err)
             + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
         });
-        const made = await addDerived(res.bytes, src, '_enh',
+        // ★베이스를 흰 배경에 평탄화해 보내므로 그림이 불투명하게 돌아온다.
+        //   원본이 투명했다면 원본 알파를 다시 씌우고 섞인 흰색을 걷어낸다.
+        const bytes = await keepTransparency(res.bytes, src.bytes);
+        const made = await addDerived(bytes, src, '_enh',
           { width: size.w, height: size.h, seed: res.seed, enhanced_from: src.name }, 'enhanced');
         // ★인핸스가 성공했으면 원본을 정리한다 (설정에 따라). 최종본만 남기고 싶을 때.
         if (made && options.enhance_replace_original) {
@@ -1288,7 +1348,8 @@
           say(box, src.name + ' — ' + NaiClient.networkMessage(err)
             + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
         });
-        await addDerived(res.bytes, src, '_x4',
+        const bytes = await keepTransparency(res.bytes, src.bytes);
+        await addDerived(bytes, src, '_x4',
           { width: w * 4, height: h * 4, upscaled_from: src.name }, 'upscaled');
       } catch (e) {
         failed++;
@@ -1493,18 +1554,7 @@
   /** 합성 결과를 PNG 바이트로. ★NAI 가 붙여 둔 tEXt 는 원본에서 그대로 옮겨 온다. */
   async function cmpEncode(result, srcBytes) {
     const cv = cmpCanvasOf(result.data, result.width, result.height);
-    let out = await ImageUtil.canvasToBytes(cv, 'image/png');
-    try {
-      const texts = ImageUtil.getTexts(srcBytes);
-      const keep = {};
-      ImageUtil.NAI_TEXT_KEYS.forEach(function (k) {
-        if (texts[k] !== undefined) keep[k] = texts[k];
-      });
-      if (Object.keys(keep).length) out = ImageUtil.setTexts(out, keep);
-    } catch (e) {
-      // 메타데이터를 못 옮겨도 그림은 그대로 쓴다.
-    }
-    return out;
+    return copyNaiTexts(await ImageUtil.canvasToBytes(cv, 'image/png'), srcBytes);
   }
 
   async function runCompose() {
@@ -3313,6 +3363,10 @@
           sampler: options.sampler, scheduler: options.scheduler,
           width: options.width, height: options.height, seed: res.seed,
           uc_preset: options.uc_preset, quality_preset: options.quality_preset,
+          // ★인핸스·업스케일이 이 값을 보고 투명도를 지킨다. 지금 화면의 체크박스가
+          //   아니라 **이 그림을 뽑을 때의 설정**이어야 한다 (그 사이에 모델을 바꿨을 수 있다).
+          transparent_bg: !!options.transparent_bg,
+          straight_alpha: !!options.straight_alpha,
           slot: name, cycle: job.cycle, persona: persona,
           // ★파생본(인핸스·배경 합성)도 같은 인물 폴더로 가야 한다.
           char: oneChar ? job.charName : undefined

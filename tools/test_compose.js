@@ -316,6 +316,59 @@ const r5 = C.composite({
 check('합성: 자동 배치는 경계를 화면에 채운다', r5.place.scale > 1, String(r5.place.scale));
 check('합성: 자동 배치 뒤에도 결과 크기는 그대로', r5.width === 4 && r5.height === 4);
 
+// ── 7. 인핸스 뒤 투명도 되살리기 ──────────────────────────────────────
+// 원본: 반투명 빨강(스트레이트, a=128). 이걸 흰 배경에 평탄화하면 (255,128,128).
+// NAI 는 그 불투명한 그림을 돌려준다 — 되살리면 다시 (255,0,0,128) 이어야 한다.
+const origin = { data: px([255, 0, 0, 128, 255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 64]), width: 2, height: 2 };
+// 평탄화 값은 실제 계산과 같게 둔다: a=128 → 255×(1−128/255) = 127, a=64 → 191.
+const flattened = { data: px([255, 127, 127, 255, 255, 0, 0, 255, 255, 255, 255, 255, 255, 191, 191, 255]), width: 2, height: 2 };
+const restored = C.restoreAlpha(flattened, origin);
+
+check('되살리면 반투명 자리의 알파가 돌아온다', restored.data[3] === 128, String(restored.data[3]));
+check('★흰색을 걷어내 원래 색이 나온다 (흰 테가 남지 않는다)',
+  restored.data[0] === 255 && Math.abs(restored.data[1]) <= 1 && Math.abs(restored.data[2]) <= 1,
+  Array.from(restored.data.slice(0, 4)).join(','));
+check('불투명한 자리는 그대로', same(Array.from(restored.data.slice(4, 8)), [255, 0, 0, 255]),
+  Array.from(restored.data.slice(4, 8)).join(','));
+check('투명한 자리는 색까지 지운다', same(Array.from(restored.data.slice(8, 12)), [0, 0, 0, 0]),
+  Array.from(restored.data.slice(8, 12)).join(','));
+check('알파 64 자리도 원래 색으로', restored.data[12] === 255 && restored.data[13] <= 1,
+  Array.from(restored.data.slice(12, 16)).join(','));
+
+// 크기가 다르면 원본 알파를 결과 크기로 맞춰 쓴다 (인핸스는 해상도를 키운다)
+const bigFlat = { data: fill(4, 4, 255, 255, 255, 255), width: 4, height: 4 };
+const smallMask = { data: fill(2, 2, 0, 0, 0, 0), width: 2, height: 2 };
+const upscaled = C.restoreAlpha(bigFlat, smallMask);
+check('원본이 작아도 결과 크기에 맞춰 덮는다',
+  upscaled.width === 4 && upscaled.height === 4
+  && Array.from({ length: 16 }).every(function (_, i) { return upscaled.data[i * 4 + 3] === 0; }));
+
+// 원본이 불투명하면 결과도 그대로 (되살릴 것이 없다)
+const opaqueMask = { data: fill(2, 2, 9, 9, 9, 255), width: 2, height: 2 };
+const untouched = C.restoreAlpha({ data: fill(2, 2, 10, 20, 30, 255), width: 2, height: 2 }, opaqueMask);
+check('원본이 불투명하면 아무것도 바꾸지 않는다',
+  Array.from(untouched.data).every(function (v, i) { return v === (i % 4 === 3 ? 255 : [10, 20, 30][i % 4]); }));
+
+check('섞인 배경색을 그림에서 알아낸다 (투명했던 자리의 색)',
+  Math.round(restored.matte[0]) === 255, JSON.stringify(restored.matte));
+
+// ★업스케일은 **검은 배경**으로 돌아오기도 한다. 흰색으로 못 박으면 가장자리가 어두워진다.
+const blackFlat = {
+  data: px([128, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255, 64, 0, 0, 255]),
+  width: 2, height: 2
+};
+const blackBack = C.restoreAlpha(blackFlat, origin);
+check('검은 배경에 섞여 왔어도 알아서 되살린다',
+  Math.round(blackBack.matte[0]) === 0 && blackBack.data[0] === 255,
+  JSON.stringify(blackBack.matte) + ' / ' + Array.from(blackBack.data.slice(0, 4)).join(','));
+
+check('배경색을 못 박을 수도 있다',
+  C.restoreAlpha(flattened, origin, { matte: 255 }).data[0] === 255);
+
+// 되살린 그림을 배경에 얹으면 자동 판별이 straight 로 본다 (흰 테 없이 섞인다)
+check('되살린 그림은 straight 알파로 읽힌다', C.detectAlpha(restored.data) === 'straight',
+  C.detectAlpha(restored.data));
+
 const total = pass + fails.length;
 console.log('배경 합성 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

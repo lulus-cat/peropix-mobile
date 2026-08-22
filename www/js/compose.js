@@ -253,6 +253,63 @@ const Compose = (function () {
   }
 
   /**
+   * 인핸스·업스케일 결과에 **원본의 투명도를 되살린다.**
+   *
+   * ★NAI 에 보내는 베이스 이미지는 알파를 **흰 배경에 평탄화**해서 보낸다
+   *   (backend.py 와 같은 절차 — preprocessBaseImage). 그래서 돌아온 그림은 불투명하고,
+   *   인물 가장자리는 흰색과 섞여 있다. 투명 배경으로 뽑은 그림이 인핸스만 하면
+   *   배경이 하얗게 붙어 버리던 것이 이것이다.
+   * ★원본 알파를 결과 크기로 다시 표본화해 덮고, 반투명한 자리는 **섞인 흰색을 걷어내**
+   *   (un-matte) 원래 색을 되살린다. 걷어내지 않으면 머리카락 가장자리에 흰 테가 남는다.
+   * ★모양이 크게 달라지는 편집에는 쓸 수 없다 — 인핸스는 같은 그림을 다시 그리는 것이라
+   *   실루엣이 거의 그대로여서 성립한다.
+   *
+   * @param {{data,width,height}} img   돌아온 그림 (불투명)
+   * @param {{data,width,height}} mask  알파를 가진 원본
+   * @param {object} opts  matte: 섞인 배경색(0~255). 안 주면 **그림에서 알아낸다** —
+   *                       원본이 완전히 투명했던 자리에는 그 배경색만 남아 있으므로
+   *                       그 자리의 평균을 쓴다. 인핸스는 흰색이지만 업스케일은
+   *                       검정으로 오는 등 경로마다 달라서, 못 박지 않는 편이 안전하다.
+   */
+  function restoreAlpha(img, mask, opts) {
+    // 알파만 있으면 되지만, 리샘플은 RGBA 를 통째로 다룬다 (알파는 따로 셈해 준다).
+    const scaled = scaleTo(mask.data, mask.width, mask.height, img.width, img.height);
+
+    let mr = 255;
+    let mg = 255;
+    let mb = 255;
+    const fixed = opts && opts.matte;
+    if (typeof fixed === 'number') {
+      mr = mg = mb = fixed;
+    } else {
+      let n = 0;
+      let sr = 0;
+      let sg = 0;
+      let sb = 0;
+      for (let i = 0; i < scaled.length; i += 4) {
+        if (scaled[i + 3] !== 0) continue;
+        n++; sr += img.data[i]; sg += img.data[i + 1]; sb += img.data[i + 2];
+      }
+      if (n > 0) { mr = sr / n; mg = sg / n; mb = sb / n; }
+    }
+
+    const out = new Uint8ClampedArray(img.data.length);
+    out.set(img.data);
+    for (let i = 0; i < out.length; i += 4) {
+      const a = scaled[i + 3];
+      if (a === 255) { out[i + 3] = 255; continue; }
+      if (a === 0) { out[i] = 0; out[i + 1] = 0; out[i + 2] = 0; out[i + 3] = 0; continue; }
+      const f = a / 255;
+      // 배경에 섞인 것을 되돌린다:  c = (섞인색 − 배경×(1−a)) ÷ a
+      out[i] = Math.round((out[i] - mr * (1 - f)) / f);
+      out[i + 1] = Math.round((out[i + 1] - mg * (1 - f)) / f);
+      out[i + 2] = Math.round((out[i + 2] - mb * (1 - f)) / f);
+      out[i + 3] = a;
+    }
+    return { data: out, width: img.width, height: img.height, matte: [mr, mg, mb] };
+  }
+
+  /**
    * 한 장을 합친다.
    *
    * @param {object} o
@@ -305,6 +362,7 @@ const Compose = (function () {
     placement: placement,
     over: over,
     scaleTo: scaleTo,
+    restoreAlpha: restoreAlpha,
     composite: composite
   };
 })();
