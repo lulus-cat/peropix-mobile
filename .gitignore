@@ -1,0 +1,35 @@
+# ── 올리지 않는 것 ───────────────────────────────────────────────────────
+
+# 의존성 — package.json 으로 다시 받는다 (수백 MB)
+node_modules/
+
+# 빌드 산출물
+android/build/
+android/app/build/
+android/.gradle/
+android/captures/
+android/.idea/
+android/app/release/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# ★기기마다 다른 경로가 들어 있다. 받는 쪽에서 새로 만들어야 한다.
+android/local.properties
+
+# ★검사용 기준 이미지 (약 7MB). make_image_fixtures.py 로 다시 만든다.
+tools/fixtures/
+
+# 수신함이 실제로 받은 이미지 (있다면)
+images/
+
+# 편집기·OS 부스러기
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+
+# 파이썬 바이트코드 캐시
+__pycache__/
+*.pyc

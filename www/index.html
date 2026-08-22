@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>Peropix Lkit mobile ver.</title>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ── 인트로 (로딩) ──────────────────────────────────────────────────── -->
+<!-- ★설정을 다 읽기 전 화면은 값이 비어 있어 잠깐 어색하게 깜빡인다. 그 사이를 덮는다. -->
+<div id="intro" class="intro">
+  <div class="intro-mark">P</div>
+  <div class="intro-title">Peropix</div>
+  <div class="intro-sub">Lkit mobile ver.</div>
+  <div class="intro-bar"><div class="intro-fill"></div></div>
+  <div id="intro-msg" class="intro-msg">준비하는 중…</div>
+</div>
+
+<!-- ── 첫 실행: API 키 입력 ───────────────────────────────────────────── -->
+<section id="screen-setup" class="screen">
+  <div class="pad">
+    <h1 class="brand">Peropix Lkit mobile ver.</h1>
+    <p class="lead">시작하려면 NovelAI API 키가 필요합니다.</p>
+
+    <label class="field">
+      <span class="label">NovelAI API 키</span>
+      <textarea id="setup-token" rows="3" placeholder="pst-..." autocapitalize="off"
+                autocorrect="off" spellcheck="false"></textarea>
+    </label>
+
+    <p class="hint">
+      NovelAI 웹사이트 → User Settings → Account → Get Persistent API Token 에서 발급합니다.
+      키는 이 기기에만 저장되고 다른 곳으로 전송되지 않습니다.
+    </p>
+
+    <div id="setup-msg" class="msg" hidden></div>
+    <button id="setup-save" class="btn primary block">키 확인하고 시작</button>
+  </div>
+</section>
+
+<!-- ── 첫 실행: 권한 ──────────────────────────────────────────────────── -->
+<section id="screen-perms" class="screen" hidden>
+  <div class="pad scroll">
+    <h1 class="brand">권한 허용</h1>
+    <p class="lead">두 가지만 허용하면 준비가 끝납니다.</p>
+
+    <div class="perm-item">
+      <div class="perm-head">
+        <span class="perm-title">알림</span>
+        <span id="perm-notify-state" class="perm-state">확인 중…</span>
+      </div>
+      <p class="hint">
+        대량 생성은 몇 분씩 걸립니다. 화면을 꺼 두거나 다른 앱을 보고 있어도
+        끝나면 알려 드립니다.
+      </p>
+      <button id="perm-notify" class="btn block">알림 허용</button>
+    </div>
+
+    <div class="perm-item">
+      <div class="perm-head">
+        <span class="perm-title">파일 저장</span>
+        <span id="perm-files-state" class="perm-state">확인 중…</span>
+      </div>
+      <p class="hint">
+        생성한 그림을 폰의 <b>문서/PeroPix</b> 아래에 저장합니다.
+        VPS·PC 로만 보낼 거면 건너뛰어도 됩니다.
+      </p>
+      <button id="perm-files" class="btn block">저장 폴더 확인</button>
+    </div>
+
+    <div id="perm-msg" class="msg" hidden></div>
+    <button id="perm-done" class="btn primary block">시작하기</button>
+  </div>
+</section>
+
+<!-- ── 메인: 슬롯 + 생성 ──────────────────────────────────────────────── -->
+<section id="screen-main" class="screen" hidden>
+  <header class="topbar">
+    <h1 class="brand sm">Peropix Lkit mobile ver.</h1>
+    <button id="go-results" class="btn icon badge-host" aria-label="결과 보기">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg><span id="results-badge" class="badge" hidden></span>
+    </button>
+    <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+    <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
+  </header>
+
+  <div class="pad scroll">
+    <div class="toolrow">
+      <select id="preset-select" class="tool-select"></select>
+      <button id="preset-save" class="btn small">저장</button>
+      <button id="preset-del" class="btn small">삭제</button>
+      <button id="go-wildcards" class="btn small">와일드카드</button>
+    </div>
+
+    <label class="field">
+      <span class="label">페르소나 / 캐릭터 이름</span>
+      <input id="persona" type="text" placeholder="예: 미아">
+      <span class="hint">저장 폴더 이름에 쓰입니다.</span>
+    </label>
+
+    <label class="field">
+      <span class="label">작가 태그 · 퀄리티 태그</span>
+      <textarea id="base-prompt" rows="3"
+                placeholder="예: artist:wlop, masterpiece, best quality"></textarea>
+      <span class="hint">슬롯 전체에 들어가는 프롬프트 입니다.</span>
+    </label>
+
+    <label class="field">
+      <span class="label">네거티브 프롬프트</span>
+      <textarea id="opt-negative" rows="2"
+                placeholder="빼고 싶은 것 (UC 프리셋에 더해집니다)"></textarea>
+      <span class="hint">
+        UC 프리셋(<span id="uc-preset-echo">Heavy</span>) 뒤에 붙습니다.
+        인물별 네거티브는 각 캐릭터 칸에 따로 있습니다.
+      </span>
+    </label>
+
+    <div class="row-head">
+      <span class="label">캐릭터 프롬프트</span>
+      <span class="row-head-btns">
+        <button id="import-chars" class="btn small">JSON 가져오기</button>
+        <button id="add-char" class="btn small">+ 캐릭터</button>
+      </span>
+    </div>
+    <p class="hint">
+      위 태그와는 <b>별개</b>입니다. 다인물 장면에서 인물별로 나눠 넣습니다.
+      <span id="char-limit-hint"></span>
+    </p>
+    <div id="chars"></div>
+
+    <div class="row-head">
+      <span class="label">Precise Reference</span>
+      <button id="add-ref" class="btn small">+ 참조 이미지</button>
+    </div>
+    <p class="hint" id="ref-hint"></p>
+    <div id="refs"></div>
+    <input id="ref-file" type="file" accept="image/*" hidden>
+
+    <details class="panel">
+      <summary>저장 위치와 이름</summary>
+
+      <label class="field">
+        <span class="label">저장 위치</span>
+        <select id="dest-select"></select>
+        <span class="hint" id="dest-hint"></span>
+      </label>
+
+      <label class="field">
+        <span class="label">이름 규칙</span>
+        <select id="naming-preset"></select>
+      </label>
+
+      <label class="field">
+        <span class="label">규칙 직접 쓰기</span>
+        <input id="naming-template" type="text" placeholder="{persona}/{label}.png">
+        <span class="hint">
+          쓸 수 있는 토큰: <code>{persona} {label} {seq} {seed} {date} {time} {model}</code>
+        </span>
+      </label>
+
+      <div class="msg" id="naming-preview"></div>
+    </details>
+
+    <div class="row-head">
+      <span class="label">생성 슬롯</span>
+      <span class="row-head-btns">
+        <button id="import-json" class="btn small">JSON 가져오기</button>
+        <button id="add-slot" class="btn small">+ 슬롯</button>
+      </span>
+    </div>
+    <label class="field">
+      <span class="label">슬롯 프롬프트를 어디에 붙일까</span>
+      <select id="slot-target">
+        <option value="char">캐릭터에 (Char)</option>
+        <option value="base">공통에 (Base)</option>
+      </select>
+      <span class="hint" id="slot-target-hint"></span>
+    </label>
+    <div id="slots"></div>
+
+    <details class="panel">
+      <summary>생성 옵션</summary>
+      <div class="grid2">
+        <label class="field">
+          <span class="label">모델</span>
+          <select id="opt-model"></select>
+        </label>
+        <label class="field">
+          <span class="label">UC 프리셋</span>
+          <select id="opt-uc"></select>
+        </label>
+        <label class="field">
+          <span class="label">퀄리티</span>
+          <select id="opt-quality"></select>
+        </label>
+        <label class="field">
+          <span class="label">샘플러</span>
+          <select id="opt-sampler"></select>
+        </label>
+        <label class="field">
+          <span class="label">가로</span>
+          <input id="opt-width" type="number" inputmode="numeric" step="64">
+        </label>
+        <label class="field">
+          <span class="label">세로</span>
+          <input id="opt-height" type="number" inputmode="numeric" step="64">
+        </label>
+        <label class="field">
+          <span class="label">스텝</span>
+          <input id="opt-steps" type="number" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span class="label">CFG</span>
+          <input id="opt-cfg" type="number" inputmode="decimal" step="0.1">
+        </label>
+        <label class="field">
+          <span class="label">CFG Rescale</span>
+          <input id="opt-cfg-rescale" type="number" inputmode="decimal" step="0.05" min="0" max="1">
+        </label>
+        <label class="field">
+          <span class="label">슬롯당 매수</span>
+          <input id="opt-count" type="number" inputmode="numeric" min="1" max="50" step="1">
+        </label>
+        <label class="field">
+          <span class="label">저장 형식</span>
+          <select id="opt-format">
+            <option value="png">PNG (원본)</option>
+            <option value="jpg">JPG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="field" id="opt-quality-field" hidden>
+        <span class="label">JPG · WebP 품질 <span id="opt-quality-val"></span></span>
+        <input id="opt-jpg-quality" type="range" min="50" max="100" step="1">
+      </label>
+      <label class="check">
+        <input id="opt-variety" type="checkbox"> Variety+
+      </label>
+      <label class="check">
+        <input id="opt-enh-replace" type="checkbox"> 인핸스 성공하면 원본 지우기
+      </label>
+      <label class="check" id="opt-transparent-row">
+        <input id="opt-transparent" type="checkbox"> 투명 배경
+      </label>
+      <label class="check" id="opt-straight-alpha-row" hidden>
+        <input id="opt-straight-alpha" type="checkbox"> Straight Alpha
+      </label>
+      <label class="check">
+        <input id="opt-strip-meta" type="checkbox"> 저장할 때 생성 정보 지우기
+      </label>
+      <label class="check">
+        <input id="opt-notify" type="checkbox"> 다 끝나면 알림
+      </label>
+      <label class="check">
+        <input id="opt-autosave" type="checkbox"> 생성하면 바로 저장
+      </label>
+      <p class="hint">
+        끄면 기기에 쓰지 않습니다. 결과를 눌러 크게 본 뒤 마음에 드는 것만 저장하세요.
+      </p>
+    </details>
+
+    <div id="progress" class="progress" hidden>
+      <div class="bar"><div id="progress-fill" class="fill"></div></div>
+      <div id="progress-text" class="progress-text"></div>
+      <button id="progress-open" class="btn small" hidden>결과 보기 →</button>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <div id="cost-row" class="cost-row">
+      <span id="cost-est" class="cost-est">—</span>
+      <span id="anlas-bal" class="anlas-bal"></span>
+    </div>
+    <button id="generate" class="btn primary block">생성</button>
+    <button id="cancel" class="btn block" hidden>중지</button>
+  </div>
+</section>
+
+<!-- ── 결과 ───────────────────────────────────────────────────────────── -->
+<section id="screen-results" class="screen" hidden>
+  <header class="topbar">
+    <button id="results-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">결과</h1>
+    <button id="results-clear" class="btn small">비우기</button>
+  </header>
+
+  <div class="pad scroll">
+    <div id="results-summary" class="msg"></div>
+
+    <div id="result-filters" class="chips"></div>
+
+    <div class="toolrow" id="batch-row">
+      <button id="batch-enhance" class="btn small">보이는 것 인핸스</button>
+      <button id="batch-upscale" class="btn small">보이는 것 업스케일</button>
+    </div>
+    <div id="batch-msg" class="msg" hidden></div>
+
+    <div id="results"></div>
+  </div>
+</section>
+
+<!-- ── 설정 ───────────────────────────────────────────────────────────── -->
+<section id="screen-settings" class="screen" hidden>
+  <header class="topbar">
+    <button id="back-main" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">설정</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="pad scroll">
+    <label class="field">
+      <span class="label">NovelAI API 키</span>
+      <textarea id="settings-token" rows="3" placeholder="pst-..." autocapitalize="off"
+                autocorrect="off" spellcheck="false"></textarea>
+      <span class="hint">언제든 다른 키로 바꿀 수 있습니다.</span>
+    </label>
+
+    <div id="settings-msg" class="msg" hidden></div>
+
+    <button id="settings-save" class="btn primary block">키 확인하고 저장</button>
+    <button id="settings-test" class="btn block">현재 키 상태 확인</button>
+    <button id="settings-clear" class="btn danger block">키 삭제</button>
+
+    <p class="hint">
+      키를 삭제하면 앱을 다시 켰을 때 첫 실행 화면이 나옵니다.
+    </p>
+
+    <button id="settings-perms" class="btn block">권한 다시 확인</button>
+
+    <hr class="sep">
+
+    <div class="row-head">
+      <span class="label">원격 저장 대상 (PC · VPS)</span>
+      <button id="dest-add" class="btn small">+ 추가</button>
+    </div>
+    <p class="hint">
+      PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다.
+    </p>
+
+    <label class="field">
+      <span class="label">한 줄로 붙여넣기</span>
+      <input id="dest-paste" type="text" placeholder="peropix://192.168.0.5:8770#토큰"
+             autocapitalize="off" autocorrect="off" spellcheck="false">
+      <span class="hint">
+        수신함을 켜면 화면에 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
+        이름·주소·토큰이 한 번에 채워집니다.
+      </span>
+    </label>
+    <div id="dest-paste-msg" class="msg" hidden></div>
+
+    <div id="dest-list"></div>
+  </div>
+</section>
+
+<!-- ── 폴더 관리 ──────────────────────────────────────────────────────── -->
+<section id="screen-folders" class="screen" hidden>
+  <header class="topbar">
+    <button id="folders-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">폴더 관리</h1>
+    <button id="folders-reload" class="btn icon" aria-label="새로고침"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/></svg></button>
+  </header>
+
+  <div class="pad scroll">
+    <label class="field">
+      <span class="label">어디를 볼까</span>
+      <select id="folders-dest"></select>
+    </label>
+
+    <div id="favs-wrap" hidden>
+      <span class="label">즐겨찾기</span>
+      <div id="favs" class="favs"></div>
+    </div>
+
+    <div class="crumbs">
+      <button id="folders-up" class="btn small">↑ 상위</button>
+      <span id="folders-path" class="crumb-path">/</span>
+      <button id="folders-star" class="btn icon" aria-label="즐겨찾기">☆</button>
+    </div>
+
+    <div id="folders-msg" class="msg" hidden></div>
+
+    <div class="row-head">
+      <span class="label" id="folders-summary"></span>
+      <button id="folders-new" class="btn small">+ 새 폴더</button>
+    </div>
+
+    <div id="folders-list"></div>
+  </div>
+</section>
+
+<!-- ── JSON 가져오기 ──────────────────────────────────────────────────── -->
+<section id="screen-import" class="screen" hidden>
+  <header class="topbar">
+    <button id="import-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm" id="import-title">JSON 가져오기</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="pad scroll">
+    <p class="hint" id="import-help"></p>
+
+    <label class="field">
+      <span class="label">JSON</span>
+      <textarea id="import-text" rows="12" placeholder='{ "prefix": "...", "slots": [ ... ] }'
+                autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    </label>
+
+    <div id="import-msg" class="msg" hidden></div>
+
+    <button id="import-run" class="btn primary block">가져오기 (기존 것 교체)</button>
+    <button id="import-append" class="btn block">기존 것 뒤에 추가</button>
+  </div>
+</section>
+
+<!-- ── 전체화면 텍스트 편집기 ────────────────────────────────────────── -->
+<!-- ★폰에서 2~3줄짜리 칸에 긴 프롬프트를 넣으면 앞뒤가 안 보인다.
+     프롬프트 칸을 누르면 여기가 열려 전체를 펼쳐 놓고 고친다.
+     ★고치는 즉시 원래 칸에 반영된다 — 「완료」 를 누르지 않아 잃는 일이 없게. -->
+<div id="editor" class="editor" hidden>
+  <div class="editor-top">
+    <span id="editor-title" class="editor-title"></span>
+    <span id="editor-count" class="editor-count"></span>
+    <button id="editor-close" class="btn icon" aria-label="닫기">✕</button>
+  </div>
+
+  <textarea id="editor-text" class="editor-text" autocapitalize="off"
+            autocorrect="off" spellcheck="false"></textarea>
+
+  <div id="editor-msg" class="editor-msg"></div>
+
+  <div class="editor-actions">
+    <button id="editor-copy" class="btn small">복사</button>
+    <button id="editor-paste" class="btn small">붙여넣기</button>
+    <button id="editor-undo" class="btn small">되돌리기</button>
+    <button id="editor-clear" class="btn small danger">전체 삭제</button>
+  </div>
+  <div class="editor-done-row">
+    <button id="editor-done" class="btn primary block">완료</button>
+  </div>
+</div>
+
+<!-- ── 전체화면 뷰어 ──────────────────────────────────────────────────── -->
+<div id="viewer" class="viewer" hidden>
+  <div class="viewer-top">
+    <span id="viewer-count" class="viewer-count"></span>
+    <button id="viewer-save" class="btn small">저장</button>
+    <button id="viewer-close" class="btn icon" aria-label="닫기">✕</button>
+  </div>
+
+  <div id="viewer-stage" class="viewer-stage">
+    <button id="viewer-prev" class="viewer-nav prev" aria-label="이전">‹</button>
+    <img id="viewer-img" alt="">
+    <button id="viewer-next" class="viewer-nav next" aria-label="다음">›</button>
+  </div>
+
+  <div id="viewer-hint" class="viewer-hint"></div>
+
+  <div class="viewer-actions">
+    <button id="viewer-prev-slot" class="btn small">‹ 이전 슬롯</button>
+    <button id="viewer-enhance" class="btn small">인핸스</button>
+    <button id="viewer-upscale" class="btn small">×4</button>
+    <button id="viewer-next-slot" class="btn small">다음 슬롯 ›</button>
+  </div>
+  <div id="viewer-cap" class="viewer-cap"></div>
+</div>
+
+<!-- ── 와일드카드 ─────────────────────────────────────────────────────── -->
+<section id="screen-wildcards" class="screen" hidden>
+  <header class="topbar">
+    <button id="wc-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">와일드카드</h1>
+    <button id="wc-sample" class="btn small">예시 넣기</button>
+  </header>
+
+  <div class="pad scroll">
+    <p class="hint">
+      <code>#이름</code> 을 한 줄에 홀로 쓰면 풀 정의, 프롬프트 안에 쓰면 그 풀에서 하나를 뽑습니다.
+      <b>슬롯마다 따로 뽑습니다</b> — 한 배치 안에서도 장마다 다른 조합이 나옵니다.
+      <code>{a|b}</code> 와 <code>||a|b||</code> 도 씁니다.
+    </p>
+
+    <label class="field">
+      <span class="label">정의</span>
+      <textarea id="wc-doc" rows="16" autocapitalize="off" autocorrect="off"
+                spellcheck="false"></textarea>
+    </label>
+
+    <div id="wc-info" class="msg"></div>
+
+    <label class="field">
+      <span class="label">시험해 보기</span>
+      <input id="wc-try" type="text" placeholder="예: 1girl, #hair, #outfit">
+    </label>
+    <button id="wc-roll" class="btn block">뽑아 보기</button>
+    <div id="wc-result" class="msg" hidden></div>
+  </div>
+</section>
+
+<!-- ── 인핸스 설정 ────────────────────────────────────────────────────── -->
+<section id="screen-enhance" class="screen" hidden>
+  <header class="topbar">
+    <button id="enh-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm" id="enh-title">인핸스</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="pad scroll">
+    <p class="hint" id="enh-help"></p>
+    <img id="enh-preview" class="enh-preview" alt="">
+
+    <label class="field">
+      <span class="label">키울 배율 <span id="enh-scale-val" class="range-val"></span></span>
+      <select id="enh-scale"></select>
+    </label>
+
+    <label class="field">
+      <span class="label">strength <span id="enh-strength-val" class="range-val"></span></span>
+      <div class="range-row">
+        <input id="enh-strength" type="range" min="0.1" max="1" step="0.05" value="0.5">
+      </div>
+      <span class="hint">낮을수록 원본에 가깝습니다.</span>
+    </label>
+
+    <label class="field">
+      <span class="label">noise <span id="enh-noise-val" class="range-val"></span></span>
+      <div class="range-row">
+        <input id="enh-noise" type="range" min="0" max="0.5" step="0.01" value="0">
+      </div>
+    </label>
+
+    <div id="enh-cost" class="msg"></div>
+    <div id="enh-msg" class="msg" hidden></div>
+    <button id="enh-run" class="btn primary block">실행</button>
+  </div>
+</section>
+
+<script src="js/fflate.js"></script>
+<script src="js/nai-tables.js"></script>
+<script src="js/nai-payload.js"></script>
+<script src="js/naming.js"></script>
+<script src="js/perofix-import.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/nai-client.js"></script>
+<script src="js/remote-store.js"></script>
+<script src="js/image-util.js"></script>
+<script src="js/results-model.js"></script>
+<script src="js/anlas.js"></script>
+<script src="js/wildcards.js"></script>
+<script src="js/notify.js"></script>
+<script src="js/folders.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

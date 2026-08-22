@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  암호화 안 된 HTTP 를 어디까지 허용할지.
+
+  ★안드로이드 9(API 28)부터 평문 HTTP 는 기본으로 막힌다.
+    집 LAN 안의 PC 수신함은 평문이라도 위험이 낮지만, 인터넷에 있는 VPS 로 평문을 보내면
+    토큰과 이미지가 중간에 그대로 노출된다. 그래서 **사설망 주소에서만** 평문을 연다.
+
+  ★VPS 는 반드시 HTTPS 로 붙어야 한다 (Tailscale 이나 Caddy 로 인증서를 씌운다).
+    공인 IP 를 여기에 추가하지 말 것 — 그 순간 토큰이 평문으로 나간다.
+-->
+<network-security-config>
+    <!-- 기본: 평문 금지. 인터넷 대상은 전부 HTTPS 여야 한다. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- 사설망(집·회사 LAN)과 자기 자신에게만 평문을 연다. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- 로컬호스트 -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+
+        <!-- 10.0.0.0/8 -->
+        <domain includeSubdomains="true">10.0.0.0/8</domain>
+        <!-- 172.16.0.0/12 -->
+        <domain includeSubdomains="true">172.16.0.0/12</domain>
+        <!-- 192.168.0.0/16 — 집 공유기가 거의 다 이 대역이다 -->
+        <domain includeSubdomains="true">192.168.0.0/16</domain>
+        <!-- 100.64.0.0/10 — Tailscale 등 VPN 이 쓰는 대역 -->
+        <domain includeSubdomains="true">100.64.0.0/10</domain>
+
+        <!-- ── 공인 IP 로 평문 HTTP 를 쓰려면 여기에 주소를 적는다 ──────
+             예:  <domain includeSubdomains="false">203.0.113.10</domain>
+
+             ★적는 순간 그 주소로는 이미지와 토큰이 **암호화 없이** 오간다.
+               인터넷을 지나는 서버라면 대신 HTTPS 를 쓰는 편이 낫다
+               (Tailscale 이나 Caddy — README 의 「바깥에서 닿게 하기」 참고).
+             ★여기를 고치면 APK 를 다시 빌드해야 반영된다. -->
+    </domain-config>
+</network-security-config>

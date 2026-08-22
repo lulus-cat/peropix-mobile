@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Peropix Lkit mobile ver.</string>
+    <string name="title_activity_main">Peropix Lkit mobile ver.</string>
+    <string name="package_name">com.peropix.mobile</string>
+    <string name="custom_url_scheme">com.peropix.mobile</string>
+</resources>

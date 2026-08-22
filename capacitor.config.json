@@ -1,0 +1,14 @@
+{
+  "appId": "com.peropix.mobile",
+  "appName": "Peropix Lkit mobile ver.",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#14151a"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
