@@ -137,9 +137,45 @@ const RemoteStore = (function () {
     throw new Error(explain(r.status, r.body));
   }
 
+  // ── 작업 큐 ─────────────────────────────────────────────────────────────
+  // ★「이거 뽑으세요」 쪽지를 받아 오고, 진행·결과를 알린다. 키는 이 폰에만 있으므로
+  //   실제로 NovelAI 를 부르고 Anlas 를 쓰는 것은 언제나 이쪽이다.
+
+  /** 기다리는 작업 목록. @returns {Promise<Array>} */
+  async function listJobs(dest, status) {
+    const q = status ? ('?status=' + encodeURIComponent(status)) : '';
+    const r = await request(dest, 'GET', '/jobs' + q, null);
+    if (r.status === 200 && r.body.ok) return r.body.jobs || [];
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /**
+   * 기다리는 것 하나를 집어 온다 (없으면 null).
+   * ★집는 순간 서버가 running 으로 바꾼다 — 폰이 둘이어도 같은 작업을 두 번 뽑지 않는다.
+   */
+  async function claimJob(dest) {
+    const r = await request(dest, 'POST', '/jobs/claim', {});
+    if (r.status === 200 && r.body.ok) return r.body.job || null;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /** 진행·결과를 알린다. {id, status, progress:{done,total}, files, error} */
+  async function updateJob(dest, patch) {
+    const r = await request(dest, 'POST', '/jobs/update', patch || {});
+    if (r.status === 200 && r.body.ok) return r.body.job;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  async function deleteJob(dest, id) {
+    const r = await request(dest, 'POST', '/jobs/delete', { id: id });
+    if (r.status === 200 && r.body.ok) return true;
+    throw new Error(explain(r.status, r.body));
+  }
+
   return {
     ping: ping, upload: upload, list: list, baseUrl: baseUrl,
-    browse: browse, mkdir: mkdir, rename: rename, remove: remove
+    browse: browse, mkdir: mkdir, rename: rename, remove: remove,
+    listJobs: listJobs, claimJob: claimJob, updateJob: updateJob, deleteJob: deleteJob
   };
 })();
 

@@ -34,7 +34,7 @@
   function show(which) {
     currentScreen = which;
     ['setup', 'perms', 'main', 'settings', 'import', 'folders', 'results',
-     'wildcards', 'enhance', 'compose'].forEach(function (n) {
+     'wildcards', 'enhance', 'compose', 'jobs'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     window.scrollTo(0, 0);
@@ -1606,6 +1606,273 @@
     say($('cmp-msg'), okCount + '/' + targets.length + ' 완료'
       + (failed ? ', 실패 ' + failed + '건' : ''), failed ? 'err' : 'ok');
     if (!failed) setTimeout(function () { show('results'); }, 800);
+  }
+
+  // ── 원격 작업 ────────────────────────────────────────────────────────────
+  // ★PC·VPS 수신함에 누군가(예: Claude Code)가 올려 둔 「이거 뽑으세요」 를 받아 온다.
+  //   ★키도 Anlas 도 이 폰 것이다 — 그래서 실행 여부는 언제나 여기서 정한다.
+  //     「받으면 바로 실행」 을 켜야만 묻지 않고 돈다.
+  //   ★결과는 그 수신함으로 저장된다. 올린 쪽이 결과를 봐야 왕복이 완성되기 때문이다.
+  let jobsDestId = null;      // 어느 수신함에서 받을지
+  let jobsAuto = false;       // 받으면 바로 실행
+  let jobsList = [];
+  let jobTimer = null;
+  let activeJob = null;       // { id, dest, total } — 지금 돌고 있는 원격 작업
+  let jobReportAt = 0;
+
+  const JOB_POLL_MS = 8000;
+
+  function jobsDest() {
+    return destinations.find(function (d) { return d.id === jobsDestId; }) || null;
+  }
+
+  function renderJobsDestSelect() {
+    const sel = $('jobs-dest');
+    sel.innerHTML = '';
+    destinations.forEach(function (d) {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.name || d.url;
+      sel.appendChild(o);
+    });
+    if (!destinations.some(function (d) { return d.id === jobsDestId; })) {
+      jobsDestId = destinations.length ? destinations[0].id : null;
+    }
+    if (jobsDestId) sel.value = jobsDestId;
+
+    const d = jobsDest();
+    $('jobs-dest-hint').textContent = d
+      ? ('받아 오는 곳: ' + RemoteStore.baseUrl(d) + ' · 결과도 여기로 저장됩니다.')
+      : '등록된 PC·VPS 수신함이 없습니다. 설정에서 먼저 추가하세요.';
+  }
+
+  /** 이 작업이 몇 장짜리인지 (예상). 실행 전에 사람이 판단할 근거다. */
+  function jobShots(spec) {
+    const slots = (spec && spec.slots) ? spec.slots.length : 0;
+    const chars = (spec && spec.characters) ? spec.characters.filter(function (c) {
+      return c.enabled !== false;
+    }).length : 0;
+    const opts = (spec && spec.options) || {};
+    const per = Math.max(1, parseInt(opts.count_per_slot, 10) || 1);
+    const one = !!opts.one_char_mode && chars > 0;
+    return slots * per * (one ? chars : 1);
+  }
+
+  function renderJobsBadge() {
+    const n = jobsList.filter(function (j) { return j.status === 'pending'; }).length;
+    const b = $('jobs-badge');
+    b.textContent = n > 9 ? '9+' : String(n);
+    b.hidden = n === 0;
+  }
+
+  function renderJobs() {
+    renderJobsBadge();
+    const box = $('jobs-list');
+    box.innerHTML = '';
+    if (!jobsList.length) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = jobsDest() ? '기다리는 작업이 없습니다.' : '';
+      box.appendChild(e);
+      return;
+    }
+
+    jobsList.forEach(function (j) {
+      const row = document.createElement('div');
+      row.className = 'job-row ' + (j.status || '');
+
+      const nm = document.createElement('div');
+      nm.className = 'job-name';
+      nm.textContent = j.name || '작업';
+      row.appendChild(nm);
+
+      const meta = document.createElement('div');
+      meta.className = 'job-meta';
+      const spec = j.spec || {};
+      const bits = [];
+      const STATUS = { pending: '기다리는 중', running: '도는 중', done: '끝남',
+        failed: '실패', cancelled: '취소됨' };
+      bits.push(STATUS[j.status] || j.status);
+      bits.push('슬롯 ' + ((spec.slots || []).length) + '개');
+      if ((spec.characters || []).length) bits.push('인물 ' + spec.characters.length + '명');
+      bits.push('약 ' + jobShots(spec) + '장');
+      if (spec.folder) bits.push('폴더 ' + spec.folder);
+      if (j.progress && j.progress.total) bits.push(j.progress.done + '/' + j.progress.total);
+      if (j.error) bits.push('⚠ ' + j.error);
+      meta.textContent = bits.join(' · ') + '\n' + (j.createdAt || '');
+      meta.style.whiteSpace = 'pre-line';
+      row.appendChild(meta);
+
+      const tools = document.createElement('div');
+      tools.className = 'toolrow';
+      if (j.status === 'pending' || j.status === 'failed') {
+        const run = document.createElement('button');
+        run.className = 'btn small primary';
+        run.textContent = '실행';
+        run.disabled = running;
+        run.addEventListener('click', function () { startJob(j, false); });
+        tools.appendChild(run);
+      }
+      const del = document.createElement('button');
+      del.className = 'btn small danger';
+      del.textContent = '지우기';
+      del.addEventListener('click', async function () {
+        const d = jobsDest();
+        if (!d) return;
+        try {
+          await RemoteStore.deleteJob(d, j.id);
+          await loadJobs();
+        } catch (e) {
+          say($('jobs-msg'), e.message || String(e), 'err');
+        }
+      });
+      tools.appendChild(del);
+      row.appendChild(tools);
+      box.appendChild(row);
+    });
+  }
+
+  async function loadJobs(quiet) {
+    const d = jobsDest();
+    if (!d) { jobsList = []; renderJobs(); return; }
+    try {
+      jobsList = await RemoteStore.listJobs(d);
+      if (!quiet) say($('jobs-msg'), '');
+      renderJobs();
+    } catch (e) {
+      jobsList = [];
+      renderJobs();
+      if (!quiet) say($('jobs-msg'), '받아 오지 못했습니다: ' + (e.message || e), 'err');
+    }
+  }
+
+  /** 작업 JSON 을 화면 상태로 옮긴다. ★가져오기와 같은 길을 쓴다. */
+  async function applyJobSpec(spec, dest) {
+    const parsed = PerofixImport.parse(JSON.stringify(spec));
+    if (!parsed.ok) throw new Error('작업 JSON 을 읽지 못했습니다: ' + parsed.error);
+
+    // ★parse() 는 이미 앱이 쓰는 모양으로 돌려준다 (가져오기 화면과 같은 값).
+    //   여기서 한 번 더 옮겨 담으면 라벨이 사라져 파일 이름이 slot1, slot2 가 된다.
+    slots = parsed.slots;
+    if (parsed.prefix) $('base-prompt').value = parsed.prefix;
+
+    const chars = PerofixImport.parseCharacters(JSON.stringify(spec));
+    if (chars.ok && chars.characters.length) characters = chars.characters;
+
+    persona = String(spec.folder || spec.persona || persona || '').trim();
+    $('persona').value = persona;
+
+    // 옵션 덮어쓰기 — 아는 것만 받는다 (모르는 값이 들어와 페이로드가 뒤틀리지 않게).
+    const OK_OPTS = ['nai_model', 'width', 'height', 'steps', 'cfg', 'sampler', 'uc_preset',
+      'quality_preset', 'negative_prompt', 'count_per_slot', 'one_char_mode',
+      'transparent_bg', 'straight_alpha', 'save_format', 'variety_plus', 'seed'];
+    const given = spec.options || {};
+    OK_OPTS.forEach(function (k) {
+      if (given[k] !== undefined) options[k] = given[k];
+    });
+    // ★결과가 올린 쪽에 보여야 왕복이 완성된다 — 저장은 켜고, 저장 위치는 그 수신함으로.
+    options.auto_save = true;
+    activeDestId = dest.id;
+
+    await Store.setSlots(slots);
+    await Store.setCharacters(characters);
+    await Store.setBasePrompt($('base-prompt').value);
+    await Store.setPersona(persona);
+    await Store.setActiveDest(activeDestId);
+    await Store.setOptions(options);
+
+    fillOptionUI();
+    renderSlots();
+    renderCharDrawer();
+    renderDestSelect();
+    renderNamingUI();
+    renderAnlas();
+  }
+
+  /** 진행을 수신함에 알린다. ★너무 자주 부르면 배치가 느려진다 — 2초에 한 번으로 묶는다. */
+  function reportJobProgress(done, total) {
+    if (!activeJob) return;
+    activeJob.total = total;
+    const now = Date.now();
+    if (now - jobReportAt < 2000 && done < total) return;
+    jobReportAt = now;
+    RemoteStore.updateJob(activeJob.dest, {
+      id: activeJob.id, status: 'running', progress: { done: done, total: total }
+    }).catch(function () { /* 알리기에 실패해도 뽑는 것은 계속한다 */ });
+  }
+
+  async function startJob(job, auto) {
+    if (running) return;
+    const d = jobsDest();
+    if (!d) return;
+
+    const shots = jobShots(job.spec || {});
+    if (!auto) {
+      const ok = window.confirm(
+        '「' + (job.name || '작업') + '」 을 실행할까요?\n\n'
+        + '약 ' + shots + '장을 뽑고 Anlas 를 씁니다.\n'
+        + '지금 슬롯·인물·폴더 이름이 이 작업 것으로 바뀝니다.');
+      if (!ok) return;
+    }
+
+    // ★집어 온다 — 서버가 running 으로 바꿔 다른 폰이 같은 것을 또 뽑지 못하게 한다.
+    let claimed = job;
+    try {
+      if (job.status === 'pending') {
+        claimed = await RemoteStore.claimJob(d);
+        if (!claimed || claimed.id !== job.id) {
+          say($('jobs-msg'), '다른 쪽이 먼저 집어 갔습니다. 목록을 새로 고칩니다.', 'err');
+          await loadJobs();
+          return;
+        }
+      }
+      await applyJobSpec(claimed.spec || {}, d);
+    } catch (e) {
+      say($('jobs-msg'), (e.message || String(e)), 'err');
+      try { await RemoteStore.updateJob(d, { id: job.id, status: 'failed', error: String(e.message || e) }); } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+      await loadJobs(true);
+      return;
+    }
+
+    activeJob = { id: claimed.id, dest: d, total: shots };
+    jobReportAt = 0;
+    say($('jobs-msg'), '「' + (claimed.name || '작업') + '」 을 뽑는 중입니다…');
+    show('main');
+
+    try {
+      await runGeneration();
+      const saved = ResultsModel.live(results).filter(function (r) { return r.savedTo && r.filename; });
+      const failed = ResultsModel.live(results).filter(function (r) { return r.error && !r.bytes; });
+      await RemoteStore.updateJob(d, {
+        id: claimed.id,
+        status: failed.length && !saved.length ? 'failed' : 'done',
+        progress: { done: saved.length, total: activeJob.total || saved.length },
+        files: saved.map(function (r) { return r.filename; }),
+        error: failed.length ? (failed.length + '장 실패') : ''
+      });
+    } catch (e) {
+      try {
+        await RemoteStore.updateJob(d, { id: claimed.id, status: 'failed', error: String(e.message || e) });
+      } catch (e2) { /* 알리기 실패는 넘어간다 */ }
+    } finally {
+      activeJob = null;
+      await loadJobs(true);
+    }
+  }
+
+  /** 자동 모드 — 기다리는 것이 있으면 하나 집어 돌린다. */
+  async function pollJobs() {
+    if (running) return;
+    await loadJobs(true);
+    if (!jobsAuto) return;
+    const next = jobsList.find(function (j) { return j.status === 'pending'; });
+    if (next) startJob(next, true);
+  }
+
+  function setJobTimer(on) {
+    clearInterval(jobTimer);
+    jobTimer = null;
+    if (on) jobTimer = setInterval(pollJobs, JOB_POLL_MS);
   }
 
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
@@ -3462,6 +3729,8 @@
       renderResults();
       done++;
       setProgress(done, totalJobs, done + '/' + totalJobs + ' 완료');
+      // 원격 작업으로 도는 중이면 올린 쪽에도 진행을 알린다.
+      reportJobProgress(done, totalJobs);
     }
 
     running = false;
@@ -3609,6 +3878,13 @@
     renderTagsetSelect();
     setupBackButton();
     $('persona').value = persona;
+
+    jobsDestId = await Store.getJobsDest();
+    jobsAuto = await Store.getJobsAuto();
+    $('jobs-auto').checked = jobsAuto;
+    renderJobsDestSelect();
+    // ★자동 모드는 앱을 켜 두는 동안만 돈다 (안드로이드가 백그라운드를 재운다).
+    if (jobsAuto) setJobTimer(true);
 
     renderAnlas();
     renderOneChar();
@@ -3769,6 +4045,33 @@
       if (!results.length) return;
       if (!window.confirm('결과 목록을 비울까요? 저장하지 않은 그림은 사라집니다.')) return;
       clearResults();
+    });
+
+    // ── 원격 작업 ───────────────────────────────────────────────────
+    $('go-jobs').addEventListener('click', async function () {
+      renderJobsDestSelect();
+      $('jobs-auto').checked = jobsAuto;
+      show('jobs');
+      await loadJobs();
+      setJobTimer(true);          // 화면을 보는 동안에는 자주 확인한다
+    });
+    $('jobs-back').addEventListener('click', function () {
+      // ★자동 모드가 아니면 나갈 때 확인을 멈춘다. 켜 뒀다면 계속 지켜본다.
+      setJobTimer(jobsAuto);
+      show('main');
+    });
+    $('jobs-reload').addEventListener('click', function () { loadJobs(); });
+    $('jobs-dest').addEventListener('change', function () {
+      jobsDestId = $('jobs-dest').value;
+      Store.setJobsDest(jobsDestId);
+      renderJobsDestSelect();
+      loadJobs();
+    });
+    $('jobs-auto').addEventListener('change', function () {
+      jobsAuto = $('jobs-auto').checked;
+      Store.setJobsAuto(jobsAuto);
+      setJobTimer(true);
+      if (jobsAuto) toast('기다리는 작업이 있으면 바로 뽑습니다.', 2200);
     });
 
     $('folders-star').addEventListener('click', toggleFav);

@@ -23,6 +23,15 @@
     POST /rename           이름 바꾸기·이동  {"from": "...", "to": "..."}
     POST /delete           지우기           {"path": "...", "recursive": false}
 
+  작업 큐 — 다른 사람(예: Claude Code)이 「이거 뽑으세요」 를 올려 두면 폰 앱이 받아 간다.
+  ★키는 폰에만 있으므로, 여기 올라오는 것은 **무엇을 뽑을지에 대한 지시**뿐이다.
+    NovelAI 를 부르는 것도, Anlas 를 쓰는 것도 폰이다. 이 서버는 쪽지함일 뿐이다.
+    POST /jobs             작업 올리기       {"name": "...", "spec": {...}}
+    GET  /jobs?status=...  작업 목록
+    POST /jobs/claim       기다리는 것 하나를 집어 간다 (폰이 부른다)
+    POST /jobs/update      진행·결과 알리기  {"id": "...", "status": "done", ...}
+    POST /jobs/delete      작업 지우기       {"id": "..."}
+
 ★X-Path 는 **UTF-8 퍼센트 인코딩**으로 보낸다.
   HTTP 헤더는 latin-1 만 담을 수 있어서 "미아/happy.png" 를 날것으로 넣으면 전송 자체가 실패한다.
   페르소나 이름이 한글인 게 기본이므로 이 규약을 어기면 바로 막힌다.
@@ -40,6 +49,7 @@ import shutil
 import ssl
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
@@ -124,6 +134,64 @@ def unique_path(dest: Path) -> Path:
         n += 1
 
 
+# ── 작업 큐 ──────────────────────────────────────────────────────────────
+# ★이미지 폴더 안의 숨은 폴더(.jobs)에 둔다. 따로 경로를 받으면 설정이 하나 더 늘고,
+#   두 곳을 옮길 때 짝이 어긋난다. 대신 **목록·폴더 화면에서는 숨긴다** (아래 _visible).
+JOBS_DIR = ".jobs"
+JOB_MAX_BYTES = 1024 * 1024          # 지시문은 작다. 이보다 크면 뭔가 잘못된 것이다.
+JOB_STATUSES = ("pending", "running", "done", "failed", "cancelled")
+
+
+def jobs_dir() -> Path:
+    d = Config.root.resolve() / JOBS_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _visible(name: str) -> bool:
+    """숨은 항목(.jobs 등)은 파일 목록에 내보내지 않는다."""
+    return not name.startswith(".")
+
+
+def job_path(job_id: str):
+    """작업 id 는 우리가 만든 것만 받는다 (경로 조각으로 쓰이므로 엄격히)."""
+    if not re.fullmatch(r"[0-9a-z\-]{8,64}", job_id or ""):
+        return None
+    return jobs_dir() / f"{job_id}.json"
+
+
+def read_job(job_id: str):
+    p = job_path(job_id)
+    if not p or not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def write_job(job: dict):
+    p = job_path(job["id"])
+    if not p:
+        return False
+    # ★임시 파일에 쓰고 이름을 바꾼다. 폰이 읽는 중에 반쪽짜리 JSON 을 보면 안 된다.
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(job, ensure_ascii=False, indent=1), "utf-8")
+    tmp.replace(p)
+    return True
+
+
+def all_jobs():
+    out = []
+    for p in sorted(jobs_dir().glob("*.json")):
+        try:
+            out.append(json.loads(p.read_text("utf-8")))
+        except (OSError, ValueError):
+            continue
+    out.sort(key=lambda j: j.get("createdAt", ""))
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = f"PeroPixReceiver/{VERSION}"
 
@@ -179,12 +247,26 @@ class Handler(BaseHTTPRequestHandler):
                 if not p.is_file():
                     continue
                 rel = p.relative_to(base).as_posix()
+                # ★.jobs 같은 숨은 폴더는 그림이 아니다 — 목록에 섞이면 매트릭스 셈이 틀어진다.
+                if any(not _visible(part) for part in rel.split("/")):
+                    continue
                 if prefix and not rel.startswith(prefix):
                     continue
                 files.append({"path": rel, "size": p.stat().st_size})
                 if len(files) >= 5000:
                     break
             self._send(200, {"ok": True, "count": len(files), "files": files})
+            return
+
+        if u.path == "/jobs":
+            if not self._authed():
+                self._send(401, {"ok": False, "error": "토큰이 맞지 않습니다"})
+                return
+            want = (parse_qs(u.query).get("status") or [""])[0]
+            jobs = all_jobs()
+            if want:
+                jobs = [j for j in jobs if j.get("status") == want]
+            self._send(200, {"ok": True, "count": len(jobs), "jobs": jobs})
             return
 
         if u.path == "/browse":
@@ -204,6 +286,8 @@ class Handler(BaseHTTPRequestHandler):
             root = Config.root.resolve()
             dirs, files = [], []
             for p in sorted(target.iterdir(), key=lambda x: x.name.lower()):
+                if not _visible(p.name):
+                    continue
                 try:
                     if p.is_dir():
                         # 안에 몇 장 들었는지 같이 알려 준다 (매트릭스 채움 확인용).
@@ -241,6 +325,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+
+        if path.startswith("/jobs"):
+            if not self._authed():
+                self._send(401, {"ok": False, "error": "토큰이 맞지 않습니다"})
+                return
+            self._job_op(path)
+            return
 
         if path in ("/mkdir", "/rename", "/delete"):
             if not self._authed():
@@ -312,6 +403,91 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"ok": True, "path": rel, "bytes": len(data)})
 
     # ── 폴더 관리 ───────────────────────────────────────────────────────
+    # ── 작업 큐 ─────────────────────────────────────────────────────────
+    def _job_op(self, path):
+        """「이거 뽑으세요」 쪽지를 주고받는다. 그림은 여기서 만들지 않는다."""
+        body, err = self._read_json(limit=JOB_MAX_BYTES)
+        if err:
+            self._send(400, {"ok": False, "error": err})
+            return
+
+        with _lock:
+            if path == "/jobs":
+                spec = body.get("spec")
+                if not isinstance(spec, dict):
+                    self._send(400, {"ok": False, "error": "spec 이 없습니다 (무엇을 뽑을지)"})
+                    return
+                now = time.strftime("%Y-%m-%dT%H:%M:%S")
+                # ★id 앞에 시각을 둔다 — 파일 이름만 봐도 순서가 보이고, 정렬이 곧 시간순이다.
+                job = {
+                    "id": time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3),
+                    "name": str(body.get("name") or spec.get("name") or "작업"),
+                    "createdAt": now,
+                    "updatedAt": now,
+                    "status": "pending",
+                    "spec": spec,
+                    "progress": {"done": 0, "total": 0},
+                    "files": [],
+                    "error": ""
+                }
+                if not write_job(job):
+                    self._send(500, {"ok": False, "error": "작업을 쓰지 못했습니다"})
+                    return
+                self._send(200, {"ok": True, "id": job["id"], "job": job})
+                return
+
+            if path == "/jobs/claim":
+                # ★기다리는 것 중 **가장 오래된 하나**만 집어 준다. 집는 순간 running 으로
+                #   바꿔 두어야 폰이 둘이어도 같은 작업을 두 번 뽑지 않는다 (돈이 두 배로 나간다).
+                for job in all_jobs():
+                    if job.get("status") != "pending":
+                        continue
+                    job["status"] = "running"
+                    job["claimedAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+                    job["updatedAt"] = job["claimedAt"]
+                    write_job(job)
+                    self._send(200, {"ok": True, "job": job})
+                    return
+                self._send(200, {"ok": True, "job": None})
+                return
+
+            if path == "/jobs/update":
+                job = read_job(str(body.get("id") or ""))
+                if not job:
+                    self._send(404, {"ok": False, "error": "그런 작업이 없습니다"})
+                    return
+                status = body.get("status")
+                if status is not None:
+                    if status not in JOB_STATUSES:
+                        self._send(400, {"ok": False, "error": f"모르는 상태: {status!r}"})
+                        return
+                    job["status"] = status
+                if isinstance(body.get("progress"), dict):
+                    job["progress"] = {
+                        "done": int(body["progress"].get("done") or 0),
+                        "total": int(body["progress"].get("total") or 0)
+                    }
+                if isinstance(body.get("files"), list):
+                    # 저장된 경로만 담는다 (그림 자체는 /upload 로 따로 올라온다).
+                    job["files"] = [str(f)[:400] for f in body["files"][:2000]]
+                if body.get("error") is not None:
+                    job["error"] = str(body.get("error"))[:2000]
+                job["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+                write_job(job)
+                self._send(200, {"ok": True, "job": job})
+                return
+
+            if path == "/jobs/delete":
+                p = job_path(str(body.get("id") or ""))
+                if not p or not p.exists():
+                    self._send(404, {"ok": False, "error": "그런 작업이 없습니다"})
+                    return
+                p.unlink()
+                self._send(200, {"ok": True})
+                return
+
+        self._send(404, {"ok": False, "error": "없는 경로입니다"})
+
     def _folder_op(self, op):
         body, err = self._read_json()
         if err:

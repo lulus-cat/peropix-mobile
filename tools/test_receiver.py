@@ -236,6 +236,66 @@ check("루트가 살아 있는지", ROOT.exists())
 status, body = op("/mkdir", {"path": "x"}, token="wrong-token-xxxxxxxxxxxx")
 check(f"폴더 조작도 토큰 검사 (받은 {status})", status == 401)
 
+# ── 5. 작업 큐 ────────────────────────────────────────────────────────
+def get(endpoint):
+    return req("GET", endpoint)
+
+
+# ★여기가 뚫리면 남이 「이거 뽑으세요」 를 밀어 넣어 폰의 Anlas 를 태울 수 있다.
+status, body = op("/jobs", {"name": "미아 일상", "spec": {"prefix": "1girl", "slots": [{"name": "1-1"}]}},
+                  token="wrong-token-xxxxxxxxxxxx")
+check(f"작업 올리기도 토큰 검사 (받은 {status})", status == 401)
+
+status, body = op("/jobs", {"name": "미아 일상", "spec": {"prefix": "1girl", "slots": [{"name": "1-1"}]}})
+check(f"작업을 올릴 수 있다 (받은 {status})", status == 200 and body.get("ok"))
+job_id = (body.get("job") or {}).get("id", "")
+check(f"작업 id 를 돌려준다 ({job_id})", bool(job_id))
+check("올린 작업은 pending", (body.get("job") or {}).get("status") == "pending")
+
+status, body = op("/jobs", {"name": "spec 없음"})
+check(f"spec 이 없으면 거절 (받은 {status})", status == 400)
+
+status, body = get("/jobs")
+check(f"목록을 볼 수 있다 (받은 {status})", status == 200 and body.get("count") == 1)
+status, body = get("/jobs?status=done")
+check("상태로 걸러 볼 수 있다", status == 200 and body.get("count") == 0)
+
+# ★.jobs 는 그림 목록에 섞이면 안 된다 (매트릭스 채움 셈이 틀어진다).
+status, body = get("/list")
+check("작업 파일은 그림 목록에 안 섞인다",
+      all(".jobs" not in f["path"] for f in body.get("files", [])))
+status, body = get("/browse?path=")
+check("작업 폴더는 폴더 화면에도 안 보인다",
+      all(d["name"] != ".jobs" for d in body.get("dirs", [])))
+
+# 집어 가기 — 두 번째로 부르면 없어야 한다 (같은 작업을 두 번 뽑으면 돈이 두 배로 나간다)
+status, body = op("/jobs/claim", {})
+claimed = body.get("job") or {}
+check(f"기다리는 작업을 집어 준다 (받은 {status})", status == 200 and claimed.get("id") == job_id)
+check("집는 순간 running 이 된다", claimed.get("status") == "running")
+status, body = op("/jobs/claim", {})
+check("★같은 작업을 두 번 집어 주지 않는다", status == 200 and body.get("job") is None)
+
+# 진행·결과 알리기
+status, body = op("/jobs/update", {"id": job_id, "progress": {"done": 1, "total": 4}})
+check(f"진행을 알릴 수 있다 (받은 {status})", status == 200
+      and (body.get("job") or {}).get("progress", {}).get("done") == 1)
+status, body = op("/jobs/update", {"id": job_id, "status": "done", "files": ["미아/1-1.png"]})
+check("끝났다고 알릴 수 있다", status == 200 and (body.get("job") or {}).get("status") == "done")
+check("저장한 파일 목록이 남는다", (body.get("job") or {}).get("files") == ["미아/1-1.png"])
+
+status, body = op("/jobs/update", {"id": job_id, "status": "이상한상태"})
+check(f"모르는 상태는 거절 (받은 {status})", status == 400)
+status, body = op("/jobs/update", {"id": "../../etc/passwd", "status": "done"})
+check(f"★작업 id 로 경로 탈출을 못 한다 (받은 {status})", status == 404)
+status, body = op("/jobs/update", {"id": "없는작업", "status": "done"})
+check(f"없는 작업은 404 (받은 {status})", status == 404)
+
+status, body = op("/jobs/delete", {"id": job_id})
+check(f"작업을 지울 수 있다 (받은 {status})", status == 200)
+status, body = get("/jobs")
+check("지우면 목록에서 빠진다", body.get("count") == 0)
+
 httpd.shutdown()
 shutil.rmtree(ROOT, ignore_errors=True)
 

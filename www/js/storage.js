@@ -234,6 +234,28 @@ const Store = (function () {
     await setRaw(KEY_REFS, JSON.stringify(list || []));
   }
 
+  // ── 원격 작업 ────────────────────────────────────────────────────────────
+  // 어느 수신함에서 「이거 뽑으세요」 를 받아 올지, 받으면 바로 돌릴지.
+  // ★자동 실행은 묻지 않고 Anlas 를 쓴다. 그래서 기본값은 꺼짐이다.
+  const KEY_JOBS_DEST = 'jobs_dest';
+  const KEY_JOBS_AUTO = 'jobs_auto';
+
+  async function getJobsDest() {
+    return (await getRaw(KEY_JOBS_DEST)) || '';
+  }
+
+  async function setJobsDest(id) {
+    await setRaw(KEY_JOBS_DEST, id || '');
+  }
+
+  async function getJobsAuto() {
+    return (await getRaw(KEY_JOBS_AUTO)) === '1';
+  }
+
+  async function setJobsAuto(on) {
+    await setRaw(KEY_JOBS_AUTO, on ? '1' : '0');
+  }
+
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
   // 항목: { destId, path, label }
   const KEY_FAVS = 'folder_favorites';
@@ -344,6 +366,10 @@ const Store = (function () {
     setReferences: setReferences,
     getFavorites: getFavorites,
     setFavorites: setFavorites,
+    getJobsDest: getJobsDest,
+    setJobsDest: setJobsDest,
+    getJobsAuto: getJobsAuto,
+    setJobsAuto: setJobsAuto,
     getCharacters: getCharacters,
     setCharacters: setCharacters,
     getSlotTarget: getSlotTarget,

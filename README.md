@@ -376,6 +376,72 @@ PC 와 VPS 는 같은 방식으로 다룹니다 — 주소만 다릅니다. 설�
 
 ---
 
+## 원격 작업 — 다른 사람이 「이거 뽑으세요」 를 올려 두면 폰이 받아 간다
+
+Claude Code 같은 도구가 PC·VPS 수신함에 **작업**(무엇을 뽑을지)을 올려 두면, 폰 앱이 그것을
+받아 뽑고 결과를 같은 수신함에 올립니다. 올린 쪽은 결과를 파일로 바로 확인합니다.
+
+> ★**API 키는 폰에만 있습니다.** 올라가는 것은 프롬프트와 설정뿐이고, NovelAI 를 부르는 것도
+> Anlas 를 쓰는 것도 언제나 폰입니다. 수신함은 쪽지함일 뿐입니다.
+
+### 폰에서
+
+상단 **📥 원격 작업** 버튼. 받아 올 수신함을 고르면 기다리는 작업이 뜹니다.
+
+- 작업마다 **몇 장짜리인지** 미리 적혀 있습니다 (슬롯 × 인물 × 배수)
+- **「실행」** 을 누르면 한 번 더 묻고 (`약 N장을 뽑고 Anlas 를 씁니다`) 시작합니다
+- ★실행하면 **지금 슬롯·인물·폴더 이름이 그 작업 것으로 바뀝니다** (가져오기와 같습니다)
+- 저장 위치는 **그 수신함으로 자동 전환**되고 자동 저장이 켜집니다 — 결과가 올린 쪽에 보여야
+  왕복이 완성되기 때문입니다
+- **「받으면 바로 실행」** 을 켜면 묻지 않고 돕니다. ★묻지 않고 Anlas 를 쓰므로 기본은 꺼짐입니다
+- 진행(3/8)과 끝난 뒤의 파일 목록이 수신함에 기록됩니다
+- ★안드로이드가 백그라운드를 재우므로 **앱이 켜져 있는 동안만** 돕니다
+
+### PC · Claude 쪽에서
+
+```bash
+python tools/job.py --url 192.168.0.5:8770 --token 토큰 push --file 작업.json
+python tools/job.py --url ... --token ... list          # 상태 보기
+python tools/job.py --url ... --token ... watch --id ...  # 끝날 때까지
+python tools/job.py --url ... --token ... files --prefix 미아/   # 결과 목록
+```
+
+작업 JSON 은 **PeroFix 가져오기와 같은 모양**입니다 — 거기에 `folder` 와 `options` 만 얹습니다.
+
+```json
+{
+  "name": "미아 · 일상 2장",
+  "folder": "미아",
+  "prefix": "1girl, silver hair, masterpiece",
+  "slots": [
+    { "name": "1-1", "content": "smile, bedroom" },
+    { "name": "1-2", "content": "angry, classroom" }
+  ],
+  "characters": [{ "name": "미아", "content": "1girl, silver hair" }],
+  "options": { "count_per_slot": 1, "one_char_mode": false, "transparent_bg": true }
+}
+```
+
+`options` 는 **아는 값만** 받습니다 (모델·크기·steps·cfg·샘플러·UC·퀄리티·네거티브·배수·
+한 명 모드·투명 배경·저장 형식·Variety+·시드). 모르는 값은 무시합니다 — 페이로드가 뒤틀리지
+않게 하려는 것입니다.
+
+### 수신함 엔드포인트 (작업 큐)
+
+| | |
+|---|---|
+| `POST /jobs` | 작업 올리기 `{name, spec}` |
+| `GET /jobs?status=pending` | 목록 |
+| `POST /jobs/claim` | 기다리는 것 하나를 집어 간다 (폰이 부릅니다) |
+| `POST /jobs/update` | 진행·결과 알리기 |
+| `POST /jobs/delete` | 지우기 |
+
+작업은 이미지 폴더 안 `.jobs/` 에 JSON 으로 쌓이고, **파일 목록·폴더 화면에서는 숨깁니다**
+(매트릭스 채움 셈이 틀어지지 않게). 토큰 검사는 다른 엔드포인트와 같습니다.
+
+★`claim` 은 집는 순간 `running` 으로 바꿉니다 — 폰이 둘이어도 같은 작업을 두 번 뽑지
+않습니다 (돈이 두 배로 나갑니다).
+
 ## 수신함 설치 (PC · VPS)
 
 `tools/receiver.py` 는 표준 라이브러리만 씁니다. **설치할 것이 없습니다** (Python 3.8+).
@@ -503,8 +569,8 @@ python tools/test_receiver.py
 | `test_wildcards.js` | 와일드카드 치환 규칙 | 24 |
 | `test_results.js` | 결과 분류 (슬롯 묶기·거르기·삭제·실패) | 37 |
 | `test_compose.js` | 배경 합성 (알파 판별·경계·배치·겹치기·투명 되살리기) | 74 |
-| `test_receiver.py` | 수신함 (경로 탈출 차단·인증·업로드·폴더) | 53 |
-| | **합계** | **612** |
+| `test_receiver.py` | 수신함 (경로 탈출 차단·인증·업로드·폴더·작업 큐) | 73 |
+| | **합계** | **632** |
 
 `test_image.js` 는 기준 이미지(약 7MB)가 있어야 돕니다. 저장소에 넣지 않으므로
 없으면 조용히 건너뜁니다. 만들려면:
@@ -563,7 +629,8 @@ www/                      앱 본체 (여기를 고칩니다)
     fflate.js             ZIP 해제 라이브러리 (외부)
 
 tools/
-  receiver.py             PC·VPS 수신함 서버 (표준 라이브러리만)
+  receiver.py             PC·VPS 수신함 서버 (표준 라이브러리만) · 작업 큐
+  job.py                  「이거 뽑으세요」 를 수신함에 올리고 결과 보기
   deploy/install.sh       리눅스 서버에 상시 실행으로 설치
   deploy/DEPLOY.md        서버 설치 안내
   make_icons.py           icon.png → 안드로이드 아이콘 전 크기

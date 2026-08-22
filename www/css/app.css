@@ -663,6 +663,36 @@ select.char-coord {
   margin-bottom: 20px;
 }
 
+/* ── 원격 작업 화면 ──────────────────────────────────────────────────── */
+.code-block {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.job-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.job-row.running { border-color: var(--accent); }
+.job-row.done { opacity: 0.6; }
+.job-row.failed { border-color: var(--danger); }
+.job-name { font-weight: 700; font-size: 14px; }
+.job-meta { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.job-row .toolrow { margin: 4px 0 0; }
+
 /* ── 배경 합성 화면 ──────────────────────────────────────────────────── */
 /* ★미리보기는 캔버스다. 바둑판을 깔아 두면 아직 투명한 곳이 어디인지 바로 보인다
      (배경을 고르기 전, 또는 배경이 결과를 다 덮지 못했을 때). */

@@ -84,6 +84,9 @@
     <button id="go-results" class="btn icon badge-host" aria-label="결과 보기">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg><span id="results-badge" class="badge" hidden></span>
     </button>
+    <button id="go-jobs" class="btn icon badge-host" aria-label="원격 작업">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg><span id="jobs-badge" class="badge" hidden></span>
+    </button>
     <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
   </header>
@@ -643,6 +646,44 @@
     <div id="enh-cost" class="msg"></div>
     <div id="enh-msg" class="msg" hidden></div>
     <button id="enh-run" class="btn primary block">실행</button>
+  </div>
+</section>
+
+<!-- ── 원격 작업 ──────────────────────────────────────────────────────────
+     PC·VPS 수신함에 누군가(예: Claude Code) 올려 둔 「이거 뽑으세요」 를 받아 온다.
+     ★키도 Anlas 도 이 폰 것이다. 그래서 **누를지 말지는 언제나 여기서 정한다** —
+       「받으면 바로 실행」 을 켜야만 자동으로 돈다. -->
+<section id="screen-jobs" class="screen" hidden>
+  <header class="topbar">
+    <button id="jobs-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">원격 작업</h1>
+    <button id="jobs-reload" class="btn icon" aria-label="새로고침"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/></svg></button>
+  </header>
+
+  <div class="pad scroll">
+    <label class="field">
+      <span class="label">어느 수신함에서 받을까</span>
+      <select id="jobs-dest"></select>
+      <span class="hint" id="jobs-dest-hint"></span>
+    </label>
+
+    <label class="check">
+      <input id="jobs-auto" type="checkbox"> 받으면 바로 실행
+    </label>
+    <p class="hint">꺼 두면 목록만 받아 오고, 실행은 아래에서 눌러 정합니다.
+      ★켜 두면 <b>물어보지 않고 Anlas 를 씁니다.</b></p>
+
+    <div id="jobs-msg" class="msg" hidden></div>
+    <div id="jobs-list"></div>
+
+    <details class="panel">
+      <summary>PC 에서 올리는 법</summary>
+      <p class="hint">수신함이 떠 있는 PC·VPS 에서:</p>
+      <pre class="code-block">python tools/job.py --url 192.168.0.5:8770 --token 토큰 \
+       push --file 작업.json</pre>
+      <p class="hint">작업 JSON 은 PeroFix 가져오기와 같은 모양입니다 (prefix · slots · characters).
+        <code>options</code> 로 배수·투명 배경 같은 것도 함께 정할 수 있습니다.</p>
+    </details>
   </div>
 </section>
 
