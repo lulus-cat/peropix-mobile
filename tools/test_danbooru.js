@@ -182,6 +182,71 @@ check('장수 표를 만든다',
   D.countMap(D.parseTags([{ name: 'a', post_count: 5 }, { name: 'b', post_count: 7 }])).b === 7);
 
 
+// ── 9. 추천 (이 태그를 그리는 작가) ───────────────────────────────────────
+const ru = D.relatedUrl(['scenery', 'Night']);
+check('★작가만 물어본다 (category=1)', ru.indexOf('category%5D=1') !== -1, ru);
+check('여러 태그를 함께', decodeURIComponent(ru).indexOf('query]=scenery night') !== -1,
+  decodeURIComponent(ru));
+check('쉼표로 준 것도 읽는다', D.relatedUrl('a, b').indexOf('query') !== -1);
+check('★세 개까지만 (많이 넣을수록 걸리는 작가가 없어진다)',
+  decodeURIComponent(D.relatedUrl(['a', 'b', 'c', 'd'])).indexOf('a b c&') !== -1,
+  decodeURIComponent(D.relatedUrl(['a', 'b', 'c', 'd'])));
+check('빈 값이면 빈 주소', D.relatedUrl([]) === '' && D.relatedUrl('') === '');
+
+const REL = { related_tags: [
+  { tag: { name: 'zandra', post_count: 880, category: 1, is_deprecated: false },
+    overlap_coefficient: 0.22, frequency: 0.021 },
+  { tag: { name: 'rune_xiao', post_count: 244, category: 1, is_deprecated: false },
+    overlap_coefficient: 0.454, frequency: 0.012 },
+  { tag: { name: 'touhou', post_count: 900000, category: 3, is_deprecated: false },
+    overlap_coefficient: 0.9, frequency: 0.5 },
+  { tag: { name: 'old_artist', post_count: 100, category: 1, is_deprecated: true },
+    overlap_coefficient: 0.99, frequency: 0.001 }
+] };
+const rel = D.parseRelated(REL);
+check('★작가가 아닌 것은 뺀다 (판권이 섞여 온다)',
+  rel.every(function (r) { return r.name !== 'touhou'; }),
+  rel.map(function (r) { return r.name; }).join(','));
+check('버려진 태그도 뺀다', rel.every(function (r) { return r.name !== 'old_artist'; }));
+check('★그 작가 작업 중 몇 %인지로 줄 세운다 (대형 작가만 올라오지 않게)',
+  rel[0].name === 'rune_xiao' && rel[0].share === 45,
+  rel.map(function (r) { return r.name + ':' + r.share; }).join(' '));
+check('깨진 응답이면 빈 목록', D.parseRelated('깨진').length === 0 && D.parseRelated('{}').length === 0);
+
+// ── 10. 장르 자동 분류 ────────────────────────────────────────────────────
+function mk(n, general, rating) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push({ id: i, rating: rating || 'g', created_at: '2024-01-01T00:00:00-04:00',
+      tag_string_general: general, tag_string_copyright: '' });
+  }
+  return out;
+}
+const keys = function (g) { return g.map(function (x) { return x.key; }).sort().join(','); };
+
+check('★여성 인물 작가', keys(D.genres(mk(10, '1girl solo long_hair'))) === 'female');
+check('★배경 작가', keys(D.genres(mk(10, 'scenery no_humans sky'))) === 'bg');
+check('★19금은 등급으로 본다', keys(D.genres(mk(10, '1girl solo', 'e'))) === 'female,nsfw');
+check('★남성은 male_focus 로 본다', keys(D.genres(mk(10, '1boy male_focus'))) === 'male');
+check('★남녀가 함께 나온 그림은 「인물(남)」 이 아니다 (1boy 만 세면 여성 작가가 전부 남성이 된다)',
+  keys(D.genres(mk(10, '1girl 1boy hetero'))) === 'female',
+  JSON.stringify(D.genres(mk(10, '1girl 1boy hetero'))));
+check('남자만 나온 그림은 남성으로', keys(D.genres(mk(10, '1boy solo'))) === 'male');
+
+// 겹치는 경우 — 한 작가가 여러 장르에 걸친다
+const mixed = mk(5, '1girl solo', 'e').concat(mk(5, 'scenery no_humans'));
+check('★여러 장르가 함께 붙는다 (하나로 몰아넣으면 「19금도 그리는 배경 작가」 를 못 찾는다)',
+  keys(D.genres(mixed)) === 'bg,female,nsfw', keys(D.genres(mixed)));
+
+check('문턱에 못 미치면 안 붙는다', keys(D.genres(mk(9, 'scenery').concat(mk(91, '1girl')))) === 'female',
+  keys(D.genres(mk(9, 'scenery').concat(mk(91, '1girl')))));
+check('문턱을 바꿀 수 있다',
+  keys(D.genres(mk(9, 'scenery').concat(mk(91, '1girl')), { bg: 5 })) === 'bg,female');
+check('몇 %인지 함께 준다', D.genres(mk(10, '1girl'))[0].pct === 100);
+check('한글 이름이 붙는다', D.genres(mk(10, '1girl'))[0].label === '인물(여)');
+check('빈 표본이면 빈 목록', D.genres([]).length === 0 && D.genres(null).length === 0);
+
+
 const total = pass + fails.length;
 console.log('Danbooru 조회 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

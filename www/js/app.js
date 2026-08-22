@@ -1769,9 +1769,14 @@
   let artCur = null;           // 지금 펼쳐 본 작가
   let artTab = 'find';
   let artTotal = 0;            // Danbooru 전체 장수 (특징 태그의 분모)
-  let drwF = { q: '', cat: '', fav: false };
+  let drwF = { q: '', cat: '', fav: false, genre: '' };
   let acTimer = null;
   let lastBaked = '';          // 작가 태그 칸에 넣어 둔 조합 (다시 넣을 때 갈아 끼우려고)
+  let wRange = null;           // 세기 범위 (사람이 정한다. null 이면 기본값)
+  let recoOff = false;         // 「이런 작태는 어떠세요」 를 껐나
+  let recoBusy = false;
+  let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
+  let bisSel = [];             // 그중 고른 것 (최대 20)
   let bis = null;              // 깎기 상태
   let bisSaved = null;         // 깎기 전 슬롯·프롬프트·시드 (그만두면 되돌린다)
   let bisScan = null;          // 세기 훑기 중인가
@@ -1812,7 +1817,8 @@
     setArtTab(artTab);
     renderDrawer();
     renderMix();
-    renderBisSetup();
+    renderWeightUI();
+    renderBisPick();
     // ★깎기는 뽑으러 메인으로 갔다가 돌아온다. 다시 그리지 않으면 「답하기」 가 안 뜬다.
     renderBis();
     // 전체 장수는 한 번만 물어 둔다 (특징 태그의 분모).
@@ -1912,6 +1918,7 @@
         stats: st,
         dist: dist,
         before: Danbooru.beforeShare(posts, 2024),
+        genres: Danbooru.genres(posts),
         images: Danbooru.images(posts, { max: 24 })
       };
       artMsg('');
@@ -1949,6 +1956,7 @@
       d.querySelector('b').textContent = value;
       box.appendChild(d);
     };
+    (a.genres || []).forEach(function (g) { add(g.label, g.pct + '%'); });
     const st = a.stats;
     if (st) {
       add('표본', st.sampled + '장');
@@ -2007,6 +2015,25 @@
   function renderDrawer() {
     $('tab-drawer-n').textContent = artDrawer.length ? String(artDrawer.length) : '';
 
+    // ★장르는 앱이 매긴 것, 갈래는 사람이 붙인 것 — 다른 축이라 줄을 나눈다.
+    const gbox = $('drw-genres');
+    gbox.innerHTML = '';
+    const gcount = Object.create(null);
+    artDrawer.forEach(function (e) {
+      (e.genres || []).forEach(function (g) { gcount[g] = (gcount[g] || 0) + 1; });
+    });
+    Danbooru.GENRES.forEach(function (g) {
+      if (!gcount[g.key]) return;
+      const c = document.createElement('button');
+      c.className = 'chip' + (drwF.genre === g.key ? ' on' : '');
+      c.textContent = g.label + ' ' + gcount[g.key];
+      c.addEventListener('click', function () {
+        drwF.genre = (drwF.genre === g.key) ? '' : g.key;
+        renderDrawer();
+      });
+      gbox.appendChild(c);
+    });
+
     const cats = $('drw-cats');
     cats.innerHTML = '';
     const chip = function (label, on, fn) {
@@ -2031,7 +2058,10 @@
 
     const list = $('drw-list');
     list.innerHTML = '';
-    const rows = Artists.filter(artDrawer, drwF);
+    let rows = Artists.filter(artDrawer, drwF);
+    if (drwF.genre) {
+      rows = rows.filter(function (e) { return (e.genres || []).indexOf(drwF.genre) !== -1; });
+    }
     if (!rows.length) {
       list.innerHTML = '<p class="hint">'
         + (artDrawer.length ? '이 조건에 맞는 작가가 없습니다.'
@@ -2099,7 +2129,11 @@
     if (artMix.some(function (m) { return m.tag === tag; })) {
       artMix = artMix.filter(function (m) { return m.tag !== tag; });
     } else {
-      artMix = Artists.mix(artMix.concat([{ tag: tag }]));
+      const before = artMix.length;
+      artMix = Artists.mix(artMix.concat([{ tag: tag }]), wRange);
+      if (artMix.length === before) {
+        toast('한 조합에 ' + Artists.MAX_TAGS + '명까지입니다.', 2400);
+      }
     }
     await Store.setArtistMix(artMix);
     renderMix();
@@ -2107,7 +2141,37 @@
   }
 
   function mixBaked() {
-    return Artists.bake(artMix, { normalize: $('mix-norm').checked });
+    return Artists.bake(artMix, { normalize: $('mix-norm').checked, cfg: wRange });
+  }
+
+  /** 지금 정해진 세기 범위 (성한 값으로 다듬은 것). */
+  function wr() {
+    return Artists.range(wRange);
+  }
+
+  function renderWeightUI() {
+    const r = wr();
+    $('w-min').value = String(r.min);
+    $('w-max').value = String(r.max);
+    $('w-step').value = String(r.step);
+    $('w-hint').textContent = '훑을 때 ' + Artists.scanSteps(wRange).join(' / ');
+  }
+
+  async function readWeightUI() {
+    wRange = Artists.range({
+      min: parseFloat($('w-min').value),
+      max: parseFloat($('w-max').value),
+      step: parseFloat($('w-step').value)
+    });
+    // ★범위를 좁히면 지금 섞고 있는 값이 밖으로 나간다. 바로 끌어들인다 —
+    //   안 그러면 화면에 보이는 값과 실제로 나가는 값이 어긋난다.
+    artMix = artMix.map(function (m) {
+      return { tag: m.tag, weight: Artists.clampWeight(m.weight, wRange), on: m.on };
+    });
+    await Store.setWeightRange(wRange);
+    await Store.setArtistMix(artMix);
+    renderWeightUI();
+    renderMix();
   }
 
   function renderMix() {
@@ -2115,7 +2179,7 @@
     box.innerHTML = '';
     $('mix-empty').hidden = artMix.length > 0;
 
-    const shown = $('mix-norm').checked ? Artists.normalize(artMix) : artMix;
+    const shown = $('mix-norm').checked ? Artists.normalize(artMix, wRange) : artMix;
     artMix.forEach(function (m, i) {
       const row = document.createElement('div');
       row.className = 'mix-row' + (m.on ? '' : ' off');
@@ -2159,12 +2223,13 @@
 
       const range = document.createElement('input');
       range.type = 'range';
-      range.min = String(Artists.W_MIN);
-      range.max = String(Artists.W_MAX);
-      range.step = String(Artists.W_STEP);
+      const rr = wr();
+      range.min = String(rr.min);
+      range.max = String(rr.max);
+      range.step = String(rr.step);
       range.value = String(m.weight);
       range.addEventListener('input', function () {
-        artMix = Artists.setWeight(artMix, m.tag, parseFloat(range.value));
+        artMix = Artists.setWeight(artMix, m.tag, parseFloat(range.value), wRange);
         renderMix();
       });
       range.addEventListener('change', function () { Store.setArtistMix(artMix); });
@@ -2197,10 +2262,48 @@
   }
 
   // ── 깎기 ──────────────────────────────────────────────────────────────────
-  function bisTags() {
-    return $('bis-tags').value.split(/[,\n]/).map(function (t) {
-      return Danbooru.normalize(t.replace(/^[\d.]+::/, '').replace(/::$/, ''));
+  /** 글에서 작가 태그를 뽑아낸다. 세기 문법(1.2::이름::)은 벗긴다. */
+  function tagsFromText(text) {
+    return String(text || '').split(/[,\n]/).map(function (t) {
+      return Danbooru.normalize(t.replace(/^\s*[\d.]+\s*::/, '').replace(/::\s*$/, ''));
     }).filter(Boolean);
+  }
+
+  function bisTags() {
+    return bisSel.slice(0, Artists.MAX_TAGS);
+  }
+
+  /** 후보 풀에 더한다 (겹치지 않게). pick 이면 고른 상태로. */
+  function bisAdd(tags, pick) {
+    (tags || []).forEach(function (t) {
+      if (bisPool.indexOf(t) === -1) bisPool.push(t);
+      if (pick && bisSel.indexOf(t) === -1 && bisSel.length < Artists.MAX_TAGS) bisSel.push(t);
+    });
+    renderBisPick();
+  }
+
+  function renderBisPick() {
+    const box = $('bis-pick');
+    box.innerHTML = '';
+    if (!bisPool.length) {
+      box.innerHTML = '<p class="hint">위 단추로 후보를 불러오세요.</p>';
+    }
+    bisPool.forEach(function (t) {
+      const on = bisSel.indexOf(t) !== -1;
+      const b = document.createElement('button');
+      b.className = on ? 'on' : '';
+      b.textContent = t.replace(/_/g, ' ');
+      // ★상한에 찼으면 더 못 고르게 막는다. 눌리기는 하는데 안 담기면 고장으로 보인다.
+      b.disabled = !on && bisSel.length >= Artists.MAX_TAGS;
+      b.addEventListener('click', function () {
+        if (on) bisSel = bisSel.filter(function (x) { return x !== t; });
+        else if (bisSel.length < Artists.MAX_TAGS) bisSel.push(t);
+        renderBisPick();
+      });
+      box.appendChild(b);
+    });
+    $('bis-count').textContent = bisSel.length + ' / ' + Artists.MAX_TAGS + '명';
+    renderBisSetup();
   }
 
   function renderBisSetup() {
@@ -2333,7 +2436,8 @@
       + '시드는 ' + bis.seeds[0] + ' 로 고정됩니다.')) return;
 
     slots = step.shots.map(function (s) {
-      return { label: s.name, prompt: Artists.bake(Artists.mix(s.tags), {}), enabled: true };
+      return { label: s.name, prompt: Artists.bake(Artists.mix(s.tags, wRange), { cfg: wRange }),
+        enabled: true };
     });
     options.seed = bis.seeds[0];
     options.count_per_slot = 1;
@@ -2351,8 +2455,8 @@
   /** 범인의 세기를 훑는다 — 1차원이라 가짓수가 곱해지지 않는다. */
   async function bisScanRun() {
     if (!bis || !bis.culprit) return;
-    const base = Artists.mix(bis.base);
-    const steps = Artists.scan(base, bis.culprit);
+    const base = Artists.mix(bis.base, wRange);
+    const steps = Artists.scan(base, bis.culprit, null, { cfg: wRange });
     if (!window.confirm('세기 ' + steps.length + '칸을 뽑을까요? ('
       + steps.map(function (s) { return s.weight; }).join(' / ') + ')')) return;
 
@@ -2420,6 +2524,131 @@
     bisSaved = null;
     renderBis();
     renderBisSetup();
+  }
+
+  // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
+  // ★뽑고 난 직후에 띄운다. 그때가 다음 판을 궁리하는 순간이라, 그 자리에서 담아 두면
+  //   다음 판에 바로 쓴다. 뽑기 전에 띄우면 하려던 일을 가로막는 셈이다.
+  // ★근거는 **지금 프롬프트의 내용 태그**다 — 「이 태그를 실제로 그리는 작가」 를
+  //   Danbooru 에 물어본다. 아무나 골라 보여 주면 매번 똑같은 대형 작가만 나온다.
+
+  /** 프롬프트에서 추천의 씨앗이 될 내용 태그를 고른다. */
+  function recoSeeds() {
+    const text = ($('base-prompt').value + ', '
+      + slots.filter(function (x) { return x.enabled; })
+        .map(function (x) { return x.prompt || ''; }).join(', '));
+    // 서랍에 있는 작가와 흔한 품질 태그는 씨앗이 못 된다.
+    const SKIP = /^(masterpiece|best quality|good quality|amazing quality|very aesthetic|absurdres|highres|general|sensitive|nsfw|no text|lowres|bad anatomy)$/i;
+    const drawer = artDrawer.map(function (e) { return e.tag; });
+    const seen = Object.create(null);
+    return text.split(/[,\n]/).map(function (t) {
+      return t.replace(/^\s*[\d.]+\s*::/, '').replace(/::\s*$/, '')
+        .replace(/[{}\[\]]/g, '').trim().toLowerCase();
+    }).filter(function (t) {
+      if (!t || t.length < 3 || seen[t]) return false;
+      if (SKIP.test(t)) return false;
+      if (drawer.indexOf(Danbooru.normalize(t)) !== -1) return false;
+      if (/[#|]/.test(t)) return false;                 // 와일드카드 자리는 뺀다
+      seen[t] = true;
+      return true;
+    }).slice(0, 3);
+  }
+
+  async function openReco(force) {
+    if (recoBusy) return;
+    if (recoOff && !force) return;
+    const seeds = recoSeeds();
+    if (!seeds.length) {
+      if (force) toast('프롬프트에 내용 태그가 있어야 추천할 수 있습니다.', 2600);
+      return;
+    }
+    recoBusy = true;
+    $('reco-why').textContent = seeds.join(' · ') + ' 를 실제로 그리는 작가입니다.';
+    $('reco-list').innerHTML = '<p class="hint">찾는 중…</p>';
+    $('reco-off').checked = recoOff;
+    $('reco').hidden = false;
+    try {
+      const rows = Danbooru.parseRelated(await dbGet(Danbooru.relatedUrl(seeds, 24)))
+        // 이미 서랍에 있는 사람은 추천할 것이 없다.
+        .filter(function (r) { return !Artists.has(artDrawer, r.name); })
+        // ★너무 적은 작가는 빼 둔다 — 태그는 맞아도 NAI 가 모른다.
+        .filter(function (r) { return r.count >= 50; });
+      await renderReco(pickFive(rows));
+    } catch (e) {
+      $('reco-list').innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
+    }
+    recoBusy = false;
+  }
+
+  /**
+   * 다섯을 고른다. ★맨 위 다섯만 주면 「다른 작가」 를 눌러도 같은 얼굴이다.
+   *   위쪽을 좀 더 자주 뽑되 아래쪽도 섞이게 한다.
+   */
+  function pickFive(rows) {
+    const pool = rows.slice(0, 20);
+    const out = [];
+    while (out.length < 5 && pool.length) {
+      const i = Math.floor(Math.pow(Math.random(), 1.6) * pool.length);
+      out.push(pool.splice(i, 1)[0]);
+    }
+    return out;
+  }
+
+  async function renderReco(rows) {
+    const box = $('reco-list');
+    box.innerHTML = '';
+    if (!rows.length) {
+      box.innerHTML = '<p class="hint">권할 만한 작가를 못 찾았습니다.</p>';
+      return;
+    }
+    rows.forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'reco-row';
+
+      const th = document.createElement('div');
+      th.className = 'reco-thumbs';
+      row.appendChild(th);
+
+      const main = document.createElement('div');
+      main.className = 'reco-main';
+      const nm = document.createElement('div');
+      nm.className = 'reco-name';
+      nm.textContent = r.name.replace(/_/g, ' ');
+      const sub = document.createElement('div');
+      sub.className = 'reco-sub';
+      const rc = Danbooru.reach(r.count);
+      sub.textContent = rc.label + ' · ' + r.count.toLocaleString() + '장 · 이 태그 '
+        + r.share + '%';
+      main.appendChild(nm);
+      main.appendChild(sub);
+      row.appendChild(main);
+
+      const keep = document.createElement('button');
+      keep.className = 'btn small';
+      keep.textContent = '담기';
+      keep.addEventListener('click', async function () {
+        artDrawer = Artists.add(artDrawer, { tag: r.name, count: r.count }, Date.now());
+        await Store.setArtists(artDrawer);
+        keep.textContent = '담았음';
+        keep.disabled = true;
+        renderDrawer();
+      });
+      row.appendChild(keep);
+      box.appendChild(row);
+
+      // 그림은 뒤따라 채운다 — 다섯 명을 다 기다리면 시트가 한참 비어 있다.
+      dbGet(Danbooru.postsUrl({ name: r.name, rating: $('art-rating').value, limit: 6 }))
+        .then(function (body) {
+          Danbooru.images(JSON.parse(body || '[]'), { max: 2 }).forEach(function (im) {
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.src = im.thumb;
+            img.alt = '';
+            th.appendChild(img);
+          });
+        })
+        .catch(function () { /* 그림이 없어도 이름과 숫자는 쓸모가 있다 */ });
+    });
   }
 
   function jobsDest() {
@@ -4649,6 +4878,11 @@
     if (options.notify_on_complete && !cancelRequested) {
       Notify.done('생성이 끝났습니다', (persona ? persona + ' · ' : '') + summary);
     }
+
+    // ★뽑고 난 직후가 다음 판을 궁리하는 순간이라 여기서 권한다.
+    //   깎기 중에는 띄우지 않는다 — 한창 범인을 좁히는 중에 다른 작가를 들이밀면
+    //   그 판이 흐트러진다. 중지했거나 한 장도 못 만들었으면 권할 자리가 아니다.
+    if (!bis && !bisScan && !cancelRequested && done > 0) openReco(false);
   }
 
   // ── 권한 ─────────────────────────────────────────────────────────────────
@@ -4785,6 +5019,9 @@
     ghDone = await Store.getGithubDone();
     artDrawer = await Store.getArtists();
     artMix = await Store.getArtistMix();
+    wRange = await Store.getWeightRange();
+    recoOff = await Store.getRecoOff();
+    renderWeightUI();
     renderGhRows();
     $('jobs-auto').checked = jobsAuto;
     renderJobsDestSelect();
@@ -4975,7 +5212,10 @@
     });
     $('art-keep').addEventListener('click', async function () {
       if (!artCur) return;
-      artDrawer = Artists.add(artDrawer, { tag: artCur.tag, count: artCur.count }, Date.now());
+      artDrawer = Artists.add(artDrawer, {
+        tag: artCur.tag, count: artCur.count,
+        genres: (artCur.genres || []).map(function (g) { return g.key; })
+      }, Date.now());
       await Store.setArtists(artDrawer);
       renderDrawer();
       renderArtDetail();
@@ -5003,18 +5243,48 @@
       renderDrawer();
     });
 
-    $('bis-tags').addEventListener('input', renderBisSetup);
     $('bis-cross').addEventListener('change', renderBisSetup);
+    $('bis-from-drawer').addEventListener('click', function () {
+      bisAdd(artDrawer.map(function (e) { return e.tag; }), true);
+    });
     $('bis-from-mix').addEventListener('click', function () {
-      $('bis-tags').value = artMix.map(function (m) { return m.tag.replace(/_/g, ' '); }).join(', ');
-      renderBisSetup();
+      bisAdd(artMix.map(function (m) { return m.tag; }), true);
     });
     $('bis-from-prompt').addEventListener('click', function () {
-      // 작가 태그 칸의 첫 줄에서 쉼표로 갈라 온다. 세기 문법은 벗겨서 담는다.
-      $('bis-tags').value = $('base-prompt').value;
-      renderBisSetup();
-      toast('작가가 아닌 태그는 지워 주세요.', 2600);
+      bisAdd(tagsFromText($('base-prompt').value), true);
+      toast('작가가 아닌 태그는 눌러서 꺼 주세요.', 2800);
     });
+    $('bis-none').addEventListener('click', function () {
+      bisSel = [];
+      renderBisPick();
+    });
+    $('bis-add-typed').addEventListener('click', function () {
+      bisAdd(tagsFromText($('bis-tags').value), true);
+      $('bis-tags').value = '';
+    });
+
+    // 세기 범위
+    ['w-min', 'w-max', 'w-step'].forEach(function (id) {
+      $(id).addEventListener('change', readWeightUI);
+    });
+    $('w-reset').addEventListener('click', async function () {
+      wRange = null;
+      await Store.setWeightRange(null);
+      renderWeightUI();
+      renderMix();
+    });
+
+    // 「이런 작태는 어떠세요」
+    $('reco-close').addEventListener('click', function () { $('reco').hidden = true; });
+    $('reco').addEventListener('click', function (e) {
+      if (e.target === $('reco')) $('reco').hidden = true;    // 바깥을 눌러도 닫힌다
+    });
+    $('reco-off').addEventListener('change', async function () {
+      recoOff = $('reco-off').checked;
+      await Store.setRecoOff(recoOff);
+      if (recoOff) toast('설정에서 다시 켤 수 있습니다.', 2400);
+    });
+    $('reco-more').addEventListener('click', function () { openReco(true); });
     $('bis-start').addEventListener('click', bisStart);
     $('bis-shoot').addEventListener('click', bisShoot);
     $('bis-undo').addEventListener('click', function () {

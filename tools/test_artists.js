@@ -36,6 +36,16 @@ check('★다시 넣어도 갈래와 즐겨찾기는 지킨다',
   JSON.stringify(list[0]));
 check('장수만 새로 고친다', list[0].count === 999);
 
+// ★장르(앱이 매긴 것)와 갈래(사람이 붙인 것)는 다른 축이다
+list = A.add(list, { tag: 'wlop', count: 999, genres: ['female', 'nsfw'] }, 210);
+check('★장르는 새로 잰 것으로 갈아 끼운다',
+  list[0].genres.join(',') === 'female,nsfw', list[0].genres.join(','));
+check('★그래도 사람이 붙인 갈래는 지킨다',
+  list[0].cats.join(',') === '두꺼운 선', list[0].cats.join(','));
+list = A.add(list, { tag: 'wlop', count: 1000 }, 220);
+check('★못 쟀으면 알던 장르를 지킨다 (지워 버리면 서랍에서 사라진다)',
+  list[0].genres.join(',') === 'female,nsfw', list[0].genres.join(','));
+
 list = A.add(list, { tag: 'as109', count: 3000 }, 300);
 list = A.add(list, { tag: 'sakimichan', count: 900 }, 400);
 list = A.toggleCat(list, 'as109', '두꺼운 선');
@@ -52,11 +62,50 @@ check('갈래가 없는 것만', A.filter(list, { cat: '__none__' }).length === 
 check('빼기', A.remove(list, 'as109').length === 2);
 check('없는 것을 빼도 안 터진다', A.remove(list, '없음').length === 3);
 
-// ── 2. 세기 자르기 ────────────────────────────────────────────────────────
-check('★1.4 를 넘으면 자른다 (그 위는 작가가 그림을 잡아먹는다)', A.clampWeight(3) === 1.4);
-check('★0.6 아래도 자른다 (그 아래는 없는 것과 같다)', A.clampWeight(0.1) === 0.6);
+// ── 2. 세기 자르기 · 범위 설정 ────────────────────────────────────────────
+check('기본은 1.4 를 넘으면 자른다', A.clampWeight(3) === 1.4);
+check('기본은 0.6 아래도 자른다', A.clampWeight(0.1) === 0.6);
 check('눈금(0.05)에 맞춘다', A.clampWeight(1.113) === 1.1, String(A.clampWeight(1.113)));
 check('숫자가 아니면 1.0', A.clampWeight('아무거나') === 1 && A.clampWeight(undefined) === 1);
+
+// ★범위를 사람이 정한다
+const WIDE = { min: 0.3, max: 2, step: 0.1 };
+check('★범위를 넓히면 그만큼 나간다', A.clampWeight(1.9, WIDE) === 1.9, String(A.clampWeight(1.9, WIDE)));
+check('★넓힌 범위의 밖은 여전히 자른다', A.clampWeight(5, WIDE) === 2 && A.clampWeight(0.01, WIDE) === 0.3);
+check('★간격도 사람이 정한다 (0.1 이면 1.13 → 1.1)',
+  A.clampWeight(1.13, WIDE) === 1.1, String(A.clampWeight(1.13, WIDE)));
+check('★눈금은 최소값을 기준으로 센다 (안 그러면 슬라이더가 최소값에 못 닿는다)',
+  A.clampWeight(0.65, { min: 0.65, max: 1.35, step: 0.1 }) === 0.65,
+  String(A.clampWeight(0.65, { min: 0.65, max: 1.35, step: 0.1 })));
+
+check('★뒤집어 넣어도 받아 준다', A.range({ min: 2, max: 0.5 }).min === 0.5);
+check('0이나 글자를 넣으면 기본값으로',
+  A.range({ min: 0, max: -3, step: 'x' }).min === 0.6 && A.range({}).step === 0.05);
+check('★간격이 범위보다 크면 범위에 맞춘다 (눈금이 하나도 안 생기는 것을 막는다)',
+  A.range({ min: 1, max: 1.2, step: 5 }).step === 0.2,
+  String(A.range({ min: 1, max: 1.2, step: 5 }).step));
+
+// 훑을 눈금
+check('기본 눈금 5칸', A.scanSteps().length === 5, A.scanSteps().join(','));
+check('★1.0 이 반드시 들어간다 (원래와 견줄 기준)',
+  A.scanSteps().indexOf(1) !== -1 && A.scanSteps(WIDE).indexOf(1) !== -1,
+  A.scanSteps(WIDE).join(','));
+check('범위 끝을 다 훑는다',
+  A.scanSteps(WIDE)[0] === 0.3 && A.scanSteps(WIDE).slice(-1)[0] === 2,
+  A.scanSteps(WIDE).join(','));
+check('칸 수를 정할 수 있다', A.scanSteps(null, 3).length <= 4 && A.scanSteps(null, 3).length >= 3,
+  A.scanSteps(null, 3).join(','));
+check('★좁은 범위에서도 눈금이 겹치지 않는다',
+  new Set(A.scanSteps({ min: 0.9, max: 1.1, step: 0.05 })).size
+    === A.scanSteps({ min: 0.9, max: 1.1, step: 0.05 }).length,
+  A.scanSteps({ min: 0.9, max: 1.1, step: 0.05 }).join(','));
+
+// ── 2-b. 작가 수 상한 ─────────────────────────────────────────────────────
+const many = [];
+for (let i = 0; i < 30; i++) many.push('artist_' + i);
+check('★한 조합에 20명까지 (넘으면 화풍이 뭉개져 무엇이 무엇인지 볼 수 없다)',
+  A.mix(many).length === A.MAX_TAGS && A.MAX_TAGS === 20, String(A.mix(many).length));
+check('20명까지는 그대로 다 들어간다', A.mix(many.slice(0, 20)).length === 20);
 
 // ── 3. 조합 ───────────────────────────────────────────────────────────────
 let m = A.mix(['wlop', 'as109', 'sakimichan']);
@@ -120,11 +169,20 @@ check('★1.0 이 가운데 있다 (원래와 견줄 수 있게)',
 check('훑는 사람만 세기가 바뀐다',
   sc[0].mix.find(function (x) { return x.tag === 'as109'; }).weight === 1);
 check('각 칸이 바로 쓸 프롬프트를 들고 있다',
-  sc[0].prompt.indexOf('0.7::wlop::') !== -1, sc[0].prompt);
+  sc[0].prompt.indexOf('0.6::wlop::') !== -1, sc[0].prompt);
+check('★훑기는 설정한 범위의 끝까지 본다 (기본 0.6~1.4)',
+  sc[0].weight === 0.6 && sc.slice(-1)[0].weight === 1.4,
+  sc.map(function (x) { return x.weight; }).join(','));
 check('눈금을 직접 줄 수 있다', A.scan(A.mix(['a']), 'a', [0.8, 1.2]).length === 2);
 check('★잘린 뒤 겹치는 값은 하나만 남긴다 (같은 그림을 두 번 뽑으면 Anlas 낭비다)',
   A.scan(A.mix(['a']), 'a', [3, 4, 5]).length === 1,
   String(A.scan(A.mix(['a']), 'a', [3, 4, 5]).length));
+check('★훑기도 설정한 범위를 따른다',
+  A.scan(A.mix(['a']), 'a', null, { cfg: WIDE }).slice(-1)[0].weight === 2,
+  A.scan(A.mix(['a']), 'a', null, { cfg: WIDE }).map(function (x) { return x.weight; }).join(','));
+check('굽기도 설정한 범위를 따른다',
+  A.bake(A.setWeight(A.mix(['a', 'b']), 'a', 1.9, WIDE), { cfg: WIDE }).indexOf('1.9::a::') === 0,
+  A.bake(A.setWeight(A.mix(['a', 'b']), 'a', 1.9, WIDE), { cfg: WIDE }));
 
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');

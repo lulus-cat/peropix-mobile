@@ -138,6 +138,41 @@ const Danbooru = (function () {
     });
   }
 
+  /**
+   * ★「이 태그를 그리는 작가」 를 물어본다 — 추천의 근거다.
+   *
+   * category=1 로 좁히면 작가만 온다. 여기서 쓰는 눈금은 `overlap_coefficient` —
+   * **그 작가 작업의 몇 할이 이 태그를 달고 있는가** 다. frequency(전체에서 차지하는
+   * 비중)로 줄 세우면 무조건 대형 작가만 올라와 추천이 매번 똑같아진다.
+   *
+   * @param {Array<string>|string} tags 내용 태그 (여러 개면 다 가진 그림 기준)
+   */
+  function relatedUrl(tags, limit) {
+    const list = Array.isArray(tags) ? tags : String(tags || '').split(/[,\s]+/);
+    const q = list.map(normalize).filter(Boolean).slice(0, 3).join(' ');
+    if (!q) return '';
+    return API + '/related_tag.json?' + qs({
+      'search[query]': q,
+      'search[category]': CAT.artist,
+      limit: Math.min(Math.max(limit || 10, 1), 30)
+    });
+  }
+
+  /** related_tag 응답 → [{name, count, share}] (share = 그 작가 작업 중 이 태그 비율) */
+  function parseRelated(body) {
+    const d = asJson(body);
+    const list = (d && Array.isArray(d.related_tags)) ? d.related_tags : [];
+    return list.filter(function (r) {
+      return r && r.tag && r.tag.name && r.tag.category === CAT.artist && !r.tag.is_deprecated;
+    }).map(function (r) {
+      return {
+        name: r.tag.name,
+        count: r.tag.post_count || 0,
+        share: Math.round((Number(r.overlap_coefficient) || 0) * 100)
+      };
+    }).sort(function (a, b) { return b.share - a.share; });
+  }
+
   /** Danbooru 전체 장수 — 특징 태그의 분모다. */
   function totalUrl() {
     return API + '/counts/posts.json';
@@ -341,6 +376,61 @@ const Danbooru = (function () {
     }).sort(function (a, b) { return b.times - a.times; });
   }
 
+  // ── 장르 ──────────────────────────────────────────────────────────────────
+  // ★한 작가가 여러 장르에 걸친다 (여성도 그리고 19금도 그린다). 그래서 하나를 고르는
+  //   분류가 아니라 **여러 개가 붙는 표시**다. 하나로 몰아넣으면 「여성 인물 잘 그리는
+  //   19금 작가」 를 찾을 수 없다.
+  const GENRES = [
+    { key: 'bg', label: '배경' },
+    { key: 'female', label: '인물(여)' },
+    { key: 'male', label: '인물(남)' },
+    { key: 'nsfw', label: '19금' }
+  ];
+
+  // 문턱. ★넉넉하게 잡는다 — 빠뜨리는 것보다 몇 개 더 붙는 편이 낫다.
+  //   덜 붙으면 서랍에서 영영 안 보이지만, 더 붙으면 눈으로 걸러진다.
+  const GENRE_CUT = { bg: 20, female: 50, male: 25, nsfw: 30 };
+
+  const G_BG = ['scenery', 'no_humans', 'landscape', 'cityscape'];
+  const G_F = ['1girl', '2girls', '3girls', 'multiple_girls', '6+girls'];
+  const G_M = ['1boy', '2boys', 'multiple_boys', '6+boys'];
+
+  /**
+   * 그림 표본에서 장르를 매긴다.
+   *
+   * ★남성은 `male_focus` 를 중심으로 본다. `1boy` 는 남녀가 함께 나오는 그림에도 붙어서,
+   *   그것만 세면 여성 위주 작가가 전부 「인물(남)」 이 되어 버린다. 남자만 나온 그림
+   *   (여성 태그가 없는 것)도 함께 센다.
+   *
+   * @param {Array} posts postsUrl 로 받은 것
+   * @param {object} cut 문턱을 바꿔 보고 싶을 때
+   * @returns {Array<{key,label,pct}>}
+   */
+  function genres(posts, cut) {
+    const list = (Array.isArray(posts) ? posts : []).filter(Boolean);
+    if (!list.length) return [];
+    const c = Object.assign({}, GENRE_CUT, cut || {});
+
+    let bg = 0, f = 0, m = 0, nsfw = 0;
+    list.forEach(function (p) {
+      const g = String(p.tag_string_general || '').split(/\s+/).filter(Boolean);
+      const hasF = G_F.some(function (t) { return g.indexOf(t) !== -1; });
+      const hasM = G_M.some(function (t) { return g.indexOf(t) !== -1; });
+
+      if (G_BG.some(function (t) { return g.indexOf(t) !== -1; })) bg++;
+      if (hasF) f++;
+      // 남성 위주이거나, 남자만 나온 그림
+      if (g.indexOf('male_focus') !== -1 || (hasM && !hasF)) m++;
+      if (p.rating === 'q' || p.rating === 'e') nsfw++;
+    });
+
+    const n = list.length;
+    const pct = function (x) { return Math.round((x / n) * 100); };
+    const got = { bg: pct(bg), female: pct(f), male: pct(m), nsfw: pct(nsfw) };
+    return GENRES.filter(function (g) { return got[g.key] >= c[g.key]; })
+      .map(function (g) { return { key: g.key, label: g.label, pct: got[g.key] }; });
+  }
+
   // ── 그림 목록 ─────────────────────────────────────────────────────────────
   /**
    * 미리보기로 쓸 것만 남긴다.
@@ -383,6 +473,11 @@ const Danbooru = (function () {
     totalUrl: totalUrl,
     parseTotal: parseTotal,
     countMap: countMap,
+    relatedUrl: relatedUrl,
+    parseRelated: parseRelated,
+    GENRES: GENRES,
+    GENRE_CUT: GENRE_CUT,
+    genres: genres,
     webUrl: webUrl,
     parseTags: parseTags,
     parseAutocomplete: parseAutocomplete,

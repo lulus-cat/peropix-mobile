@@ -975,12 +975,34 @@
       <input id="drw-q" type="text" class="tool-select" placeholder="서랍에서 찾기">
       <button id="drw-fav" class="btn small">즐겨찾기</button>
     </div>
+    <!-- ★장르는 앱이 그림 표본에서 자동으로 매긴다. 사람이 붙이는 갈래와 다른 축이라
+         따로 둔다 — 한 작가가 「배경」이면서 「19금」일 수 있다. -->
+    <div id="drw-genres" class="chips"></div>
     <div id="drw-cats" class="chips"></div>
     <div id="drw-list" class="drw-list"></div>
 
     <div class="row-head"><span class="label">섞기</span></div>
     <div id="mix-list" class="mix-list"></div>
     <p id="mix-empty" class="hint">위에서 작가를 눌러 담으면 여기서 섞습니다.</p>
+
+    <details class="panel">
+      <summary>세기 범위 정하기</summary>
+      <p class="hint">기본은 <b>0.6 ~ 1.4, 0.05 간격</b> 입니다. 1.5 를 넘으면 그 작가가 그림을
+        잡아먹고 0.5 아래면 없는 것과 다르지 않아서 그렇게 잡아 두었지만, 더 넓게 쓰고
+        싶으시면 여기서 바꾸세요.</p>
+      <div class="grid3">
+        <label class="field"><span class="label">최소</span>
+          <input id="w-min" type="number" step="0.05" min="0.05" max="5"></label>
+        <label class="field"><span class="label">최대</span>
+          <input id="w-max" type="number" step="0.05" min="0.05" max="5"></label>
+        <label class="field"><span class="label">간격</span>
+          <input id="w-step" type="number" step="0.01" min="0.01" max="1"></label>
+      </div>
+      <div class="toolrow">
+        <button id="w-reset" class="btn small">기본으로</button>
+        <span id="w-hint" class="hint"></span>
+      </div>
+    </details>
 
     <label class="check">
       <input id="mix-norm" type="checkbox" checked> 세기 합을 작가 수로 고정
@@ -1009,14 +1031,26 @@
         모를 때 씁니다. 20개를 하나씩 빼 보면 20장이 들지만, 절반씩 빼며 좁히면
         <b>5라운드</b>면 끝납니다.</p>
 
-      <label class="field">
-        <span class="label">후보 작가</span>
-        <textarea id="bis-tags" rows="3" placeholder="쉼표로 구분. 서랍의 조합을 가져올 수 있습니다."></textarea>
-      </label>
-      <div class="toolrow">
-        <button id="bis-from-mix" class="btn small">섞기에서 가져오기</button>
-        <button id="bis-from-prompt" class="btn small">작가 태그 칸에서</button>
+      <div class="row-head">
+        <span class="label">후보 고르기</span>
+        <span id="bis-count" class="hint"></span>
       </div>
+      <div class="toolrow">
+        <button id="bis-from-drawer" class="btn small">서랍</button>
+        <button id="bis-from-mix" class="btn small">섞기</button>
+        <button id="bis-from-prompt" class="btn small">작가 태그 칸</button>
+        <button id="bis-none" class="btn small">모두 끄기</button>
+      </div>
+      <div id="bis-pick" class="bis-pick"></div>
+      <p class="hint">★한 판에 <b>20명까지</b> 입니다. 그 위로는 이분 탐색이 한 라운드 더 늘고,
+        무엇보다 한 그림에 작가가 스무 명 넘게 들어가면 화풍이 뭉개져 무엇이 무엇인지
+        볼 수 없게 됩니다.</p>
+
+      <details class="panel">
+        <summary>직접 적기</summary>
+        <textarea id="bis-tags" rows="3" placeholder="쉼표로 구분해 적으면 위 목록에 더해집니다."></textarea>
+        <button id="bis-add-typed" class="btn small">목록에 더하기</button>
+      </details>
 
       <label class="field">
         <span class="label">무엇을 찾나</span>
@@ -1076,6 +1110,28 @@
     </details>
   </div>
 </section>
+
+<!-- ★「이런 작태는 어떠세요」 — 뽑고 난 직후에 띄운다. 그때가 다음 판을 궁리하는
+     순간이기 때문이다. 근거는 지금 프롬프트의 내용 태그로 물어본 「이 태그를 실제로
+     그리는 작가」 다 (Danbooru related_tag). 끌 수 있다. -->
+<div id="reco" class="reco" hidden>
+  <div class="reco-sheet">
+    <div class="reco-top">
+      <div>
+        <div class="reco-title">이런 작태는 어떠세요?</div>
+        <div id="reco-why" class="reco-why"></div>
+      </div>
+      <button id="reco-close" class="btn icon" aria-label="닫기">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="reco-list" class="reco-list"></div>
+    <div class="reco-foot">
+      <label class="check"><input id="reco-off" type="checkbox"> 다시 보지 않기</label>
+      <button id="reco-more" class="btn small">다른 작가</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/fflate.js"></script>
 <script src="js/nai-tables.js"></script>

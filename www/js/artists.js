@@ -18,23 +18,64 @@
 'use strict';
 
 const Artists = (function () {
-  const W_MIN = 0.6;
-  const W_MAX = 1.4;
-  const W_STEP = 0.05;
+  // 기본 범위. ★사람마다 쓰는 폭이 달라서 **설정으로 바꿀 수 있다** — 여기는 기본값일 뿐이다.
+  //   기본을 0.6~1.4 로 둔 이유: 1.5 를 넘으면 그 작가가 그림을 잡아먹고, 0.5 아래면 없는
+  //   것과 다르지 않다. 더 넓게 쓰고 싶으면 설정에서 넓히면 된다.
+  const RANGE = { min: 0.6, max: 1.4, step: 0.05 };
 
-  // 세기를 훑을 때 쓰는 기본 눈금. ★1.0 을 가운데 두어 원래와 견줄 수 있게 한다.
-  const SCAN = [0.7, 0.85, 1.0, 1.15, 1.3];
+  // 한 번에 다룰 작가 수 상한. ★20을 넘기면 이분 탐색이 6라운드로 늘고, 무엇보다
+  //   한 그림에 작가 20명이 들어가면 화풍이 뭉개져 무엇이 무엇인지 볼 수 없게 된다.
+  const MAX_TAGS = 20;
 
   function round2(n) {
     return Math.round(n * 100) / 100;
   }
 
-  /** 범위 밖을 잘라 낸다. 눈금(0.05)에도 맞춘다. */
-  function clampWeight(w) {
+  /** 설정을 성한 값으로 다듬는다. 뒤집힌 범위나 0 간격이 들어와도 안 터지게. */
+  function range(cfg) {
+    const c = cfg || {};
+    let min = Number(c.min);
+    let max = Number(c.max);
+    let step = Number(c.step);
+    if (!isFinite(min) || min <= 0) min = RANGE.min;
+    if (!isFinite(max) || max <= 0) max = RANGE.max;
+    if (min > max) { const t = min; min = max; max = t; }   // 뒤집어 넣어도 받아 준다
+    if (!isFinite(step) || step <= 0) step = RANGE.step;
+    // ★간격이 범위보다 크면 눈금이 하나도 안 생긴다.
+    if (step > (max - min) && max > min) step = max - min;
+    return { min: round2(min), max: round2(max), step: round2(step) };
+  }
+
+  /** 범위 밖을 잘라 내고 눈금에 맞춘다. */
+  function clampWeight(w, cfg) {
+    const r = range(cfg);
     let n = Number(w);
     if (!isFinite(n)) n = 1;
-    n = Math.round(n / W_STEP) * W_STEP;
-    return round2(Math.min(W_MAX, Math.max(W_MIN, n)));
+    // ★눈금은 최소값을 기준으로 센다. 0 에서 세면 최소가 0.65 인데 눈금이 0.6·0.7 로
+    //   떨어져, 슬라이더가 끝까지 가도 최소값에 닿지 않는다.
+    n = r.min + Math.round((n - r.min) / r.step) * r.step;
+    return round2(Math.min(r.max, Math.max(r.min, n)));
+  }
+
+  /**
+   * 세기를 훑을 눈금을 만든다.
+   * ★1.0 이 범위 안에 있으면 반드시 넣는다 — 원래와 견줄 기준이 없으면 무엇이 나아졌는지
+   *   판단할 수 없다.
+   */
+  function scanSteps(cfg, count) {
+    const r = range(cfg);
+    const n = Math.max(2, Math.min(count || 5, 9));
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      out.push(clampWeight(r.min + ((r.max - r.min) * i) / (n - 1), cfg));
+    }
+    if (r.min <= 1 && 1 <= r.max) out.push(clampWeight(1, cfg));
+    const seen = Object.create(null);
+    return out.filter(function (w) {
+      if (seen[w]) return false;
+      seen[w] = true;
+      return true;
+    }).sort(function (a, b) { return a - b; });
   }
 
   // ── 서랍 (엄선 · 갈래 · 즐겨찾기) ────────────────────────────────────────
@@ -50,7 +91,10 @@ const Artists = (function () {
     return {
       tag: tag,
       count: Number(o.count) || 0,
+      // ★갈래(cats)는 사람이 붙인 것, 장르(genres)는 앱이 그림에서 매긴 것이다.
+      //   섞어 두면 다시 잴 때 사람이 붙인 것까지 날아간다.
       cats: Array.isArray(o.cats) ? o.cats.filter(Boolean).map(String) : [],
+      genres: Array.isArray(o.genres) ? o.genres.filter(Boolean).map(String) : [],
       note: String(o.note || ''),
       fav: !!o.fav,
       at: Number(o.at) || 0
@@ -84,6 +128,9 @@ const Artists = (function () {
       tag: old.tag,
       count: e.count || old.count,
       cats: old.cats,
+      // ★장르는 새로 잰 것이 있으면 갈아 끼운다 (그림이 늘면 달라질 수 있다).
+      //   못 쟀으면 알던 것을 지키고, 갈래·메모는 언제나 사람 것을 지킨다.
+      genres: e.genres.length ? e.genres : (old.genres || []),
       note: old.note,
       fav: old.fav,
       at: old.at
@@ -160,22 +207,25 @@ const Artists = (function () {
    * 태그 목록을 조합으로. 처음에는 모두 1.0 이다.
    * @param {Array<string|object>} tags
    */
-  function mix(tags) {
+  function mix(tags, cfg) {
     const seen = Object.create(null);
     const out = [];
     (tags || []).forEach(function (t) {
       const e = entry(t);
       if (!e || seen[e.tag]) return;      // ★같은 작가를 두 번 넣으면 세기가 두 배가 된다
       seen[e.tag] = true;
-      const w = (t && t.weight !== undefined) ? clampWeight(t.weight) : 1;
+      // ★상한을 넘으면 조용히 버린다. 그림 하나에 작가 20명이 넘게 들어가면 화풍이
+      //   뭉개져 무엇이 무엇인지 볼 수 없다 (화면에서 왜 잘렸는지 알려 준다).
+      if (out.length >= MAX_TAGS) return;
+      const w = (t && t.weight !== undefined) ? clampWeight(t.weight, cfg) : clampWeight(1, cfg);
       out.push({ tag: e.tag, weight: w, on: (t && t.on === false) ? false : true });
     });
     return out;
   }
 
-  function setWeight(m, tag, w) {
+  function setWeight(m, tag, w, cfg) {
     return (m || []).map(function (x) {
-      return x.tag === tag ? { tag: x.tag, weight: clampWeight(w), on: x.on } : x;
+      return x.tag === tag ? { tag: x.tag, weight: clampWeight(w, cfg), on: x.on } : x;
     });
   }
 
@@ -195,7 +245,7 @@ const Artists = (function () {
    * 범위 밖으로 나간 값은 잘라 내므로 합이 정확히 맞지는 않는다. 그래도 된다 —
    * 여기서 원하는 것은 산수의 정확함이 아니라 「하나를 올리면 나머지가 내려간다」 는 성질이다.
    */
-  function normalize(m) {
+  function normalize(m, cfg) {
     const on = (m || []).filter(function (x) { return x.on; });
     // ★두 명 미만이면 그대로 둔다. 나눠 가질 상대가 없는데 합을 맞추면 무조건 1.0 이
     //   되어, 슬라이더를 움직여도 아무 일이 없는 것처럼 보인다 — 값을 고쳐 주는 것이
@@ -206,7 +256,7 @@ const Artists = (function () {
     const scale = on.length / sum;
     return (m || []).map(function (x) {
       return x.on
-        ? { tag: x.tag, weight: clampWeight(x.weight * scale), on: true }
+        ? { tag: x.tag, weight: clampWeight(x.weight * scale, cfg), on: true }
         : { tag: x.tag, weight: x.weight, on: false };
     });
   }
@@ -226,7 +276,7 @@ const Artists = (function () {
    */
   function bake(m, o) {
     const opts = o || {};
-    const list = opts.normalize ? normalize(m) : (m || []);
+    const list = opts.normalize ? normalize(m, opts.cfg) : (m || []);
     return list.filter(function (x) { return x.on; }).map(function (x) {
       const name = String(x.tag).replace(/_/g, ' ').trim();
       const w = round2(x.weight);
@@ -249,23 +299,25 @@ const Artists = (function () {
    * @returns {Array<{weight:number, mix:Array, prompt:string}>}
    */
   function scan(m, tag, steps, o) {
-    const use = (steps && steps.length ? steps : SCAN).map(clampWeight);
+    const cfg = (o && o.cfg) || null;
+    const use = (steps && steps.length ? steps : scanSteps(cfg))
+      .map(function (w) { return clampWeight(w, cfg); });
     const seen = Object.create(null);
     return use.filter(function (w) {
       if (seen[w]) return false;          // 잘린 뒤 겹치는 값이 생길 수 있다
       seen[w] = true;
       return true;
     }).map(function (w) {
-      const next = setWeight(m, tag, w);
+      const next = setWeight(m, tag, w, cfg);
       return { weight: w, mix: next, prompt: bake(next, o) };
     });
   }
 
   return {
-    W_MIN: W_MIN,
-    W_MAX: W_MAX,
-    W_STEP: W_STEP,
-    SCAN: SCAN,
+    RANGE: RANGE,
+    MAX_TAGS: MAX_TAGS,
+    range: range,
+    scanSteps: scanSteps,
     clampWeight: clampWeight,
     entry: entry,
     has: has,

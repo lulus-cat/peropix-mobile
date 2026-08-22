@@ -340,6 +340,34 @@ const Store = (function () {
     await setRaw(KEY_ART_MIX, JSON.stringify(m || []));
   }
 
+  // 세기 범위 · 추천 끄기
+  const KEY_W_RANGE = 'artist_weight_range';
+  const KEY_RECO_OFF = 'artist_reco_off';
+
+  async function getWeightRange() {
+    const raw = await getRaw(KEY_W_RANGE);
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw);
+      return (v && typeof v === 'object') ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function setWeightRange(r) {
+    if (!r) return removeRaw(KEY_W_RANGE);
+    await setRaw(KEY_W_RANGE, JSON.stringify(r));
+  }
+
+  async function getRecoOff() {
+    return (await getRaw(KEY_RECO_OFF)) === '1';
+  }
+
+  async function setRecoOff(v) {
+    await setRaw(KEY_RECO_OFF, v ? '1' : '0');
+  }
+
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
   // 항목: { destId, path, label }
   const KEY_FAVS = 'folder_favorites';
@@ -452,6 +480,10 @@ const Store = (function () {
     setFavorites: setFavorites,
     getGithub: getGithub,
     setGithub: setGithub,
+    getWeightRange: getWeightRange,
+    setWeightRange: setWeightRange,
+    getRecoOff: getRecoOff,
+    setRecoOff: setRecoOff,
     getArtists: getArtists,
     setArtists: setArtists,
     getArtistMix: getArtistMix,
