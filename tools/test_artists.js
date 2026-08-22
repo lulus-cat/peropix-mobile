@@ -221,6 +221,43 @@ check('상한 30벌', A.combos(A.mix(['a', 'b', 'c']), 999).length <= 30);
 check('빈 조합이면 빈 결과', A.combos([], 5).length === 0);
 
 
+// ── 8. 평가를 반영해 다시 뽑기 ────────────────────────────────────────────
+// good 은 5점 조합에서 1.2, bad 는 1.0. 점수로 가중 평균하면 good 1.1 · bad 0.95 로 당겨진다.
+const RATED = [
+  { mix: [{ tag: 'good', weight: 1.2, on: true }, { tag: 'bad', weight: 1.0, on: true }], score: 5 },
+  { mix: [{ tag: 'good', weight: 0.8, on: true }, { tag: 'bad', weight: 1.4, on: true }], score: 1 },
+  { mix: [{ tag: 'good', weight: 1.0, on: true }, { tag: 'bad', weight: 0.6, on: true }], score: 2 }
+];
+const rf = A.refine(RATED, 6);
+const wOf = function (c, tag) { return c.find(function (x) { return x.tag === tag; }).weight; };
+check('평가를 반영해 새 조합을 만든다', rf.length > 0 && rf.length <= 6, String(rf.length));
+check('★높은 점수를 준 값 쪽으로 당겨진다 (good 1.1 ± 한 칸)',
+  rf.every(function (c) { return Math.abs(wOf(c, 'good') - 1.1) <= 0.05 + 1e-9; }),
+  rf.map(function (c) { return wOf(c, 'good'); }).join(','));
+check('★점수가 낮았던 값은 덜 당긴다 (bad 0.95 ± 한 칸)',
+  rf.every(function (c) { return Math.abs(wOf(c, 'bad') - 0.95) <= 0.05 + 1e-9; }),
+  rf.map(function (c) { return wOf(c, 'bad'); }).join(','));
+check('★같은 조합이 두 번 안 나온다',
+  new Set(rf.map(function (c) {
+    return c.map(function (x) { return x.tag + x.weight; }).join('|');
+  })).size === rf.length);
+check('★한 번에 다 몰리지 않고 흩어진다 (한 칸 위아래로 흔든다)',
+  new Set(A.refine(RATED, 9).map(function (c) { return wOf(c, 'good'); })).size >= 2,
+  A.refine(RATED, 9).map(function (c) { return wOf(c, 'good'); }).join(','));
+check('범위 밖으로 나가지 않는다',
+  A.refine(RATED, 20).every(function (c) {
+    return c.every(function (x) { return x.weight >= 0.6 && x.weight <= 1.4; });
+  }));
+check('넓힌 범위도 따른다',
+  A.refine([{ mix: [{ tag: 'a', weight: 2, on: true }], score: 5 }], 3,
+    { min: 0.3, max: 2, step: 0.1 })[0][0].weight <= 2);
+check('꺼 둔 작가는 꺼진 채로', A.refine([{ mix: [{ tag: 'a', weight: 1, on: false }],
+  score: 5 }], 3).every(function (c) { return c[0].on === false; }));
+check('평가가 없으면 빈 결과',
+  A.refine([], 5).length === 0 && A.refine(null, 5).length === 0
+  && A.refine([{ mix: [{ tag: 'a', weight: 1, on: true }], score: 0 }], 5).length === 0);
+
+
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

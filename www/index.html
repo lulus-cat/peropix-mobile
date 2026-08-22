@@ -87,10 +87,16 @@
     <button id="go-jobs" class="btn icon badge-host" aria-label="원격 작업">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg><span id="jobs-badge" class="badge" hidden></span>
     </button>
-    <button id="go-artists" class="btn icon" aria-label="작가 태그"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.3-9-7.3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="9" r="1.2"/></svg></button>
     <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
   </header>
+
+  <!-- ★두 모드를 처음부터 갈라 둔다. 한 화면에 섞어 두면 대량생성 설정을 만지다가
+       그림체 테스트 설정을 건드리게 된다. -->
+  <div class="tabs" role="tablist">
+    <button id="go-bulk" class="tab on" role="tab">이미지 대량생성</button>
+    <button id="go-artists" class="tab" role="tab">작가 태그</button>
+  </div>
 
   <div class="pad scroll">
     <div class="toolrow">
@@ -1060,7 +1066,7 @@
        두고 두 모드가 나눠 쓴다 — 판이 다르면 두 모드의 결과를 서로 견줄 수 없다. -->
   <div class="pad scroll" id="pane-style" hidden>
 
-    <details class="panel" id="st-panel">
+    <details class="panel" id="st-panel" open>
       <summary>테스트 설정 (작가만 빼고 전부 고정)</summary>
       <p class="hint">그림체를 비교하려면 <b>작가 말고는 아무것도 달라지면 안 됩니다.</b>
         평소 쓰던 슬롯으로 돌리면 베이스, 네거티브, 캐릭터 프롬프트가 전부 같이 딸려 와서,
@@ -1094,10 +1100,7 @@
       <div class="toolrow">
         <button id="st-reset" class="btn small">기본으로</button>
       </div>
-      <label class="field">
-        <span class="label">이렇게 나갑니다</span>
-        <textarea id="st-preview" rows="3" readonly></textarea>
-      </label>
+      <p class="hint" id="st-preview"></p>
     </details>
 
     <div class="tabs sub" role="tablist">
@@ -1126,6 +1129,17 @@
       <div id="cmb-presets" class="chips"></div>
       <div class="row-head"><span class="label">간격</span></div>
       <div id="cmb-steps" class="chips"></div>
+      <details>
+        <summary class="hint">숫자로 직접 적기</summary>
+        <div class="grid3">
+          <label class="field"><span class="label">최소</span>
+            <input id="cw-min" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">최대</span>
+            <input id="cw-max" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">간격</span>
+            <input id="cw-step" type="number" step="0.01" min="0.01" max="1" inputmode="decimal"></label>
+        </div>
+      </details>
       <p class="hint" id="cmb-range"></p>
 
       <label class="field">
@@ -1147,8 +1161,12 @@
 
       <div id="cmb-result" hidden>
         <div class="row-head"><span class="label">뽑은 조합</span></div>
-        <p class="hint">결과에서 마음에 든 그림을 찾았으면, 여기서 같은 이름을 눌러 가져가세요.</p>
+        <p class="hint">마음에 드는 게 있으면 <b>이걸로</b> 를 누르세요. 딱 맞는 게 없으면
+          별점을 매기고 <b>점수 반영해서 다시 뽑기</b>. 높은 점수를 준 조합 쪽으로
+          세기가 당겨집니다.</p>
+        <div id="cmb-shots" class="shots"></div>
         <div id="cmb-list"></div>
+        <button id="cmb-refine" class="btn primary block" hidden>점수 반영해서 다시 뽑기</button>
       </div>
     </div>
 
@@ -1215,6 +1233,7 @@
         <button id="bis-undo" class="btn small">되돌리기</button>
         <button id="bis-stop" class="btn small">그만</button>
       </div>
+      <div id="bis-shots" class="shots"></div>
       <div id="bis-ask" hidden>
         <p class="hint" id="bis-ask-q"></p>
         <div id="bis-ask-btns" class="bis-ask-btns"></div>

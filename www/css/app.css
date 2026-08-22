@@ -1295,3 +1295,54 @@ textarea.expandable { cursor: pointer; }
 }
 .cmb-row .nm { font-weight: 600; white-space: nowrap; }
 .cmb-row .ws { flex: 1; color: var(--text-dim); font-size: 12px; word-break: break-all; }
+
+/* 그림체 시험 결과 — 뽑은 그림을 그 자리에 늘어놓는다 */
+.shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+}
+.shot { display: flex; flex-direction: column; gap: 3px; }
+.shot img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--line);
+  cursor: pointer;
+}
+.shot-ph {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.shot-ph.doing { border-style: solid; border-color: var(--accent); color: var(--accent); }
+.shot-cap { font-size: 11px; color: var(--text-dim); text-align: center; }
+
+.cmb-thumb {
+  width: 54px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--line);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.cmb-main { flex: 1; min-width: 0; }
+.stars { display: flex; gap: 1px; margin-top: 3px; }
+.stars button {
+  border: 0;
+  background: none;
+  padding: 2px 1px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}

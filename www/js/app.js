@@ -1780,7 +1780,9 @@
   let styleSaved = null;       // 시험 전 상태 — 끝나면 그대로 돌려놓는다
   let cmbPool = [];            // 조합에 쓸 작가 풀
   let cmbSel = [];             // 그중 고른 것
-  let cmbLast = [];            // 방금 뽑은 배합들 (어느 그림이 어느 배합인지)
+  let cmbLast = [];            // 방금 뽑은 조합들 (어느 그림이 어느 조합인지)
+  let cmbShots = [];           // 그 조합으로 뽑은 그림
+  let styleBusy = false;
   let styleMode = 'combo';
   let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
   let bisSel = [];             // 그중 고른 것 (최대 20)
@@ -2060,7 +2062,7 @@
         renderDrawer();
       });
     });
-    chip('갈래 없음', drwF.cat === '__none__', function () {
+    chip('라벨 없음', drwF.cat === '__none__', function () {
       drwF.cat = (drwF.cat === '__none__') ? '' : '__none__';
       renderDrawer();
     });
@@ -2108,9 +2110,9 @@
 
       const cat = document.createElement('button');
       cat.className = 'btn small';
-      cat.textContent = '갈래';
+      cat.textContent = '라벨';
       cat.addEventListener('click', async function () {
-        const name = window.prompt('갈래 이름 (이미 있는 것을 다시 적으면 뗍니다)', '');
+        const name = window.prompt('라벨 이름을 적으세요. 이미 붙어 있는 이름을 다시 적으면 뗍니다.', '');
         if (name === null) return;
         artDrawer = Artists.toggleCat(artDrawer, e.tag, name.trim());
         await Store.setArtists(artDrawer);
@@ -2216,11 +2218,13 @@
       + ' (세기 훑기는 ' + Artists.scanSteps(wRange).join(' / ') + ')';
   }
 
-  async function readWeightUI() {
+  /** 어느 쪽 숫자 칸에서 읽을지. 서랍과 조합 두 군데에 같은 칸이 있다. */
+  async function readWeightUI(prefix) {
+    const q = prefix || 'w';
     wRange = Artists.range({
-      min: parseFloat($('w-min').value),
-      max: parseFloat($('w-max').value),
-      step: parseFloat($('w-step').value)
+      min: parseFloat($(q + '-min').value),
+      max: parseFloat($(q + '-max').value),
+      step: parseFloat($(q + '-step').value)
     });
     // ★범위를 좁히면 지금 섞고 있는 값이 밖으로 나간다. 바로 끌어들인다 —
     //   안 그러면 화면에 보이는 값과 실제로 나가는 값이 어긋난다.
@@ -2233,7 +2237,7 @@
     renderMix();
     // ★조합 쪽에도 같은 단추가 있다. 안 그려 주면 한쪽만 바뀌어, 어느 폭이 쓰이는지
     //   화면마다 다르게 보인다.
-    if (!$('pane-style').hidden) renderCombo();
+    renderCombo();
   }
 
   function renderMix() {
@@ -2268,7 +2272,7 @@
       //   ＋ 를 눌러도 정규화가 도로 깎아 **숫자가 안 움직이는 것처럼 보인다** — 셋을 섞어
       //   놓고 한 명을 올리면 셋이 같이 조정되기 때문이다. 고장으로 보이는 자리다.
       //   대신 나가는 값이 다르면 옆에 작게 덧붙인다. 둘 다 알아야 하기 때문이다.
-      w.textContent = m.weight.toFixed(2);
+      w.appendChild(document.createTextNode(m.weight.toFixed(2)));
       if (Math.abs(shown[i].weight - m.weight) >= 0.005) {
         const out = document.createElement('span');
         out.className = 'mix-out-w';
@@ -2313,11 +2317,21 @@
       range.max = String(rr.max);
       range.step = String(rr.step);
       range.value = String(m.weight);
+      // ★끄는 동안에는 숫자만 고친다. 여기서 renderMix() 를 부르면 지금 끌고 있는
+      //   슬라이더를 통째로 새로 만들어 버려서, 손가락이 떨어진 것처럼 끊긴다.
       range.addEventListener('input', function () {
         artMix = Artists.setWeight(artMix, m.tag, parseFloat(range.value), wRange);
+        const now = $('mix-norm').checked ? Artists.normalize(artMix, wRange) : artMix;
+        w.firstChild.textContent = artMix[i].weight.toFixed(2);
+        if (w.lastChild !== w.firstChild) {
+          w.lastChild.textContent = '→' + now[i].weight.toFixed(2);
+        }
+        $('mix-out').value = mixBaked();
+      });
+      range.addEventListener('change', function () {
+        Store.setArtistMix(artMix);
         renderMix();
       });
-      range.addEventListener('change', function () { Store.setArtistMix(artMix); });
 
       bar.appendChild(nudge('−', -rr.step));
       bar.appendChild(range);
@@ -2521,15 +2535,14 @@
 
     const n = step.shots.length;
     if (!window.confirm('이번 라운드 ' + n + '장을 뽑을까요?\n\n'
-      + '슬롯과 프롬프트가 잠깐 테스트용으로 바뀌었다가, 끝나면 원래대로 돌아옵니다.\n'
+      + '작가 태그 화면에 그대로 머물고, 평소 슬롯·프롬프트는 건드리지 않습니다.\n'
       + '시드는 ' + bis.seeds[0] + ' 로 고정됩니다.')) return;
 
     bis.shot = true;
-    toast(n + '장을 뽑습니다. 결과를 본 다음 여기로 돌아와서 답해 주세요.', 3500);
-    await styleRun(step.shots.map(function (s) {
-      return { label: s.name, prompt: Artists.bake(Artists.mix(s.tags, wRange), { cfg: wRange }),
-        enabled: true };
-    }), bis.seeds[0]);
+    await styleGenerate(step.shots.map(function (x) {
+      return { label: x.name, prompt: Artists.bake(Artists.mix(x.tags, wRange), { cfg: wRange }) };
+    }), bis.seeds[0], 'bis-shots');
+    renderBis();
   }
 
   /** 범인의 세기를 훑는다 — 1차원이라 가짓수가 곱해지지 않는다. */
@@ -2541,9 +2554,9 @@
       + steps.map(function (s) { return s.weight; }).join(' / ') + ')')) return;
 
     bisScan = true;
-    await styleRun(steps.map(function (s) {
-      return { label: '세기-' + s.weight, prompt: s.prompt, enabled: true };
-    }), bis.seeds[0]);
+    await styleGenerate(steps.map(function (x) {
+      return { label: '세기-' + x.weight, prompt: x.prompt };
+    }), bis.seeds[0], 'bis-shots');
   }
 
   async function bisStart() {
@@ -2564,7 +2577,7 @@
   }
 
   async function bisStop() {
-    // ★슬롯·프롬프트는 뽑을 때마다 styleRun 이 되돌려 놓으므로 여기서 할 일이 없다.
+    // ★프롬프트는 뽑을 때마다 styleGenerate 가 되돌려 놓으므로 여기서 할 일이 없다.
     if (!window.confirm('깎기를 그만둘까요?')) return;
     bis = null;
     renderBis();
@@ -2594,10 +2607,9 @@
     $('st-neg').value = stCfg.negative;
 
     const b = StyleTest.build(stCfg);
-    $('st-preview').value = b.base
-      + (b.character ? ('\n캐릭터: ' + b.character) : '\n(캐릭터 없음, 배경만 보는 구도)')
-      + '\n네거티브: ' + b.negative;
-    // 인물 칸은 배경만 보는 판에서 쓰이지 않는다 — 흐려 두어 알려 준다.
+    $('st-preview').textContent = '최종: ' + b.base
+      + (b.character ? (' / 캐릭터: ' + b.character) : ' / 캐릭터 없음 (배경만 보는 구도)');
+    // 배경만 보는 구도에서는 캐릭터 칸을 안 쓴다. 흐려 두어 알려 준다.
     $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
   }
 
@@ -2614,73 +2626,133 @@
   }
 
   /**
-   * 시험용 프롬프트 한 벌로 갈아 끼운다.
-   * ★건드리는 것을 전부 챙겨 두고 styleRestore() 로 되돌린다. 남의 작업을 말없이
-   *   날리지 않기 위해서다. 저장은 하지 않는다 — 저장까지 하면 되돌릴 것이 없어진다.
+   * 시험용 프롬프트로 잠깐 바꾼다.
+   *
+   * ★슬롯은 건드리지 않는다. 뽑을 목록을 직접 만들어 runOneJob 에 넘기기 때문이다.
+   *   예전에는 슬롯을 갈아 끼우고 대량생성 화면으로 넘어갔는데, 그러면 작가 태그를
+   *   보다가 매번 다른 화면으로 튕겨 나가고 결과도 대량생성 결과에 섞였다.
    */
-  function styleApply(shots, seed) {
+  function styleApply(seed) {
     if (!styleSaved) {
       styleSaved = {
-        slots: JSON.parse(JSON.stringify(slots)),
         chars: JSON.parse(JSON.stringify(characters)),
-        base: $('base-prompt').value,
         neg: options.negative_prompt,
         seed: options.seed,
-        per: options.count_per_slot,
         persona: persona,
         target: slotTarget,
-        one: options.one_char_mode
+        one: options.one_char_mode,
+        save: options.auto_save
       };
     }
     const b = StyleTest.build(stCfg);
-    slots = shots;
     characters = b.character
-      ? [{ prompt: b.character, uc: '', coord: null, name: '시험', skipSlotPrompt: false, enabled: true }]
+      ? [{ prompt: b.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false, enabled: true }]
       : [];
-    $('base-prompt').value = b.base;
     options.negative_prompt = b.negative;
-    options.count_per_slot = 1;
     options.one_char_mode = false;
-    // ★작가 태그는 슬롯으로 들어간다. 슬롯을 인물 쪽에 붙이면 작가가 인물 프롬프트에
-    //   실려 화풍이 인물에만 걸린다 — 공통(base)에 붙여야 그림 전체에 걸린다.
+    // ★작가 태그는 공통(base)에 붙인다. 캐릭터 쪽에 붙이면 그림체가 캐릭터에만 걸린다.
     slotTarget = 'base';
+    // ★테스트 그림을 폰에 자동 저장하지 않는다. 수십 장이 쌓이는데 대부분 버릴 것들이다.
+    options.auto_save = false;
     if (seed !== undefined && seed !== null) options.seed = seed;
     persona = '그림체';
-    $('persona').value = persona;
-    fillOptionUI();
-    renderSlots();
+    return b;
   }
 
-  /** 시험이 끝나면 평소 것으로. */
   function styleRestore() {
     if (!styleSaved) return;
-    slots = styleSaved.slots;
     characters = styleSaved.chars;
-    $('base-prompt').value = styleSaved.base;
     options.negative_prompt = styleSaved.neg;
     options.seed = styleSaved.seed;
-    options.count_per_slot = styleSaved.per;
     options.one_char_mode = styleSaved.one;
+    options.auto_save = styleSaved.save;
     slotTarget = styleSaved.target;
     persona = styleSaved.persona;
-    $('persona').value = persona;
     styleSaved = null;
-    fillOptionUI();
-    renderSlots();
     renderCharDrawer();
   }
 
-  /** 시험 한 판을 돌린다. ★끝나면 반드시 되돌린다 (실패해도). */
-  async function styleRun(shots, seed) {
-    if (running) { toast('지금 뽑는 중입니다.', 2000); return false; }
-    styleApply(shots, seed);
-    show('main');
+  /**
+   * 그림체 시험 한 판을 뽑는다. ★작가 태그 화면에 머문 채로 돈다.
+   * @param {Array} shots [{label, prompt}]
+   * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
+   */
+  async function styleGenerate(shots, seed, box) {
+    if (running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return null; }
+    const token = await Store.getToken();
+    if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return null; }
+
+    styleBusy = true;
+    const b = styleApply(seed);
+    usedPaths = new Set();
+    const out = [];
     try {
-      await runGeneration();
+      for (let i = 0; i < shots.length; i++) {
+        renderStyleShots(box, out, shots, i);
+        const item = await runOneJob(token, {
+          slot: { label: shots[i].label, prompt: shots[i].prompt },
+          slotName: shots[i].label,
+          group: '그림체',
+          name: shots[i].label,
+          cycle: 1
+        }, { base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1 });
+        out.push(item);
+      }
     } finally {
       styleRestore();
+      styleBusy = false;
     }
-    return true;
+    renderStyleShots(box, out, shots, -1);
+    return out;
+  }
+
+  /** 그 칸 안의 blob 주소를 놓아준다. 안 놓으면 다시 그릴 때마다 그림이 메모리에 쌓인다. */
+  function freeBlobs(box) {
+    Array.from(box.querySelectorAll('img[src^="blob:"]')).forEach(function (img) {
+      URL.revokeObjectURL(img.src);
+    });
+  }
+
+  /** 뽑은 그림을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
+  function renderStyleShots(boxId, done, shots, doing) {
+    const box = $(boxId);
+    if (!box) return;
+    freeBlobs(box);
+    box.innerHTML = '';
+    shots.forEach(function (sh, i) {
+      const cell = document.createElement('div');
+      cell.className = 'shot';
+      const item = done[i];
+      if (item && item.bytes) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(new Blob([item.bytes], { type: 'image/png' }));
+        img.addEventListener('click', function () { openViewerFor(item); });
+        cell.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'shot-ph' + (i === doing ? ' doing' : '');
+        ph.textContent = item ? '실패' : (i === doing ? '뽑는 중' : '');
+        cell.appendChild(ph);
+      }
+      const cap = document.createElement('div');
+      cap.className = 'shot-cap';
+      cap.textContent = sh.label;
+      cell.appendChild(cap);
+      box.appendChild(cell);
+    });
+  }
+
+  /**
+   * 그림 하나를 크게 본다.
+   * ★뷰어는 결과 목록 안의 항목만 열 수 있어서, 목록에 없으면 한 번만 넣어 준다.
+   *   자동 저장을 꺼 뒀으므로 마음에 든 그림은 뷰어에서 저장하면 된다.
+   */
+  function openViewerFor(item) {
+    if (results.indexOf(item) === -1) {
+      results = results.concat([item]);
+      renderResults();
+    }
+    openViewerAt(item);
   }
 
   function setStyleMode(m) {
@@ -2720,8 +2792,12 @@
     $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
 
     renderWeightChips('cmb-presets', 'cmb-steps');
+    const cr = wr();
+    $('cw-min').value = String(cr.min);
+    $('cw-max').value = String(cr.max);
+    $('cw-step').value = String(cr.step);
     const n = parseInt($('cmb-n').value, 10) || 6;
-    $('cmb-n-val').textContent = n + '벌';
+    $('cmb-n-val').textContent = n + '개';
     const r = wr();
     $('cmb-range').textContent = r.min + '부터 ' + r.max + '까지 ' + r.step
       + '씩 끊어서 아무 값이나 뽑습니다. 서랍에서 바꿔도 같이 바뀝니다.';
@@ -2731,48 +2807,86 @@
     $('cmb-run').disabled = !cmbSel.length;
   }
 
-  async function cmbRun() {
+  async function cmbRun(sets) {
     if (!cmbSel.length) return;
     const n = parseInt($('cmb-n').value, 10) || 6;
-    const base = Artists.mix(cmbSel, wRange);
-    const sets = Artists.combos(base, n, wRange);
-    if (!sets.length) return;
-    if (sets.length < n) {
-      toast('서로 다른 조합이 ' + sets.length + '개밖에 안 나옵니다. 가중치 폭을 넓혀 보세요.', 3000);
+    const use = sets || Artists.combos(Artists.mix(cmbSel, wRange), n, wRange);
+    if (!use.length) return;
+    if (!sets && use.length < n) {
+      toast('서로 다른 조합이 ' + use.length + '개밖에 안 나옵니다. 가중치 폭을 넓혀 보세요.', 3000);
     }
-    if (!window.confirm(sets.length + '장을 뽑을까요?\n\n'
-      + '슬롯과 프롬프트가 잠깐 테스트용으로 바뀌었다가, 끝나면 원래대로 돌아옵니다.')) {
+    if (!window.confirm(use.length + '장을 뽑을까요?\n\n'
+      + '작가 태그 화면에 그대로 머물고, 평소 슬롯·프롬프트는 건드리지 않습니다.')) {
       return;
     }
-    cmbLast = sets.map(function (m, i) {
-      return { name: '조합' + (i + 1), mix: m, prompt: Artists.bake(m, { cfg: wRange }) };
+    cmbLast = use.map(function (m, i) {
+      return {
+        name: '조합' + (i + 1), mix: m, score: 0,
+        prompt: Artists.bake(m, { cfg: wRange })
+      };
     });
+    cmbShots = [];
     renderComboResult();
-    const seed = $('cmb-seed-fix').checked
-      ? Math.floor(Math.random() * 1e9) : undefined;
-    await styleRun(cmbLast.map(function (c) {
-      return { label: c.name, prompt: c.prompt, enabled: true };
-    }), seed);
+    const seed = $('cmb-seed-fix').checked ? Math.floor(Math.random() * 1e9) : undefined;
+    cmbShots = (await styleGenerate(cmbLast.map(function (c) {
+      return { label: c.name, prompt: c.prompt };
+    }), seed, 'cmb-shots')) || [];
+    renderComboResult();
   }
 
   function renderComboResult() {
     $('cmb-result').hidden = !cmbLast.length;
+    $('cmb-refine').hidden = !cmbShots.length;
     const box = $('cmb-list');
+    freeBlobs(box);
     box.innerHTML = '';
-    cmbLast.forEach(function (c) {
+    cmbLast.forEach(function (c, i) {
       const row = document.createElement('div');
       row.className = 'cmb-row';
-      const nm = document.createElement('span');
+
+      const shot = cmbShots[i];
+      if (shot && shot.bytes) {
+        const img = document.createElement('img');
+        img.className = 'cmb-thumb';
+        img.src = URL.createObjectURL(new Blob([shot.bytes], { type: 'image/png' }));
+        img.addEventListener('click', function () { openViewerFor(shot); });
+        row.appendChild(img);
+      }
+
+      const main = document.createElement('div');
+      main.className = 'cmb-main';
+      const nm = document.createElement('div');
       nm.className = 'nm';
       nm.textContent = c.name;
-      const ws = document.createElement('span');
+      const ws = document.createElement('div');
       ws.className = 'ws';
       ws.textContent = c.mix.filter(function (x) { return x.on; })
         .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+      main.appendChild(nm);
+      main.appendChild(ws);
+
+      // 별점 — 뽑고 나서만 뜬다. 뽑기 전에는 매길 것이 없다.
+      if (cmbShots.length) {
+        const stars = document.createElement('div');
+        stars.className = 'stars';
+        for (let k = 1; k <= 5; k++) {
+          const b = document.createElement('button');
+          b.textContent = k <= c.score ? '★' : '☆';
+          b.title = k + '점';
+          b.addEventListener('click', function () {
+            c.score = (c.score === k) ? 0 : k;
+            renderComboResult();
+          });
+          stars.appendChild(b);
+        }
+        main.appendChild(stars);
+      }
+      row.appendChild(main);
+
       const use = document.createElement('button');
       use.className = 'btn small';
       use.textContent = '이걸로';
-      // ★마음에 든 배합을 섞기로 옮겨 준다. 숫자를 손으로 옮겨 적게 하면 반드시 틀린다.
+      // ★마음에 든 조합을 섞기로 옮겨 준다. 숫자를 손으로 옮겨 적게 하면 반드시 틀린다.
       use.addEventListener('click', async function () {
         artMix = c.mix.map(function (x) { return { tag: x.tag, weight: x.weight, on: x.on }; });
         await Store.setArtistMix(artMix);
@@ -2781,11 +2895,238 @@
         setArtTab('drawer');
         toast(c.name + ' 을 섞기로 가져왔습니다.', 2400);
       });
-      row.appendChild(nm);
-      row.appendChild(ws);
       row.appendChild(use);
       box.appendChild(row);
     });
+
+    const rated = cmbLast.filter(function (c) { return c.score > 0; }).length;
+    $('cmb-refine').textContent = rated
+      ? ('점수 ' + rated + '개 반영해서 다시 뽑기')
+      : '별점을 매기면 그 쪽으로 다시 뽑습니다';
+    $('cmb-refine').disabled = !rated;
+  }
+
+  /** 매긴 점수를 반영해 한 판 더. */
+  async function cmbRefine() {
+    const n = parseInt($('cmb-n').value, 10) || 6;
+    const next = Artists.refine(cmbLast, n, wRange);
+    if (!next.length) { toast('별점을 먼저 매겨 주세요.', 2400); return; }
+    await cmbRun(next);
+  }
+
+  // ── 그림체 시험 판 ───────────────────────────────────────────────────────
+  // ★그림체를 견주려면 작가 말고는 아무것도 달라지면 안 된다. 평소 슬롯으로 돌리면
+  //   베이스·네거티브·인물이 전부 딸려 들어와 무엇 때문에 달라졌는지 알 수 없다.
+  //   그래서 시험은 **자기 프롬프트 한 벌**을 쓰고, 끝나면 평소 것을 그대로 돌려놓는다.
+
+  function renderStyleUI() {
+    const sel = $('st-preset');
+    if (!sel.options.length) {
+      StyleTest.PRESETS.forEach(function (p) {
+        const o = document.createElement('option');
+        o.value = p.key;
+        o.textContent = p.label;
+        sel.appendChild(o);
+      });
+    }
+    sel.value = stCfg.preset;
+    $('st-comp-row').hidden = (stCfg.preset !== 'custom');
+    $('st-comp').value = stCfg.comp;
+    $('st-char').value = stCfg.char;
+    $('st-base').value = stCfg.base;
+    $('st-neg').value = stCfg.negative;
+
+    const b = StyleTest.build(stCfg);
+    $('st-preview').textContent = '최종: ' + b.base
+      + (b.character ? (' / 캐릭터: ' + b.character) : ' / 캐릭터 없음 (배경만 보는 구도)');
+    // 배경만 보는 구도에서는 캐릭터 칸을 안 쓴다. 흐려 두어 알려 준다.
+    $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
+  }
+
+  async function readStyleUI() {
+    stCfg = StyleTest.settings({
+      preset: $('st-preset').value,
+      comp: $('st-comp').value,
+      char: $('st-char').value,
+      base: $('st-base').value,
+      negative: $('st-neg').value
+    });
+    await Store.setStyleTest(stCfg);
+    renderStyleUI();
+  }
+
+  /**
+   * 시험용 프롬프트로 잠깐 바꾼다.
+   *
+   * ★슬롯은 건드리지 않는다. 뽑을 목록을 직접 만들어 runOneJob 에 넘기기 때문이다.
+   *   예전에는 슬롯을 갈아 끼우고 대량생성 화면으로 넘어갔는데, 그러면 작가 태그를
+   *   보다가 매번 다른 화면으로 튕겨 나가고 결과도 대량생성 결과에 섞였다.
+   */
+  function styleApply(seed) {
+    if (!styleSaved) {
+      styleSaved = {
+        chars: JSON.parse(JSON.stringify(characters)),
+        neg: options.negative_prompt,
+        seed: options.seed,
+        persona: persona,
+        target: slotTarget,
+        one: options.one_char_mode,
+        save: options.auto_save
+      };
+    }
+    const b = StyleTest.build(stCfg);
+    characters = b.character
+      ? [{ prompt: b.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false, enabled: true }]
+      : [];
+    options.negative_prompt = b.negative;
+    options.one_char_mode = false;
+    // ★작가 태그는 공통(base)에 붙인다. 캐릭터 쪽에 붙이면 그림체가 캐릭터에만 걸린다.
+    slotTarget = 'base';
+    // ★테스트 그림을 폰에 자동 저장하지 않는다. 수십 장이 쌓이는데 대부분 버릴 것들이다.
+    options.auto_save = false;
+    if (seed !== undefined && seed !== null) options.seed = seed;
+    persona = '그림체';
+    return b;
+  }
+
+  function styleRestore() {
+    if (!styleSaved) return;
+    characters = styleSaved.chars;
+    options.negative_prompt = styleSaved.neg;
+    options.seed = styleSaved.seed;
+    options.one_char_mode = styleSaved.one;
+    options.auto_save = styleSaved.save;
+    slotTarget = styleSaved.target;
+    persona = styleSaved.persona;
+    styleSaved = null;
+    renderCharDrawer();
+  }
+
+  /**
+   * 그림체 시험 한 판을 뽑는다. ★작가 태그 화면에 머문 채로 돈다.
+   * @param {Array} shots [{label, prompt}]
+   * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
+   */
+  async function styleGenerate(shots, seed, box) {
+    if (running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return null; }
+    const token = await Store.getToken();
+    if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return null; }
+
+    styleBusy = true;
+    const b = styleApply(seed);
+    usedPaths = new Set();
+    const out = [];
+    try {
+      for (let i = 0; i < shots.length; i++) {
+        renderStyleShots(box, out, shots, i);
+        const item = await runOneJob(token, {
+          slot: { label: shots[i].label, prompt: shots[i].prompt },
+          slotName: shots[i].label,
+          group: '그림체',
+          name: shots[i].label,
+          cycle: 1
+        }, { base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1 });
+        out.push(item);
+      }
+    } finally {
+      styleRestore();
+      styleBusy = false;
+    }
+    renderStyleShots(box, out, shots, -1);
+    return out;
+  }
+
+  /** 뽑은 그림을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
+  function renderStyleShots(boxId, done, shots, doing) {
+    const box = $(boxId);
+    if (!box) return;
+    box.innerHTML = '';
+    shots.forEach(function (sh, i) {
+      const cell = document.createElement('div');
+      cell.className = 'shot';
+      const item = done[i];
+      if (item && item.bytes) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(new Blob([item.bytes], { type: 'image/png' }));
+        img.addEventListener('click', function () { openViewerFor(item); });
+        cell.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'shot-ph' + (i === doing ? ' doing' : '');
+        ph.textContent = item ? '실패' : (i === doing ? '뽑는 중' : '');
+        cell.appendChild(ph);
+      }
+      const cap = document.createElement('div');
+      cap.className = 'shot-cap';
+      cap.textContent = sh.label;
+      cell.appendChild(cap);
+      box.appendChild(cell);
+    });
+  }
+
+  /**
+   * 그림 하나를 크게 본다.
+   * ★뷰어는 결과 목록 안의 항목만 열 수 있어서, 목록에 없으면 한 번만 넣어 준다.
+   *   자동 저장을 꺼 뒀으므로 마음에 든 그림은 뷰어에서 저장하면 된다.
+   */
+  function openViewerFor(item) {
+    if (results.indexOf(item) === -1) {
+      results = results.concat([item]);
+      renderResults();
+    }
+    openViewerAt(item);
+  }
+
+  function setStyleMode(m) {
+    styleMode = m;
+    $('mode-combo').classList.toggle('on', m === 'combo');
+    $('mode-bisect').classList.toggle('on', m === 'bisect');
+    $('sub-combo').hidden = (m !== 'combo');
+    $('sub-bisect').hidden = (m !== 'bisect');
+  }
+
+  // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
+  function cmbAdd(tags, pick) {
+    (tags || []).forEach(function (t) {
+      if (cmbPool.indexOf(t) === -1) cmbPool.push(t);
+      if (pick && cmbSel.indexOf(t) === -1 && cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
+    });
+    renderCombo();
+  }
+
+  function renderCombo() {
+    const box = $('cmb-pick');
+    box.innerHTML = '';
+    if (!cmbPool.length) box.innerHTML = '<p class="hint">위 단추로 작가를 불러오세요.</p>';
+    cmbPool.forEach(function (t) {
+      const on = cmbSel.indexOf(t) !== -1;
+      const b = document.createElement('button');
+      b.className = on ? 'on' : '';
+      b.textContent = t.replace(/_/g, ' ');
+      b.disabled = !on && cmbSel.length >= Artists.MAX_TAGS;
+      b.addEventListener('click', function () {
+        if (on) cmbSel = cmbSel.filter(function (x) { return x !== t; });
+        else if (cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
+        renderCombo();
+      });
+      box.appendChild(b);
+    });
+    $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
+
+    renderWeightChips('cmb-presets', 'cmb-steps');
+    const cr = wr();
+    $('cw-min').value = String(cr.min);
+    $('cw-max').value = String(cr.max);
+    $('cw-step').value = String(cr.step);
+    const n = parseInt($('cmb-n').value, 10) || 6;
+    $('cmb-n-val').textContent = n + '개';
+    const r = wr();
+    $('cmb-range').textContent = r.min + '부터 ' + r.max + '까지 ' + r.step
+      + '씩 끊어서 아무 값이나 뽑습니다. 서랍에서 바꿔도 같이 바뀝니다.';
+    $('cmb-est').textContent = cmbSel.length
+      ? (n + '장' + (bisCost(n) ? (' · 약 ' + bisCost(n) + ' Anlas') : ''))
+      : '작가를 한 명 이상 골라 주세요.';
+    $('cmb-run').disabled = !cmbSel.length;
   }
 
   // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
@@ -3303,12 +3644,6 @@
     return favorites.some(function (f) { return favKey(f.destId, f.path) === favKey(destId, path); });
   }
 
-  function destLabel(id) {
-    if (id === Store.DEVICE_ID) return '이 폰';
-    const d = destinations.find(function (x) { return x.id === id; });
-    return d ? (d.name || '(이름 없음)') : '(없어진 대상)';
-  }
-
   function renderFavs() {
     const box = $('favs');
     box.innerHTML = '';
@@ -3542,13 +3877,6 @@
   }
 
   // ── Anlas ────────────────────────────────────────────────────────────────
-  function activeSlotCount() {
-    const base = $('base-prompt').value;
-    return slots.filter(function (s) {
-      return s.enabled !== false && ((s.prompt || '').trim() || (base || '').trim());
-    }).length;
-  }
-
   function renderAnlas() {
     if (!options) return;
 
@@ -5485,6 +5813,7 @@
 
     // ── 작가 태그 ───────────────────────────────────────────────────
     $('go-artists').addEventListener('click', openArtists);
+    $('go-bulk').addEventListener('click', function () { show('main'); });
     $('artists-back').addEventListener('click', function () { show('main'); });
     ['find', 'drawer', 'reco', 'style'].forEach(function (n) {
       $('tab-' + n).addEventListener('click', function () { setArtTab(n); });
@@ -5561,7 +5890,8 @@
 
     // 세기 범위
     ['w-min', 'w-max', 'w-step'].forEach(function (id) {
-      $(id).addEventListener('change', readWeightUI);
+      // ★함수를 그대로 넘기면 Event 가 첫 인자로 들어가 접두사 자리를 차지한다.
+      $(id).addEventListener('change', function () { readWeightUI('w'); });
     });
     $('mix-rand').addEventListener('click', async function () {
       if (!artMix.length) { toast('섞은 작가가 없습니다.', 2000); return; }
@@ -5592,7 +5922,11 @@
       renderCombo();
     });
     $('cmb-n').addEventListener('input', renderCombo);
-    $('cmb-run').addEventListener('click', cmbRun);
+    $('cmb-run').addEventListener('click', function () { cmbRun(); });
+    $('cmb-refine').addEventListener('click', cmbRefine);
+    ['cw-min', 'cw-max', 'cw-step'].forEach(function (id) {
+      $(id).addEventListener('change', function () { readWeightUI('cw'); });
+    });
 
     $('w-reset').addEventListener('click', async function () {
       wRange = null;

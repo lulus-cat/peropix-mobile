@@ -302,6 +302,55 @@ const Artists = (function () {
     return out;
   }
 
+  /**
+   * 매긴 점수를 반영해 다음 조합을 만든다.
+   *
+   * 작가마다 **점수로 가중 평균한 세기**를 구해 그 근처에서 다시 뽑는다. 5점을 준 조합의
+   * 값이 가장 크게 당겨지고, 1점을 준 값은 거의 안 당겨진다.
+   *
+   * ★작가를 켜고 끄는 것은 여기서 하지 않는다. 조합 모드는 같은 작가에 세기만 바꿔 가며
+   *   뽑으므로 모든 작가가 모든 조합에 들어 있고, 그러면 작가별 평균 점수가 전부 같아져
+   *   신호가 되지 않는다. 실제로 움직이는 것은 세기뿐이라 세기만 다룬다. 필요 없는 작가는
+   *   세기가 최소값으로 내려가면서 자연히 빠진다.
+   *
+   * @param {Array} rated [{mix, score}] 점수는 1~5
+   */
+  function refine(rated, n, cfg, rand) {
+    const r = range(cfg);
+    const rnd = rand || Math.random;
+    const list = (rated || []).filter(function (x) {
+      return x && x.mix && x.mix.length && (x.score || 0) > 0;
+    });
+    if (!list.length) return [];
+
+    // 점수로 가중 평균한 세기
+    const num = Object.create(null), den = Object.create(null);
+    list.forEach(function (x) {
+      x.mix.forEach(function (m) {
+        num[m.tag] = (num[m.tag] || 0) + x.score * m.weight;
+        den[m.tag] = (den[m.tag] || 0) + x.score;
+      });
+    });
+
+    const shape = list[0].mix;
+    const want = Math.max(1, Math.min(n || 5, 30));
+    const seen = Object.create(null);
+    const out = [];
+    for (let i = 0; i < want * 20 && out.length < want; i++) {
+      const c = shape.map(function (m) {
+        const aim = den[m.tag] ? (num[m.tag] / den[m.tag]) : m.weight;
+        const step = (Math.floor(rnd() * 3) - 1) * r.step;   // 한 칸 위·아래로 흔든다
+        return { tag: m.tag, weight: clampWeight(aim + step, cfg), on: m.on };
+      });
+      const key = c.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag + ':' + x.weight; }).join('|');
+      if (!key || seen[key]) continue;
+      seen[key] = true;
+      out.push(c);
+    }
+    return out;
+  }
+
   // ── 프롬프트로 굽기 ───────────────────────────────────────────────────────
   /**
    * NAI 프롬프트 조각으로.
@@ -375,6 +424,7 @@ const Artists = (function () {
     normalize: normalize,
     randomize: randomize,
     combos: combos,
+    refine: refine,
     bake: bake,
     activeCount: activeCount,
     scan: scan

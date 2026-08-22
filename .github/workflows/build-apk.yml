@@ -67,7 +67,8 @@ jobs:
       - name: 판 번호 새기기
         run: |
           RUN=${{ github.run_number }}
-          NAME="1.0.$RUN"
+          # 1.0.x 로 21번까지 나갔다. 22번째 실행을 1.2.1 로 잇는다.
+          NAME="1.2.$((RUN - 21))"
           sed -i "s/versionCode 1/versionCode $((RUN + 1))/" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"$NAME\"/" android/app/build.gradle
           echo "VERSION_NAME=$NAME" >> $GITHUB_ENV
