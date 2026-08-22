@@ -15,6 +15,13 @@ android/app/release/
 *.keystore
 *.jks
 
+# ★단 하나 예외 — android/peropix.keystore 는 일부러 올린다.
+#   비밀이 아니다. 암호가 build.gradle 에 그대로 적혀 있고, 하는 일은 "같은 앱임" 을
+#   표시해 덮어 설치가 되게 하는 것뿐이다. 이것이 저장소에 없으면 빌드할 때마다
+#   서명이 달라져 새 APK 가 폰에 안 깔린다.
+#   ★진짜 배포용 열쇠를 쓰게 되면 그때는 여기 두지 말고 GitHub Secrets 로 옮길 것.
+!android/peropix.keystore
+
 # ★기기마다 다른 경로가 들어 있다. 받는 쪽에서 새로 만들어야 한다.
 android/local.properties
 

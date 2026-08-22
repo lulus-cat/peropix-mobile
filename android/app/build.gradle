@@ -16,10 +16,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // ★모든 빌드가 같은 열쇠로 서명되게 한다.
+    //   안드로이드는 서명이 다른 APK 를 덮어 설치하지 못한다. 안드로이드가 자동으로
+    //   만들어 주는 debug.keystore 는 기기마다·빌드 서버마다 다르므로, 그대로 두면
+    //   GitHub 가 만든 APK 가 매번 "설치되지 않음" 이 된다.
+    //   ★이 열쇠는 비밀이 아니다 — 암호가 저장소에 함께 들어 있다. 하는 일은
+    //     "같은 앱임" 을 표시해 덮어 설치가 되게 하는 것뿐이다.
+    signingConfigs {
+        peropix {
+            storeFile file('../peropix.keystore')
+            storePassword 'peropix'
+            keyAlias 'peropix'
+            keyPassword 'peropix'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.peropix
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.peropix
         }
     }
 }
