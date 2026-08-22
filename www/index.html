@@ -31,6 +31,78 @@
   </div>
 </div>
 
+<!-- ── 홈 ─────────────────────────────────────────────────────────────────
+     ★작은 글자를 상단에 늘어놓는 대신 큰 판으로 깔았다. 폰에서는 엄지가 닿는 넓이가
+     곧 쓰기 쉬움이다. 무엇을 하는 곳인지 한 줄씩 붙여 두어, 처음 여는 사람도 어디로
+     가야 할지 읽고 고를 수 있게 했다. -->
+<section id="screen-home" class="screen" hidden>
+  <div class="home">
+    <div class="home-head">
+      <img class="home-icon" src="img/icon.png" alt="" width="52" height="52">
+      <div>
+        <div class="home-title">Peropix</div>
+        <div class="home-sub" id="home-sub">Lkit mobile ver.</div>
+      </div>
+      <button id="home-anlas" class="anlas-bal" hidden></button>
+    </div>
+
+    <div class="home-grid">
+      <button class="home-card wide" id="home-bulk">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>이미지 대량생성</b>
+          <i>슬롯마다 다른 프롬프트로 한 번에 뽑기</i>
+        </span>
+        <span class="home-card-badge" id="home-bulk-badge" hidden></span>
+      </button>
+
+      <button class="home-card wide" id="home-artists">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.3-9-7.3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="9" r="1.2"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>작가 태그 테스트</b>
+          <i>작가 찾기 · 서랍 · 추천 · 조합과 깎기</i>
+        </span>
+      </button>
+
+      <button class="home-card" id="home-jobs">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg>
+        </span>
+        <span class="home-card-txt"><b>원격 작업</b><i>받아서 뽑기</i></span>
+        <span class="home-card-badge" id="home-jobs-badge" hidden></span>
+      </button>
+
+      <button class="home-card" id="home-folders">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </span>
+        <span class="home-card-txt"><b>폴더 관리</b><i>뽑은 그림 정리</i></span>
+      </button>
+
+      <button class="home-card" id="home-results">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M4 15l4-4 3 3 4-5 5 6"/></svg>
+        </span>
+        <span class="home-card-txt"><b>결과 보기</b><i>이번에 뽑은 것</i></span>
+        <span class="home-card-badge" id="home-results-badge" hidden></span>
+      </button>
+
+      <button class="home-card" id="home-settings">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg>
+        </span>
+        <span class="home-card-txt"><b>설정</b><i>키 · 저장 위치</i></span>
+      </button>
+    </div>
+
+    <p class="home-tip" id="home-tip"></p>
+  </div>
+</section>
+
 <!-- ── 첫 실행: API 키 입력 ───────────────────────────────────────────── -->
 <section id="screen-setup" class="screen">
   <div class="pad">
@@ -91,7 +163,10 @@
 <!-- ── 메인: 슬롯 + 생성 ──────────────────────────────────────────────── -->
 <section id="screen-main" class="screen" hidden>
   <header class="topbar">
-    <h1 class="brand sm">Peropix Lkit mobile ver.</h1>
+    <button id="main-home" class="btn icon" aria-label="홈">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <h1 class="brand sm">이미지 대량생성</h1>
     <button id="go-results" class="btn icon badge-host" aria-label="결과 보기">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg><span id="results-badge" class="badge" hidden></span>
     </button>
@@ -101,13 +176,6 @@
     <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
   </header>
-
-  <!-- ★두 모드를 처음부터 갈라 둔다. 한 화면에 섞어 두면 대량생성 설정을 만지다가
-       그림체 테스트 설정을 건드리게 된다. -->
-  <div class="tabs" role="tablist">
-    <button id="go-bulk" class="tab on" role="tab">이미지 대량생성</button>
-    <button id="go-artists" class="tab" role="tab">작가 태그</button>
-  </div>
 
   <div class="pad scroll">
     <div class="toolrow">
@@ -587,13 +655,21 @@
 
   <div id="viewer-hint" class="viewer-hint"></div>
 
-  <div class="viewer-actions">
+  <!-- ★조합·깎기에서 열면 이 줄 대신 아래의 별점 줄이 뜬다. 그 자리에서 할 일은
+       「이 조합이 좋은가」 를 매기는 것뿐이라, 인핸스·업스케일·슬롯 이동은 방해다. -->
+  <div id="viewer-actions" class="viewer-actions">
     <button id="viewer-prev-slot" class="btn small">‹ 이전 슬롯</button>
     <button id="viewer-enhance" class="btn small">인핸스</button>
     <button id="viewer-upscale" class="btn small">×4 업스케일</button>
     <button id="viewer-compose" class="btn small">배경</button>
     <button id="viewer-next-slot" class="btn small">다음 슬롯 ›</button>
   </div>
+
+  <div id="viewer-rate" class="viewer-rate" hidden>
+    <div id="viewer-stars" class="stars big"></div>
+    <div id="viewer-combo" class="viewer-combo"></div>
+  </div>
+
   <div id="viewer-cap" class="viewer-cap"></div>
 </div>
 
@@ -931,7 +1007,7 @@
     <button id="tab-find" class="tab on" role="tab">찾기</button>
     <button id="tab-drawer" class="tab" role="tab">서랍 <span id="tab-drawer-n" class="tab-n"></span></button>
     <button id="tab-reco" class="tab" role="tab">추천</button>
-    <button id="tab-style" class="tab" role="tab">그림체</button>
+    <button id="tab-style" class="tab" role="tab">테스트</button>
   </div>
 
   <!-- ── 찾기 ───────────────────────────────────────────────────────── -->

@@ -85,6 +85,12 @@ check('처음에는 기본 인물', st.char === S.DEFAULT_CHAR);
 check('모르는 판이 저장돼 있으면 첫 판으로', S.settings({ preset: '엉뚱' }).preset === 'upper');
 check('★빈 글로 저장해 둔 것은 빈 글로 지킨다 (기본값이 되살아나면 지운 뜻이 없어진다)',
   S.settings({ char: '' }).char === '', JSON.stringify(S.settings({ char: '' }).char));
+// ★한 번 켠 적 있는 폰에는 옛 기본 캐릭터가 저장돼 있다. 손대지 않은 것이면 새것으로.
+check('★옛 기본 캐릭터가 저장돼 있으면 새 기본값으로 갈아 끼운다',
+  S.settings({ char: '1girl, loli, medium hair, aqua hair, oversized clothes, '
+    + 'open cardigan, collared shirt, skirt, barefoot' }).char === S.DEFAULT_CHAR);
+check('★사람이 고쳐 둔 것은 건드리지 않는다',
+  S.settings({ char: '1boy, my own' }).char === '1boy, my own');
 check('저장한 것을 그대로 돌려준다',
   S.settings({ preset: 'scene', comp: 'x', char: 'y', base: 'z', negative: 'w' }).comp === 'x');
 

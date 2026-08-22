@@ -27,15 +27,41 @@
   let presets = [];
   let subscription = null;      // Anlas 잔량 (없으면 표시 안 함)
 
+  // ── 홈 ───────────────────────────────────────────────────────────────────
+  function renderHome() {
+    const live = ResultsModel.live(results).length;
+    badge('home-results-badge', live);
+    badge('home-jobs-badge',
+      jobsList.filter(function (j) { return j.status === 'pending'; }).length);
+    badge('home-bulk-badge', running ? 1 : 0, running ? '…' : '');
+    $('home-sub').textContent = persona ? ('폴더: ' + persona) : 'Lkit mobile ver.';
+
+    const bal = $('home-anlas');
+    const src = $('anlas-bal');
+    bal.hidden = !src || src.hidden;
+    if (!bal.hidden) bal.textContent = src.textContent;
+
+    // 홈에도 팁을 한 줄. 인트로를 눌러 넘긴 사람도 볼 수 있게 한다.
+    $('home-tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
+  }
+
+  function badge(id, n, text) {
+    const el = $(id);
+    if (!el) return;
+    el.hidden = !n;
+    if (n) el.textContent = text !== undefined ? text : String(n);
+  }
+
   // ── 인트로 ───────────────────────────────────────────────────────────────
   // ★쓰는 법을 여기서 한 줄씩 알려 준다. 기능이 늘면서 어디에 뭐가 있는지 찾기 어려워졌는데,
   //   설명서를 따로 만들어 봐야 아무도 안 읽는다. 어차피 뜨는 화면이니 여기에 얹는다.
   const TIPS = [
     '작가 태그 → 찾기 에서 이름을 넣으면 그 작가 그림이 몇 장인지, NAI 가 알아볼 만한지 바로 보입니다.',
-    '작가 태그 → 그림체 → 조합 은 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 줍니다. 마음에 드는 걸 고르세요.',
+    '작가 태그 → 테스트 → 조합 은 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 줍니다. 마음에 드는 걸 고르세요.',
     '조합에서 딱 맞는 게 없으면 별점을 매기고 「점수 반영해서 다시 뽑기」. 높은 점수 쪽으로 세기가 당겨집니다.',
-    '작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모르겠다면, 그림체 → 깎기 가 5번 만에 범인을 찾아 줍니다.',
+    '작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모르겠다면, 테스트 → 깎기 가 5번 만에 범인을 찾아 줍니다.',
     '뷰어에서 위로 밀면 버리기, 아래로 밀면 저장. 손가락 두 개로 벌리면 확대됩니다.',
+    '조합·깎기에서 뽑은 그림을 누르면 크게 뜹니다. 좌우로 밀어 그 판 안을 오가고, 아래 별점으로 점수를 줍니다.',
     '인터넷이 끊겨 몇 장이 깨졌으면, 결과 화면 맨 위의 「못 만든 N장 다시 생성」 이 그것만 다시 뽑습니다.',
     '인물이 많고 슬롯이 적으면 「한 명 모드」 를 켜세요. 인물 수만큼 자동으로 돌립니다.',
     '투명 배경으로 뽑은 그림은 「배경 합성」 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
@@ -86,13 +112,30 @@
   // ★뒤로가기가 "어디서 눌렸는지" 알아야 해서 지금 화면을 들고 있는다.
   let currentScreen = 'main';
 
+  // ★어디서 들어왔는지 기억한다. 홈에서 연 화면의 「뒤로」 가 대량생성으로 가면
+  //   가 본 적 없는 곳에 떨어진다.
+  let hubScreen = 'home';
+
   function show(which) {
+    if (currentScreen === 'home' || currentScreen === 'main') hubScreen = currentScreen;
     currentScreen = which;
-    ['setup', 'perms', 'main', 'settings', 'import', 'folders', 'results',
+    ['setup', 'perms', 'home', 'main', 'settings', 'import', 'folders', 'results',
      'wildcards', 'enhance', 'compose', 'jobs', 'artists'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
+    // ★들어오는 화면만 짧게 떠오르게. 클래스를 뗐다 붙이지 않으면 같은 화면을
+    //   다시 열었을 때 애니메이션이 안 돈다 (브라우저가 「그대로」 로 본다).
+    const el = $('screen-' + which);
+    el.classList.remove('sc-in');
+    void el.offsetWidth;
+    el.classList.add('sc-in');
     window.scrollTo(0, 0);
+  }
+
+  /** 온 곳으로 돌아간다. */
+  function goBack() {
+    show(hubScreen);
+    if (hubScreen === 'home') renderHome();
   }
 
   // ── 안드로이드 뒤로가기 ──────────────────────────────────────────────────
@@ -110,8 +153,8 @@
     if (!$('viewer').hidden) { closeViewer(); return; }
 
     // 2) 하위 화면이면 메인으로.
-    if (currentScreen !== 'main' && currentScreen !== 'setup' && currentScreen !== 'perms') {
-      show('main');
+    if (currentScreen !== 'home' && currentScreen !== 'setup' && currentScreen !== 'perms') {
+      goBack();
       return;
     }
 
@@ -1838,6 +1881,7 @@
   let cmbLast = [];            // 방금 뽑은 조합들 (어느 그림이 어느 조합인지)
   let cmbShots = [];           // 그 조합으로 뽑은 그림
   let styleBusy = false;
+  let styleView = null;        // 조합·깎기에서 연 뷰어일 때 {items, meta}
   let styleMode = 'combo';
   let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
   let bisSel = [];             // 그중 고른 것 (최대 20)
@@ -1900,6 +1944,11 @@
       $('tab-' + n).classList.toggle('on', n === name);
       $('pane-' + n).hidden = (n !== name);
     });
+    // 화면 갈아 끼울 때와 같은 방식 — 뗐다 붙여야 다시 돈다.
+    const pane = $('pane-' + name);
+    pane.classList.remove('sc-in');
+    void pane.offsetWidth;
+    pane.classList.add('sc-in');
     window.scrollTo(0, 0);
   }
 
@@ -2595,7 +2644,14 @@
 
     bis.shot = true;
     await styleGenerate(step.shots.map(function (x) {
-      return { label: x.name, prompt: Artists.bake(Artists.mix(x.tags, wRange), { cfg: wRange }) };
+      return {
+        label: x.name,
+        prompt: Artists.bake(Artists.mix(x.tags, wRange), { cfg: wRange }),
+        // 뷰어 아래에 무엇을 뺀 그림인지 적어 준다.
+        note: x.removed.length
+          ? ('뺀 사람: ' + x.removed.map(function (t) { return t.replace(/_/g, ' '); }).join(', '))
+          : '아무도 빼지 않은 원래 조합'
+      };
     }), bis.seeds[0], 'bis-shots');
     renderBis();
   }
@@ -2610,7 +2666,11 @@
 
     bisScan = true;
     await styleGenerate(steps.map(function (x) {
-      return { label: '세기-' + x.weight, prompt: x.prompt };
+      return {
+        label: '세기-' + x.weight,
+        prompt: x.prompt,
+        note: bis.culprit.replace(/_/g, ' ') + ' 세기 ' + x.weight
+      };
     }), bis.seeds[0], 'bis-shots');
   }
 
@@ -2729,10 +2789,11 @@
 
   /**
    * 그림체 시험 한 판을 뽑는다. ★작가 태그 화면에 머문 채로 돈다.
-   * @param {Array} shots [{label, prompt}]
+   * @param {Array} shots [{label, prompt, note}]
+   * @param {object} [hooks] {rate, scoreOf} — 주면 뷰어에서 별점을 매길 수 있다
    * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
    */
-  async function styleGenerate(shots, seed, box) {
+  async function styleGenerate(shots, seed, box, hooks) {
     if (running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return null; }
     const token = await Store.getToken();
     if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return null; }
@@ -2743,7 +2804,7 @@
     const out = [];
     try {
       for (let i = 0; i < shots.length; i++) {
-        renderStyleShots(box, out, shots, i);
+        renderStyleShots(box, out, shots, i, hooks);
         const item = await runOneJob(token, {
           slot: { label: shots[i].label, prompt: shots[i].prompt },
           slotName: shots[i].label,
@@ -2757,7 +2818,7 @@
       styleRestore();
       styleBusy = false;
     }
-    renderStyleShots(box, out, shots, -1);
+    renderStyleShots(box, out, shots, -1, hooks);
     return out;
   }
 
@@ -2769,19 +2830,28 @@
   }
 
   /** 뽑은 그림을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
-  function renderStyleShots(boxId, done, shots, doing) {
+  function renderStyleShots(boxId, done, shots, doing, hooks) {
     const box = $(boxId);
     if (!box) return;
     freeBlobs(box);
     box.innerHTML = '';
+    // ★방금 들어온 칸만 떠오르게 한다. 한 장 나올 때마다 통째로 다시 그리므로,
+    //   전부에 걸면 있던 그림까지 매번 다시 튀어 오른다.
+    const fresh = done.length - 1;
     shots.forEach(function (sh, i) {
       const cell = document.createElement('div');
       cell.className = 'shot';
       const item = done[i];
       if (item && item.bytes) {
         const img = document.createElement('img');
+        if (i === fresh) img.className = 'pop';
         img.src = URL.createObjectURL(new Blob([item.bytes], { type: 'image/png' }));
-        img.addEventListener('click', function () { openViewerFor(item); });
+        img.addEventListener('click', function () {
+          openViewerFor(item, done.filter(Boolean), function (r) {
+            const k = done.indexOf(r);
+            return k === -1 ? '' : (shots[k].note || shots[k].label);
+          }, hooks && hooks.rate, hooks && hooks.scoreOf);
+        });
         cell.appendChild(img);
       } else {
         const ph = document.createElement('div');
@@ -2798,16 +2868,62 @@
   }
 
   /**
-   * 그림 하나를 크게 본다.
-   * ★뷰어는 결과 목록 안의 항목만 열 수 있어서, 목록에 없으면 한 번만 넣어 준다.
-   *   자동 저장을 꺼 뒀으므로 마음에 든 그림은 뷰어에서 저장하면 된다.
+   * 조합·깎기에서 뽑은 그림을 크게 본다.
+   *
+   * ★한 판에서 뽑은 것을 **통째로** 넣는다. 그래야 좌우로 밀어 그 판 안을 오갈 수 있다.
+   *   전부 같은 묶음 이름(그림체)이라 뷰어가 한 묶음으로 본다.
+   * ★뷰어는 결과 목록 안의 항목만 열 수 있어서 목록에 없으면 넣어 준다. 자동 저장은
+   *   꺼져 있으므로 마음에 든 그림은 여기서 저장하면 된다.
+   *
+   * @param {object} item 열 그림
+   * @param {Array}  all  같은 판에서 뽑은 것 전부
+   * @param {function} meta (item) => 아래에 적을 글 (어떤 조합인지)
+   * @param {function} [rate] (item, score) 별점을 매기면 부른다. 없으면 별점 줄이 안 뜬다
+   * @param {function} [scoreOf] (item) => 지금 점수
    */
-  function openViewerFor(item) {
-    if (results.indexOf(item) === -1) {
-      results = results.concat([item]);
+  function openViewerFor(item, all, meta, rate, scoreOf) {
+    const list = (all || [item]).filter(function (x) { return x && x.bytes; });
+    const fresh = list.filter(function (x) { return results.indexOf(x) === -1; });
+    if (fresh.length) {
+      results = results.concat(fresh);
       renderResults();
     }
-    openViewerAt(item);
+    styleView = { items: list, meta: meta, rate: rate, scoreOf: scoreOf };
+
+    // ★공용 묶음(결과 화면의 필터를 거친 것)을 쓰지 않는다. 필터에 걸려 몇 장만 남으면
+    //   좌우로 밀어도 그 판 안을 못 오간다. 이 판만 담은 묶음을 그대로 쓴다.
+    viewGroups = [{ label: '테스트', items: list }];
+    viewSlot = 0;
+    viewIndex = Math.max(0, list.indexOf(item));
+    $('viewer').hidden = false;
+    document.body.style.overflow = 'hidden';
+    paintViewer();
+  }
+
+  /** 뷰어 아래를 조합·깎기용으로 바꾼다. */
+  function paintStyleViewer(r) {
+    const on = !!(styleView && styleView.items.indexOf(r) !== -1);
+    $('viewer-actions').hidden = on;
+    $('viewer-rate').hidden = !on;
+    if (!on) return;
+
+    $('viewer-combo').textContent = styleView.meta ? styleView.meta(r) : '';
+    const box = $('viewer-stars');
+    box.innerHTML = '';
+    if (!styleView.rate) { box.hidden = true; return; }
+    box.hidden = false;
+    const now = styleView.scoreOf ? (styleView.scoreOf(r) || 0) : 0;
+    for (let k = 1; k <= 5; k++) {
+      const b = document.createElement('button');
+      b.textContent = k <= now ? '★' : '☆';
+      if (k <= now) b.className = 'on';
+      b.title = k + '점';
+      b.addEventListener('click', function () {
+        styleView.rate(r, (now === k) ? 0 : k);
+        paintStyleViewer(r);
+      });
+      box.appendChild(b);
+    }
   }
 
   function setStyleMode(m) {
@@ -2883,9 +2999,22 @@
     cmbShots = [];
     renderComboResult();
     const seed = $('cmb-seed-fix').checked ? Math.floor(Math.random() * 1e9) : undefined;
+    const comboNote = function (c) {
+      return c.name + ' — ' + c.mix.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+    };
     cmbShots = (await styleGenerate(cmbLast.map(function (c) {
-      return { label: c.name, prompt: c.prompt };
-    }), seed, 'cmb-shots')) || [];
+      return { label: c.name, prompt: c.prompt, note: comboNote(c) };
+    }), seed, 'cmb-shots', {
+      rate: function (r, score) {
+        const c = cmbLast[cmbShots.indexOf(r)];
+        if (c) { c.score = score; renderComboResult(); }
+      },
+      scoreOf: function (r) {
+        const c = cmbLast[cmbShots.indexOf(r)];
+        return c ? c.score : 0;
+      }
+    })) || [];
     renderComboResult();
   }
 
@@ -2904,7 +3033,23 @@
         const img = document.createElement('img');
         img.className = 'cmb-thumb';
         img.src = URL.createObjectURL(new Blob([shot.bytes], { type: 'image/png' }));
-        img.addEventListener('click', function () { openViewerFor(shot); });
+        img.addEventListener('click', function () {
+        openViewerFor(shot, cmbShots,
+          function (r) {
+            const c = cmbLast[cmbShots.indexOf(r)];
+            return c ? (c.name + ' — ' + c.mix.filter(function (x) { return x.on; })
+              .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; })
+              .join(' · ')) : '';
+          },
+          function (r, score) {
+            const c = cmbLast[cmbShots.indexOf(r)];
+            if (c) { c.score = score; renderComboResult(); }
+          },
+          function (r) {
+            const c = cmbLast[cmbShots.indexOf(r)];
+            return c ? c.score : 0;
+          });
+      });
         row.appendChild(img);
       }
 
@@ -2927,6 +3072,7 @@
         for (let k = 1; k <= 5; k++) {
           const b = document.createElement('button');
           b.textContent = k <= c.score ? '★' : '☆';
+          if (k <= c.score) b.className = 'on';
           b.title = k + '점';
           b.addEventListener('click', function () {
             c.score = (c.score === k) ? 0 : k;
@@ -3008,136 +3154,6 @@
     });
     await Store.setStyleTest(stCfg);
     renderStyleUI();
-  }
-
-  /**
-   * 시험용 프롬프트로 잠깐 바꾼다.
-   *
-   * ★슬롯은 건드리지 않는다. 뽑을 목록을 직접 만들어 runOneJob 에 넘기기 때문이다.
-   *   예전에는 슬롯을 갈아 끼우고 대량생성 화면으로 넘어갔는데, 그러면 작가 태그를
-   *   보다가 매번 다른 화면으로 튕겨 나가고 결과도 대량생성 결과에 섞였다.
-   */
-  function styleApply(seed) {
-    if (!styleSaved) {
-      styleSaved = {
-        chars: JSON.parse(JSON.stringify(characters)),
-        neg: options.negative_prompt,
-        seed: options.seed,
-        persona: persona,
-        target: slotTarget,
-        one: options.one_char_mode,
-        save: options.auto_save
-      };
-    }
-    const b = StyleTest.build(stCfg);
-    characters = b.character
-      ? [{ prompt: b.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false, enabled: true }]
-      : [];
-    options.negative_prompt = b.negative;
-    options.one_char_mode = false;
-    // ★작가 태그는 공통(base)에 붙인다. 캐릭터 쪽에 붙이면 그림체가 캐릭터에만 걸린다.
-    slotTarget = 'base';
-    // ★테스트 그림을 폰에 자동 저장하지 않는다. 수십 장이 쌓이는데 대부분 버릴 것들이다.
-    options.auto_save = false;
-    if (seed !== undefined && seed !== null) options.seed = seed;
-    persona = '그림체';
-    return b;
-  }
-
-  function styleRestore() {
-    if (!styleSaved) return;
-    characters = styleSaved.chars;
-    options.negative_prompt = styleSaved.neg;
-    options.seed = styleSaved.seed;
-    options.one_char_mode = styleSaved.one;
-    options.auto_save = styleSaved.save;
-    slotTarget = styleSaved.target;
-    persona = styleSaved.persona;
-    styleSaved = null;
-    renderCharDrawer();
-  }
-
-  /**
-   * 그림체 시험 한 판을 뽑는다. ★작가 태그 화면에 머문 채로 돈다.
-   * @param {Array} shots [{label, prompt}]
-   * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
-   */
-  async function styleGenerate(shots, seed, box) {
-    if (running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return null; }
-    const token = await Store.getToken();
-    if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return null; }
-
-    styleBusy = true;
-    const b = styleApply(seed);
-    usedPaths = new Set();
-    const out = [];
-    try {
-      for (let i = 0; i < shots.length; i++) {
-        renderStyleShots(box, out, shots, i);
-        const item = await runOneJob(token, {
-          slot: { label: shots[i].label, prompt: shots[i].prompt },
-          slotName: shots[i].label,
-          group: '그림체',
-          name: shots[i].label,
-          cycle: 1
-        }, { base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1 });
-        out.push(item);
-      }
-    } finally {
-      styleRestore();
-      styleBusy = false;
-    }
-    renderStyleShots(box, out, shots, -1);
-    return out;
-  }
-
-  /** 뽑은 그림을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
-  function renderStyleShots(boxId, done, shots, doing) {
-    const box = $(boxId);
-    if (!box) return;
-    box.innerHTML = '';
-    shots.forEach(function (sh, i) {
-      const cell = document.createElement('div');
-      cell.className = 'shot';
-      const item = done[i];
-      if (item && item.bytes) {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(new Blob([item.bytes], { type: 'image/png' }));
-        img.addEventListener('click', function () { openViewerFor(item); });
-        cell.appendChild(img);
-      } else {
-        const ph = document.createElement('div');
-        ph.className = 'shot-ph' + (i === doing ? ' doing' : '');
-        ph.textContent = item ? '실패' : (i === doing ? '뽑는 중' : '');
-        cell.appendChild(ph);
-      }
-      const cap = document.createElement('div');
-      cap.className = 'shot-cap';
-      cap.textContent = sh.label;
-      cell.appendChild(cap);
-      box.appendChild(cell);
-    });
-  }
-
-  /**
-   * 그림 하나를 크게 본다.
-   * ★뷰어는 결과 목록 안의 항목만 열 수 있어서, 목록에 없으면 한 번만 넣어 준다.
-   *   자동 저장을 꺼 뒀으므로 마음에 든 그림은 뷰어에서 저장하면 된다.
-   */
-  function openViewerFor(item) {
-    if (results.indexOf(item) === -1) {
-      results = results.concat([item]);
-      renderResults();
-    }
-    openViewerAt(item);
-  }
-
-  function setStyleMode(m) {
-    styleMode = m;
-    $('mode-combo').classList.toggle('on', m === 'combo');
-    $('mode-bisect').classList.toggle('on', m === 'bisect');
-    $('sub-combo').hidden = (m !== 'combo');
-    $('sub-bisect').hidden = (m !== 'bisect');
   }
 
   // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
@@ -5031,6 +5047,9 @@
   }
 
   function closeViewer() {
+    styleView = null;
+    $('viewer-actions').hidden = false;
+    $('viewer-rate').hidden = true;
     $('viewer').hidden = true;
     document.body.style.overflow = '';
     renderResults();
@@ -5059,9 +5078,11 @@
     resetZoom();
     setFlash('');
 
-    $('viewer-count').textContent =
-      g.label + '  ' + (viewIndex + 1) + '/' + g.items.length
-      + '   (슬롯 ' + (viewSlot + 1) + '/' + viewGroups.length + ')';
+    const styling = !!(styleView && styleView.items.indexOf(r) !== -1);
+    $('viewer-count').textContent = styling
+      ? (r.name + '  ' + (viewIndex + 1) + '/' + g.items.length)
+      : (g.label + '  ' + (viewIndex + 1) + '/' + g.items.length
+        + '   (슬롯 ' + (viewSlot + 1) + '/' + viewGroups.length + ')');
     $('viewer-cap').textContent = captionOf(r);
     $('viewer-prev').disabled = (viewIndex === 0);
     $('viewer-next').disabled = (viewIndex === g.items.length - 1);
@@ -5073,6 +5094,7 @@
     saveBtn.className = 'btn small' + (r.savedTo ? ' saved' : '');
     saveBtn.disabled = !!r.savedTo;
 
+    paintStyleViewer(r);
     setViewerHint('');
   }
 
@@ -5093,7 +5115,9 @@
   function setViewerHint(text, kind) {
     const el = $('viewer-hint');
     el.textContent = text
-      || '↑ 버리기   ↓ 저장   ←→ 넘기기   ·   두 번 누르거나 손가락 두 개로 확대';
+      || ($('viewer-rate').hidden
+        ? '↑ 버리기   ↓ 저장   ←→ 넘기기   ·   두 번 누르거나 손가락 두 개로 확대'
+        : '←→ 밀어서 넘기기   ↓ 저장   ·   두 번 누르거나 손가락 두 개로 확대');
     el.className = 'viewer-hint' + (kind ? ' act-' + kind : '');
   }
 
@@ -5701,7 +5725,7 @@
 
     renderAnlas();
     renderOneChar();
-    show((await Store.hasToken()) ? 'main' : 'setup');
+    if (await Store.hasToken()) { renderHome(); show('home'); } else { show('setup'); }
     // 잔량은 통신이 필요하므로 화면을 먼저 띄우고 뒤따라 채운다.
     refreshAnlas();
 
@@ -5855,7 +5879,7 @@
     $('settings-perms').addEventListener('click', function () { openPerms(true); });
 
     $('go-results').addEventListener('click', function () { renderResults(); show('results'); });
-    $('results-back').addEventListener('click', function () { show('main'); });
+    $('results-back').addEventListener('click', goBack);
     $('progress-open').addEventListener('click', function () { renderResults(); show('results'); });
     $('results-clear').addEventListener('click', function () {
       if (!results.length) return;
@@ -5864,9 +5888,16 @@
     });
 
     // ── 작가 태그 ───────────────────────────────────────────────────
-    $('go-artists').addEventListener('click', openArtists);
-    $('go-bulk').addEventListener('click', function () { show('main'); });
-    $('artists-back').addEventListener('click', function () { show('main'); });
+    // 홈
+    const goHome = function () { show('home'); renderHome(); };
+    $('main-home').addEventListener('click', goHome);
+    $('home-bulk').addEventListener('click', function () { show('main'); });
+    $('home-artists').addEventListener('click', openArtists);
+    $('home-settings').addEventListener('click', function () { $('go-settings').click(); });
+    $('home-folders').addEventListener('click', function () { $('go-folders').click(); });
+    $('home-results').addEventListener('click', function () { renderResults(); show('results'); });
+    $('home-jobs').addEventListener('click', function () { $('go-jobs').click(); });
+    $('artists-back').addEventListener('click', goHome);
     ['find', 'drawer', 'reco', 'style'].forEach(function (n) {
       $('tab-' + n).addEventListener('click', function () { setArtTab(n); });
     });
@@ -6038,7 +6069,7 @@
     $('jobs-back').addEventListener('click', function () {
       // ★자동 모드가 아니면 나갈 때 확인을 멈춘다. 켜 뒀다면 계속 지켜본다.
       setJobTimer(jobsAuto);
-      show('main');
+      goBack();
     });
     $('jobs-reload').addEventListener('click', function () { loadJobs(); });
 
@@ -6245,7 +6276,7 @@
       show('folders');
       loadFolder('');
     });
-    $('folders-back').addEventListener('click', function () { show('main'); });
+    $('folders-back').addEventListener('click', goBack);
     $('folders-reload').addEventListener('click', function () { loadFolder(folderPath); });
     $('folders-up').addEventListener('click', function () {
       loadFolder(Folders.parentOf(folderPath));
@@ -6274,7 +6305,7 @@
       say($('settings-msg'), '');
       show('settings');
     });
-    $('back-main').addEventListener('click', function () { show('main'); });
+    $('back-main').addEventListener('click', goBack);
 
     $('settings-save').addEventListener('click', function () {
       saveToken($('settings-token'), $('settings-msg'), null);

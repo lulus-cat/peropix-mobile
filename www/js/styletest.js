@@ -100,6 +100,14 @@ const StyleTest = (function () {
     };
   }
 
+  // ★예전 판이 넣어 두었던 기본 캐릭터들. 사람이 고친 적이 없다면 새 기본값으로 갈아
+  //   끼워야 한다. 안 그러면 한 번 켠 적 있는 폰에서는 기본값을 바꿔도 옛것이 그대로
+  //   남아, 「바꿨다는데 왜 그대로냐」 가 된다.
+  const OLD_CHARS = [
+    '1girl, loli, medium hair, aqua hair, oversized clothes, open cardigan, '
+      + 'collared shirt, skirt, barefoot'
+  ];
+
   /**
    * 저장해 둔 설정을 성한 값으로.
    * ★빈 칸으로 저장해 두었다가 기본값이 통째로 사라지는 일을 막는다.
@@ -107,10 +115,12 @@ const StyleTest = (function () {
   function settings(raw) {
     const s = raw || {};
     const key = PRESETS.some(function (p) { return p.key === s.preset; }) ? s.preset : 'upper';
+    let char = String(s.char === undefined ? DEFAULT_CHAR : s.char);
+    if (OLD_CHARS.indexOf(char.trim()) !== -1) char = DEFAULT_CHAR;
     return {
       preset: key,
       comp: String(s.comp === undefined ? '' : s.comp),
-      char: String(s.char === undefined ? DEFAULT_CHAR : s.char),
+      char: char,
       base: String(s.base === undefined ? DEFAULT_BASE : s.base),
       negative: String(s.negative === undefined ? DEFAULT_NEG : s.negative)
     };

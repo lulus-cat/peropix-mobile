@@ -650,7 +650,6 @@ select.char-coord {
   .intro-tip-text { animation: none; }
   .intro-fill { transition: none; }
 }
-}
 
 /* ── 도구 줄 (프리셋 · 와일드카드 · 일괄 작업) ───────────────────────── */
 .toolrow {
@@ -1389,4 +1388,182 @@ textarea.expandable { cursor: pointer; }
   line-height: 1;
   color: var(--accent);
   cursor: pointer;
+}
+
+/* ── 홈 ────────────────────────────────────────────────────────────────
+   ★작은 글자를 상단에 늘어놓는 대신 큰 판으로. 폰에서는 엄지가 닿는 넓이가 곧
+     쓰기 쉬움이다. */
+.home {
+  padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 20px);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.home-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.home-icon { border-radius: 14px; }
+.home-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.home-sub { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+.home-head .anlas-bal { margin-left: auto; }
+
+.home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.home-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* 눌리는 느낌 — 폰에서는 이게 없으면 눌렸는지 안 눌렸는지 모른다 */
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  animation: card-in .32s ease both;
+}
+.home-card:active { transform: scale(.97); border-color: var(--accent); }
+.home-card.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; }
+/* 차례로 떠오르게 — 한꺼번에 나타나면 어디를 봐야 할지 알 수 없다 */
+.home-card:nth-child(1) { animation-delay: .00s; }
+.home-card:nth-child(2) { animation-delay: .04s; }
+.home-card:nth-child(3) { animation-delay: .08s; }
+.home-card:nth-child(4) { animation-delay: .12s; }
+.home-card:nth-child(5) { animation-delay: .16s; }
+.home-card:nth-child(6) { animation-delay: .20s; }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.home-card-ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--accent);
+}
+.home-card-txt { display: block; min-width: 0; }
+.home-card-txt b { display: block; font-size: 15px; font-weight: 600; }
+.home-card-txt i {
+  display: block;
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.home-card-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-tip {
+  margin: 22px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-card { animation: none; }
+}
+
+/* 조합·깎기에서 연 뷰어 — 별점과 「어떤 조합인지」 만 남긴다 */
+.viewer-rate {
+  padding: 10px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.stars.big button { font-size: 26px; padding: 2px 3px; }
+.viewer-combo {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.5;
+  word-break: break-all;
+  max-width: 340px;
+}
+
+/* ── 움직임 ────────────────────────────────────────────────────────────
+   ★화면이 그냥 「탁」 하고 바뀌면 뭐가 어디로 갔는지 눈이 못 따라간다. 짧게
+     (0.2초 안팎) 만 움직여 방향만 알려 준다. 길면 그때부터는 기다림이 된다.
+   ★움직임을 꺼 둔 폰(멀미·어지럼증 설정)에서는 맨 아래에서 전부 끈다. */
+@keyframes sc-in    { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes row-in   { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in   { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes star-pop { 0% { transform: scale(.55); opacity: .35; } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes breathe  { 0%, 100% { opacity: 1; } 50% { opacity: .48; } }
+
+/* 화면·탭 갈아 끼우기 */
+.sc-in { animation: sc-in .2s ease both; }
+
+/* 목록 — 위에서부터 차례로. 여섯 줄까지만 늦추고 그 뒤는 같이 뜬다
+   (더 늦추면 아래쪽 줄을 기다리게 된다).
+   ★뽑는 동안 계속 다시 그려지는 칸(.shots, #cmb-list)에는 걸지 않는다. 한 장 나올
+     때마다 줄 전체가 다시 튀어 올라 눈이 아프다. 그쪽은 새로 들어온 그림만 뜬다. */
+.drw-list > *, .reco-list > * { animation: row-in .22s ease both; }
+.drw-list > :nth-child(2), .reco-list > :nth-child(2) { animation-delay: .025s; }
+.drw-list > :nth-child(3), .reco-list > :nth-child(3) { animation-delay: .05s; }
+.drw-list > :nth-child(4), .reco-list > :nth-child(4) { animation-delay: .075s; }
+.drw-list > :nth-child(5), .reco-list > :nth-child(5) { animation-delay: .1s; }
+.drw-list > :nth-child(6), .reco-list > :nth-child(6) { animation-delay: .125s; }
+.drw-list > :nth-child(n+7), .reco-list > :nth-child(n+7) { animation-delay: .15s; }
+
+/* 방금 나온 그림 한 장만 떠오른다 */
+.shot img.pop { animation: pop-in .3s cubic-bezier(.2, .8, .3, 1) both; }
+/* 기다리는 칸은 숨을 쉰다 — 멈춘 것과 뽑는 중인 것이 구별된다 */
+.shot-ph.doing { animation: breathe 1.3s ease-in-out infinite; }
+
+/* 눌리는 느낌 — 폰에는 마우스 오버가 없어서, 눌렀을 때 줄어드는 것 말고는
+   「닿았다」 를 알릴 방법이 없다. */
+.chip, .tab, .drw-row, .cmb-row, .bis-pick button, .art-ac button, .card {
+  transition: transform .1s ease, border-color .14s ease, background .14s ease, color .14s ease;
+}
+.chip:active, .bis-pick button:active, .art-ac button:active { transform: scale(.95); }
+.drw-row:active, .cmb-row:active, .card:active { transform: scale(.985); }
+
+/* 별점 — 채운 별이 왼쪽부터 차례로 톡톡 켜진다 */
+.stars button.on { animation: star-pop .26s ease both; }
+.stars button.on:nth-child(2) { animation-delay: .04s; }
+.stars button.on:nth-child(3) { animation-delay: .08s; }
+.stars button.on:nth-child(4) { animation-delay: .12s; }
+.stars button.on:nth-child(5) { animation-delay: .16s; }
+
+/* 아래에서 올라오는 시트 · 전체를 덮는 뷰어 */
+.reco { animation: fade-in .16s ease both; }
+.reco-sheet { animation: sheet-up .24s cubic-bezier(.2, .8, .3, 1) both; }
+.viewer { animation: fade-in .14s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-in, .drw-list > *, .reco-list > *, .shot img.pop, .shot-ph.doing,
+  .stars button.on, .reco, .reco-sheet, .viewer { animation: none; }
+  .chip, .tab, .drw-row, .cmb-row, .bis-pick button, .art-ac button, .card { transition: none; }
+  .chip:active, .bis-pick button:active, .art-ac button:active,
+  .drw-row:active, .cmb-row:active, .card:active { transform: none; }
 }
