@@ -7111,6 +7111,17 @@
     nEl.textContent = n[0];
     nEl.className = 'perm-state' + (n[1] ? ' ' + n[1] : '');
     $('perm-notify').disabled = (st === 'granted' || st === 'unavailable');
+
+    // ★안드로이드 14의 「알람 및 리마인더」. 알림을 허용해도 이게 막혀 있으면 정작
+    //   알림이 나갈 때 한 번 더 물어본다. 필요한 기기에서만 이 줄을 띄운다.
+    const ex = await Notify.exactStatus();
+    $('perm-exact-row').hidden = (ex === 'unavailable');
+    if (ex !== 'unavailable') {
+      const e = ex === 'granted' ? ['허용됨', 'ok'] : ['아직 안 켬', ''];
+      $('perm-exact-state').textContent = e[0];
+      $('perm-exact-state').className = 'perm-state' + (e[1] ? ' ' + e[1] : '');
+      $('perm-exact').disabled = (ex === 'granted');
+    }
     if (st === 'denied') {
       $('perm-notify').textContent = '설정에서 직접 켜야 합니다';
       $('perm-notify').disabled = true;
@@ -7399,7 +7410,12 @@
       addReferenceFile(f);
     });
 
-    $('perm-notify').addEventListener('click', async function () {
+        $('perm-exact').addEventListener('click', async function () {
+      // 앱 안에서는 못 켠다. 시스템 설정 화면으로 보내고, 돌아오면 다시 본다.
+      await Notify.requestExact();
+      setTimeout(renderPermStates, 800);
+    });
+$('perm-notify').addEventListener('click', async function () {
       await Notify.request();
       renderPermStates();
     });

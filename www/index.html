@@ -154,7 +154,7 @@
 <section id="screen-perms" class="screen" hidden>
   <div class="pad scroll">
     <h1 class="brand">권한 허용</h1>
-    <p class="lead">두 가지만 허용하면 준비가 끝납니다.</p>
+    <p class="lead">아래 것들만 허용하면 준비가 끝납니다.</p>
 
     <div class="perm-item">
       <div class="perm-head">
@@ -166,6 +166,19 @@
         끝나면 알려 드립니다.
       </p>
       <button id="perm-notify" class="btn block">알림 허용</button>
+
+      <!-- ★안드로이드 14부터는 「알람 및 리마인더」 를 따로 묻는다. 알림을 허용해도
+           이게 막혀 있으면 정작 알림이 나갈 때 시스템이 한 번 더 물어본다.
+           그때 물으면 뽑는 중에 화면이 끊기니 여기서 미리 켜 둔다. -->
+      <div id="perm-exact-row" hidden>
+        <div class="perm-head">
+          <span class="perm-title">알람 및 리마인더</span>
+          <span id="perm-exact-state" class="perm-state">확인 중…</span>
+        </div>
+        <p class="hint">이걸 안 켜면 알림이 나갈 때 안드로이드가 한 번 더 물어봅니다.
+          여기서 미리 켜 두면 뽑는 도중에 안 끊깁니다.</p>
+        <button id="perm-exact" class="btn block">알람 및 리마인더 켜기</button>
+      </div>
     </div>
 
     <div class="perm-item">
@@ -504,11 +517,14 @@
     <div class="toolrow">
       <button id="rx-cmd-copy" class="btn small primary">설치 명령 복사</button>
       <label class="check">
-        <input id="rx-cmd-open" type="checkbox" checked> 바깥에서 닿게 (VPS)
+        <input id="rx-cmd-open" type="checkbox" checked> 인터넷에서도 접속하게
       </label>
     </div>
     <p class="hint" id="rx-cmd-msg">끝나면 화면에 <code>peropix://…</code> 한 줄이 나옵니다.
       그것을 아래 칸에 붙여넣으면 됩니다.</p>
+    <p class="hint"><b>인터넷에서도 접속하게</b>: VPS 라면 켜 두세요. 폰 데이터로도,
+      밖에 나가서도 그림을 보낼 수 있습니다. 끄면 그 컴퓨터 안에서만 열려서,
+      같은 Wi-Fi 에 있는 집 안 PC 나 VPN 을 쓸 때만 됩니다.</p>
 
     <details>
       <summary class="hint">직접 올려서 깔기 (인터넷이 막힌 서버)</summary>
@@ -567,9 +583,7 @@
       <p class="hint">서버가 검사를 하려면 준비가 조금 필요합니다. <code>score.py</code> 를
         <code>receiver.py</code> 옆에 두고 <code>pip install torch transformers pillow</code> 를
         한 번 실행한 뒤 다시 켜세요. 켤 때 「일관성 검사 : 켜짐」 이 나오면 된 것입니다.</p>
-    </div>
-
-  </div>
+      </div>
     </details>
 
     <details class="panel">
@@ -617,7 +631,6 @@
     </div>
 
     </details>
-
   </div>
 </section>
 
