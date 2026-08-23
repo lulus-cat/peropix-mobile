@@ -330,6 +330,15 @@
     $('ver-auto').addEventListener('change', async function () {
       await Store.setUpdateAuto($('ver-auto').checked);
     });
+
+    $('cons-mode').addEventListener('change', readConsistency);
+    $('cons-get').addEventListener('click', consDownload);
+    $('cons-score-copy').addEventListener('click', function () {
+      copyPy('score.py', 'cons-server-msg');
+    });
+    $('cons-score-save').addEventListener('click', function () {
+      savePy('score.py', 'cons-server-msg');
+    });
   }
 
   /**
@@ -1099,12 +1108,44 @@
    * ★저장소를 뒤져 내려받게 하지 않는다. 앱 안의 것이 **지금 이 앱과 짝이 맞는 버전**이라,
    *   여기서 꺼내 쓰는 것이 제일 확실하다 (저장소 기본 가지에는 예전 버전이 있을 수 있다).
    */
-  async function receiverSource() {
-    const r = await fetch('receiver.py.txt', { cache: 'no-store' });
+  async function receiverSource(name) {
+    const file = name || 'receiver.py';
+    const r = await fetch(file + '.txt', { cache: 'no-store' });
     if (!r.ok) throw new Error('앱 안에서 파일을 못 찾았습니다 (' + r.status + ')');
     const text = await r.text();
     if (text.indexOf('PeroPix') === -1) throw new Error('파일이 온전하지 않습니다.');
     return text;
+  }
+
+  /** 앱에 든 파이썬 파일을 클립보드로. SSH 에 그대로 붙여넣으라고 만든 길이다. */
+  async function copyPy(name, boxId) {
+    const box = $(boxId);
+    box.textContent = '꺼내는 중…';
+    try {
+      const text = await receiverSource(name);
+      const t = $('editor-text');
+      const keep = t.value;
+      t.value = text;
+      const ok = await copyFromEditor();
+      t.value = keep;
+      box.textContent = ok
+        ? (name + ' 를 복사했습니다. SSH 에서 "cat > ' + name + '" 하고 붙여넣은 뒤 Ctrl+D.')
+        : '복사하지 못했습니다. "파일로 저장" 을 쓰세요.';
+    } catch (e) {
+      box.textContent = '꺼내지 못했습니다: ' + (e.message || e);
+    }
+  }
+
+  async function savePy(name, boxId) {
+    const box = $(boxId);
+    box.textContent = '저장하는 중…';
+    try {
+      const bytes = new TextEncoder().encode(await receiverSource(name));
+      const where = await NaiClient.saveImage(bytes, name, 'text/x-python');
+      box.textContent = where + ' 에 저장했습니다.';
+    } catch (e) {
+      box.textContent = '저장하지 못했습니다: ' + (e.message || e);
+    }
   }
 
   async function copyReceiver() {
@@ -1161,11 +1202,164 @@
     const ping = await RemoteStore.ping(dest);
     say(box, (existing ? '기존 대상의 토큰을 갱신했습니다. ' : '대상을 추가했습니다. ') + ping.message,
       ping.ok ? 'ok' : 'err');
+    // ★검사를 맡길지는 지금 묻는다. 설정 깊은 곳에 숨겨 두면 아무도 못 찾는다.
+    await askDestScore(dest, ping);
 
     $('dest-paste').value = '';
     renderDestList();
     renderDestSelect();
     renderNamingPreview();
+  }
+
+  // ── 일관성 검사 ──────────────────────────────────────────────────────────
+  // ★재는 곳은 둘, 잣대는 하나다. 벡터를 어디서 뽑든 판정은 consistency.js 가 한다.
+  //   양쪽에 따로 두면 서버를 껐다 켰다 할 때 같은 그림의 점수가 달라진다.
+  let consMode = 'off';       // 'off' | 'device'(폰) | 'server'(수신함)
+  let consReady = false;      // 폰에 모델을 받아 두었는가
+  let consBusy = false;
+
+  /**
+   * 검사를 맡길 수신함.
+   * ★지금 고른 저장 대상을 먼저 본다. 그것이 폰이거나 검사를 못 하면, 검사가 되는
+   *   수신함을 하나 찾아 쓴다 — 저장은 폰에 하면서 검사만 서버에 맡기는 것도 흔하다.
+   */
+  function consDest() {
+    const now = activeDest();
+    if (now && now.canScore !== false && now.score !== false) return now;
+    return destinations.find(function (d) {
+      return d.canScore === true && d.score !== false;
+    }) || null;
+  }
+
+  function consPick() {
+    return Embed.pick({ mode: consMode, dest: consDest(), ready: consReady });
+  }
+
+  /** 지금 검사가 되는가 — 화면에 버튼을 띄울지 말지. */
+  function consOn() { return consPick().how !== 'off'; }
+
+  /**
+   * 그림들의 특징 벡터를 받아 온다.
+   * @param {string} kind 'style'(그림체) 또는 'identity'(인물)
+   * @param {Array} items [{bytes} 또는 {path}] — 이미 수신함에 올린 것은 path 로
+   */
+  async function consVectors(kind, items, onStep) {
+    const how = consPick();
+    if (how.how === 'off') throw new Error(how.why);
+    if (how.how === 'server') {
+      // 이미 올려 둔 것은 경로만 보낸다. 올린 것을 또 올려보낼 이유가 없다.
+      const sent = items.map(function (it) {
+        return it.remotePath ? { path: it.remotePath }
+          : { b64: NaiClient.toBase64(it.bytes) };
+      });
+      return await Embed.fromServer(RemoteStore, consDest(), kind, sent, onStep);
+    }
+    const sent = items.map(function (it) {
+      return { b64: 'data:image/png;base64,' + NaiClient.toBase64(it.bytes) };
+    });
+    return await Embed.fromDevice(kind, sent, onStep);
+  }
+
+  /**
+   * 폰에 모델을 받아 둔다. 처음 한 번만.
+   * ★얼마나 받는지 먼저 말하고 묻는다. 이동통신으로 90MB 를 말없이 당기면 안 된다.
+   */
+  async function consDownload() {
+    const box = $('cons-get-msg');
+    if (!window.confirm(
+      '검사에 쓸 모델을 받습니다 (' + Embed.sizeText(['style', 'identity']) + ').\n\n'
+      + '한 번만 받으면 다음부터는 인터넷 없이도 됩니다.\n'
+      + 'Wi-Fi 에서 받는 것을 권합니다. 받을까요?')) {
+      return;
+    }
+    box.textContent = '받는 중…';
+    try {
+      // 1×1 짜리 그림으로 한 번 돌려 본다. 받아만 두고 안 돌려 보면, 정작 결과
+      // 화면에서 처음 터진다 — 그때는 사람이 뽑기까지 다 마친 뒤라 늦다.
+      const dot = 'data:image/png;base64,'
+        + 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      await Embed.fromDevice('style', [{ b64: dot }]);
+      await Embed.fromDevice('identity', [{ b64: dot }]);
+      consReady = true;
+      await Store.setConsistencyReady(true);
+      box.textContent = '다 받았습니다. 이제 인터넷 없이도 됩니다.';
+      renderConsistency();
+    } catch (e) {
+      consReady = false;
+      await Store.setConsistencyReady(false);
+      box.textContent = '못 받았습니다: ' + (e.message || e)
+        + ' — 대신 「수신함에서」 를 쓰실 수 있습니다.';
+    }
+  }
+
+  function renderConsistency() {
+    $('cons-mode').value = consMode;
+    $('cons-device-row').hidden = consMode !== 'device';
+    $('cons-server-row').hidden = consMode !== 'server';
+
+    const how = consPick();
+    $('cons-hint').textContent = consMode === 'off'
+      ? '뽑고 나서 결과 화면에 「일관성 검사」 단추가 생깁니다.'
+      : (how.how === 'off' ? ('지금은 못 잽니다 — ' + how.why) : '지금 잴 수 있습니다.');
+
+    $('cons-get-msg').textContent = consReady
+      ? '받아 두었습니다.' : (Embed.sizeText(['style', 'identity']) + ' 를 받습니다.');
+    $('cons-get').textContent = consReady ? '다시 받기' : '모델 받기';
+
+    const d = consDest();
+    $('cons-server-msg').textContent = d
+      ? ((d.canScore === true ? '「' + d.name + '」 이 맡습니다.'
+        : '「' + d.name + '」 에 아직 검사 기능이 없습니다.'))
+      : '검사를 맡을 수신함이 없습니다. 아래에서 먼저 등록하세요.';
+  }
+
+  async function readConsistency() {
+    consMode = $('cons-mode').value;
+    await Store.setConsistency(consMode);
+    renderConsistency();
+  }
+
+  /**
+   * 수신함을 등록하거나 확인했을 때, 검사를 맡길지 물어본다.
+   * ★설정 화면 깊은 곳에 숨겨 두면 아무도 못 찾는다. 그 서버가 할 수 있다는 걸 안
+   *   그 자리에서 묻는 것이 맞다.
+   */
+  async function askDestScore(dest, ping) {
+    if (!dest || !ping || !ping.ok) return;
+    const before = dest.canScore;
+    dest.canScore = ping.canScore === true;
+    if (!dest.canScore) {
+      await Store.setDestinations(destinations);
+      return;
+    }
+    // 이미 정해 둔 대상이면 다시 묻지 않는다.
+    if (before === true && dest.score !== undefined) {
+      await Store.setDestinations(destinations);
+      return;
+    }
+    dest.score = window.confirm(
+      '이 수신함은 일관성 검사를 할 수 있습니다.\n\n'
+      + '맡기면 그림체·인물이 얼마나 고른지 이쪽에서 재 줍니다.\n'
+      + '폰은 아무것도 받지 않아도 됩니다. 맡길까요?');
+    await Store.setDestinations(destinations);
+    if (dest.score && consMode === 'off') {
+      consMode = 'server';
+      await Store.setConsistency(consMode);
+    }
+    renderConsistency();
+  }
+
+  /**
+   * 한 묶음을 재서 사람이 읽을 결과로.
+   * @returns {Promise<{rep, text}>}
+   */
+  async function consRun(kind, items, onStep) {
+    const vecs = await consVectors(kind, items, onStep);
+    if (Embed.usable(vecs) < 2) {
+      throw new Error('잰 그림이 두 장이 안 됩니다. 장수를 늘려 보세요.');
+    }
+    const rep = Consistency.report(vecs);
+    return { rep: rep, vectors: vecs, text: Consistency.summary(rep) };
   }
 
   // ── 원격 저장 대상 관리 (설정 화면) ──────────────────────────────────────
@@ -1224,7 +1418,10 @@
         if (problem) { say(msg, problem, 'err'); return; }
         say(msg, '확인하는 중…');
         const r = await RemoteStore.ping(destinations[i]);
-        say(msg, r.message, r.ok ? 'ok' : 'err');
+        say(msg, r.message
+          + (r.ok ? (r.canScore ? ' · 일관성 검사 가능' : ' · 일관성 검사 없음') : ''),
+          r.ok ? 'ok' : 'err');
+        await askDestScore(destinations[i], r);
       });
 
       const del = document.createElement('button');
@@ -3713,6 +3910,14 @@
       main.appendChild(nm);
       main.appendChild(ws);
 
+      // 그림체가 얼마나 고른지 — 재고 나서만 붙는다.
+      if (c.cons) {
+        const cs = document.createElement('div');
+        cs.className = 'cons' + (c.cons.rank === 1 ? ' best' : '');
+        cs.textContent = (c.cons.rank === 1 ? '가장 고름 · ' : '') + c.cons.text;
+        main.appendChild(cs);
+      }
+
       // 별점 — 뽑고 나서만 뜬다. 뽑기 전에는 매길 것이 없다.
       if (cmbShots.length) {
         const stars = document.createElement('div');
@@ -3748,11 +3953,77 @@
       box.appendChild(row);
     });
 
+    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 두 장 이상일 때만 띄운다.
+    $('cmb-cons-row').hidden = !(cmbShots.length && cmbPerUsed >= 2 && consOn());
+
     const rated = cmbLast.filter(function (c) { return c.score > 0; }).length;
     $('cmb-refine').textContent = rated
       ? ('점수 ' + rated + '개 반영해서 다시 뽑기')
       : '별점을 매기면 그 쪽으로 다시 뽑습니다';
     $('cmb-refine').disabled = !rated;
+  }
+
+  /**
+   * 조합마다 뽑은 그림들이 서로 같은 화풍인지 잰다.
+   * ★어느 조합이 「안정적인가」 를 보는 것이다. 별점이 마음에 든 정도라면, 이쪽은
+   *   그 조합으로 계속 뽑아도 같은 그림이 나오겠는가에 대한 답이다. 둘은 다른 이야기라
+   *   따로 보여 준다 — 예쁜데 들쭉날쭉한 조합이 흔하다.
+   */
+  async function cmbConsistency() {
+    if (consBusy) return;
+    const box = $('cmb-cons-msg');
+    const how = consPick();
+    if (how.how === 'off') { box.textContent = how.why; return; }
+
+    consBusy = true;
+    $('cmb-cons').disabled = true;
+    try {
+      // 조합마다 그 조합으로 뽑은 것만 모은다.
+      const groups = cmbLast.map(function (c, i) {
+        return {
+          combo: c,
+          shots: cmbShots.slice(i * cmbPerUsed, (i + 1) * cmbPerUsed)
+            .filter(function (sh) { return sh && sh.bytes; })
+        };
+      }).filter(function (g) { return g.shots.length >= 2; });
+
+      if (!groups.length) {
+        box.textContent = '한 조합에 두 장 이상 있어야 잽니다. 「조합마다 장수」 를 늘려 보세요.';
+        return;
+      }
+
+      // ★한 번에 전부 보내고 나서 나눈다. 조합마다 따로 부르면 요청이 수십 번이 된다.
+      const flat = [];
+      groups.forEach(function (g) {
+        g.shots.forEach(function (sh) { flat.push({ bytes: sh.bytes }); });
+      });
+      box.textContent = '재는 중… (' + flat.length + '장)';
+      const vecs = await consVectors('style', flat, function (done, all) {
+        box.textContent = '재는 중… ' + done + '/' + all;
+      });
+
+      const parts = Consistency.split(vecs, groups.map(function (g) { return g.shots.length; }));
+      const scored = groups.map(function (g, i) {
+        return { name: g.combo.name, combo: g.combo, vectors: parts[i] };
+      });
+      const ranked = Consistency.compare(scored);
+
+      cmbLast.forEach(function (c) { c.cons = null; });
+      ranked.forEach(function (r, i) {
+        const target = scored.find(function (x) { return x.name === r.name; });
+        if (!target) return;
+        target.combo.cons = { rank: i + 1, text: Consistency.summary(r.report), sd: r.sd };
+      });
+      renderComboResult();
+      box.textContent = ranked.length
+        ? ('가장 고른 조합: ' + ranked[0].name + ' (' + ranked[0].label + ')')
+        : '';
+    } catch (e) {
+      box.textContent = '못 쟀습니다: ' + (e.message || e);
+    } finally {
+      consBusy = false;
+      $('cmb-cons').disabled = false;
+    }
   }
 
   /** 매긴 점수를 반영해 한 번 더. */
@@ -5149,6 +5420,8 @@
         + (s.failed ? ' · 실패 ' + s.failed : ''))
       : '';
 
+    $('res-cons-row').hidden = !(consOn() && ResultsModel.viewable(results).length >= 2);
+
     const groups = ResultsModel.applyFilter(results, resultFilter);
     if (!groups.length) {
       const e = document.createElement('div');
@@ -5209,7 +5482,100 @@
     cap.className = 'cap';
     cap.textContent = captionOf(r);
     card.appendChild(cap);
+
+    // 인물 일관성 검사에서 튄 장. ★지우지도 고르지도 않는다 — 「여기를 보세요」 일 뿐이다.
+    if (r.consOut) {
+      const w = document.createElement('span');
+      w.className = 'cons-out';
+      w.textContent = '인물 다름?';
+      w.title = '이 묶음의 다른 장들과 덜 닮았습니다. 눈으로 확인해 보세요.';
+      card.appendChild(w);
+    }
     return card;
+  }
+
+  /** 이 그림이 누구인가 — 묶는 열쇠. 한 명씩 모드면 인물 이름, 아니면 페르소나. */
+  function whoOf(r) {
+    const info = r.saveInfo || {};
+    return info.char || info.persona || '전체';
+  }
+
+  /**
+   * 대량으로 뽑은 것들이 계속 같은 사람인지 잰다.
+   * ★스무 장 중 두 장만 얼굴이 다른 것은 눈으로 훑어서는 잘 안 보인다. 저장까지 하고
+   *   폴더에서 나란히 보고서야 알아챈다. 그 전에 짚어 주자는 것이다.
+   * ★튄 장을 지우지도 「버릴 것」 으로 찍지도 않는다. 닮은 정도는 사람 눈이 최종이고,
+   *   모델이 틀리는 경우가 얼마든지 있다. 표시만 붙이고 판단은 사람에게 남긴다.
+   */
+  async function resConsistency() {
+    if (consBusy) return;
+    const box = $('res-cons-msg');
+    const how = consPick();
+    if (how.how === 'off') { box.textContent = how.why; return; }
+
+    const shots = ResultsModel.viewable(results);
+    if (shots.length < 2) { box.textContent = '견줄 그림이 두 장이 안 됩니다.'; return; }
+
+    consBusy = true;
+    $('res-cons').disabled = true;
+    try {
+      // 인물별로 묶는다. 서로 다른 사람을 한 묶음에 넣고 재면 전부 「들쭉날쭉」 이 된다.
+      const byWho = {};
+      shots.forEach(function (r) {
+        const k = whoOf(r);
+        (byWho[k] = byWho[k] || []).push(r);
+      });
+      const names = Object.keys(byWho).filter(function (k) { return byWho[k].length >= 2; });
+      if (!names.length) {
+        box.textContent = '한 사람당 두 장 이상 있어야 잽니다.';
+        return;
+      }
+
+      // ★한 번에 다 보내고 나서 나눈다. 사람마다 따로 부르면 요청이 사람 수만큼 늘어난다.
+      const flat = [];
+      names.forEach(function (k) {
+        byWho[k].forEach(function (r) {
+          // 수신함에 이미 올려 둔 것은 경로만 보낸다 (다시 올려보내지 않는다).
+          flat.push({ bytes: r.bytes, remotePath: remotePathOf(r) });
+        });
+      });
+      box.textContent = '재는 중… (' + flat.length + '장)';
+      const vecs = await consVectors('identity', flat, function (done, all) {
+        box.textContent = '재는 중… ' + done + '/' + all;
+      });
+
+      shots.forEach(function (r) { r.consOut = false; });
+      const parts = Consistency.split(vecs, names.map(function (k) { return byWho[k].length; }));
+      const lines = [];
+      names.forEach(function (k, gi) {
+        const mine = byWho[k];
+        const rep = Consistency.report(parts[gi]);
+        rep.items.forEach(function (it) {
+          if (it.out && mine[it.index]) mine[it.index].consOut = true;
+        });
+        lines.push(k + ' — ' + Consistency.summary(rep));
+      });
+      renderResults();
+      const flagged = shots.filter(function (r) { return r.consOut; }).length;
+      box.textContent = lines.join(' | ')
+        + (flagged ? '' : ' · 튄 장은 없습니다.');
+    } catch (e) {
+      box.textContent = '못 쟀습니다: ' + (e.message || e);
+    } finally {
+      consBusy = false;
+      $('res-cons').disabled = false;
+    }
+  }
+
+  /**
+   * 수신함에 저장된 경로. 없으면 null (그러면 본문째로 보낸다).
+   * ★savedTo 는 "대상이름 · 상대경로" 꼴이다. 폰에 저장한 것은 그 꼴이 아니므로 걸러진다.
+   */
+  function remotePathOf(r) {
+    const d = consDest();
+    if (!d || !r.savedTo) return null;
+    const head = d.name + ' · ';
+    return r.savedTo.indexOf(head) === 0 ? r.savedTo.slice(head.length) : null;
   }
 
   // ── 못 만든 것 다시 생성 ─────────────────────────────────────────────────
@@ -6312,6 +6678,10 @@
     $('ver-auto').checked = await Store.getUpdateAuto();
     checkUpdate(false);
 
+    consMode = await Store.getConsistency();
+    consReady = await Store.getConsistencyReady();
+    renderConsistency();
+
     // ★설정을 다 읽은 뒤에 인트로를 걷는다. 먼저 걷으면 빈 화면이 잠깐 보인다.
     startIntro();
   }
@@ -6607,6 +6977,8 @@
     $('cmb-per').addEventListener('input', renderCombo);
     $('cmb-run').addEventListener('click', function () { cmbRun(); });
     $('cmb-refine').addEventListener('click', cmbRefine);
+    $('cmb-cons').addEventListener('click', cmbConsistency);
+    $('res-cons').addEventListener('click', resConsistency);
     ['cw-min', 'cw-max', 'cw-step'].forEach(function (id) {
       $(id).addEventListener('change', function () { readWeightUI('cw'); });
     });

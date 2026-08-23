@@ -427,6 +427,33 @@ const Store = (function () {
     await setRaw(KEY_UPD_AUTO, on ? '1' : '0');
   }
 
+  // ── 일관성 검사 ────────────────────────────────────────────────────────
+  const KEY_CONS_MODE = 'consistency_mode';
+  const KEY_CONS_READY = 'consistency_model_ready';
+
+  /**
+   * 어디서 잴지. 'off' · 'device'(폰) · 'server'(수신함).
+   * ★기본은 꺼짐이다. 폰으로 재려면 수십 MB 를 받아야 하고 수신함으로 재려면 그쪽에
+   *   따로 깔 것이 있다. 둘 다 사람이 정하고 나서 켜져야 한다.
+   */
+  async function getConsistency() {
+    const v = await getRaw(KEY_CONS_MODE);
+    return (v === 'device' || v === 'server') ? v : 'off';
+  }
+
+  async function setConsistency(v) {
+    await setRaw(KEY_CONS_MODE, (v === 'device' || v === 'server') ? v : 'off');
+  }
+
+  /** 폰에 모델을 받아 두었는가. 받기 전에는 검사를 켜도 아무것도 못 잰다. */
+  async function getConsistencyReady() {
+    return (await getRaw(KEY_CONS_READY)) === '1';
+  }
+
+  async function setConsistencyReady(on) {
+    await setRaw(KEY_CONS_READY, on ? '1' : '0');
+  }
+
   const KEY_RECO_MIN = 'artist_reco_min';
 
   /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
@@ -571,6 +598,10 @@ const Store = (function () {
     setUpdateAuto: setUpdateAuto,
     getUpdateRepo: getUpdateRepo,
     setUpdateRepo: setUpdateRepo,
+    getConsistency: getConsistency,
+    setConsistency: setConsistency,
+    getConsistencyReady: getConsistencyReady,
+    setConsistencyReady: setConsistencyReady,
     DEFAULT_UPDATE_REPO: DEFAULT_UPDATE_REPO,
     getRecoMin: getRecoMin,
     setRecoMin: setRecoMin,

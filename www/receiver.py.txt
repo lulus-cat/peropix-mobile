@@ -32,6 +32,11 @@
     POST /jobs/update      진행·결과 알리기  {"id": "...", "status": "done", ...}
     POST /jobs/delete      작업 지우기       {"id": "..."}
 
+  일관성 채점 — 옆에 score.py 를 두고 pip 로 몇 개 깔아 두면 켜진다 (선택).
+    GET  /ping             score:true 면 이 서버가 채점을 할 수 있다는 뜻
+    POST /score            그림들의 특징 벡터를 돌려준다
+                           {"kind": "style"|"identity", "paths": [...] 또는 "data": [base64...]}
+
 ★X-Path 는 **UTF-8 퍼센트 인코딩**으로 보낸다.
   HTTP 헤더는 latin-1 만 담을 수 있어서 "미아/happy.png" 를 날것으로 넣으면 전송 자체가 실패한다.
   페르소나 이름이 한글인 게 기본이므로 이 규약을 어기면 바로 막힌다.
@@ -62,6 +67,39 @@ ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 _BAD_PART = re.compile(r'^$|^\.$|^\.\.$|[\\:*?"<>|]')
 
 _lock = threading.Lock()
+
+# ── 일관성 채점기 (선택) ──────────────────────────────────────────────────
+# ★score.py 는 있어도 되고 없어도 된다. 이 파일은 「깔 것 없음」 이 장점이라, 무거운 것은
+#   전부 옆 파일로 뺐다. 없으면 /score 가 501 을 돌려주고 /ping 이 score:false 를 말한다.
+#   앱은 그것을 보고 그 서버에서는 검사 항목 자체를 안 띄운다.
+SCORE_MAX_IMAGES = 32
+SCORE_MAX_BYTES = 48 * 1024 * 1024
+_mods = {}
+_score_ok = None
+
+
+def scorer():
+    """옆에 있는 score.py 를 필요할 때 불러온다. 없으면 None."""
+    if "score" not in _mods:
+        try:
+            here = str(Path(__file__).resolve().parent)
+            if here not in sys.path:
+                sys.path.insert(0, here)
+            import score as _s
+            _mods["score"] = _s
+        except Exception:
+            _mods["score"] = None
+    return _mods["score"]
+
+
+def score_ok() -> bool:
+    """채점이 되는가. ★한 번만 본다 — available() 은 torch 를 부르느라 몇 초가 걸려서,
+    /ping 마다 하면 연결 확인이 느려 터진 것처럼 보인다. 그래서 켤 때 미리 재 둔다."""
+    global _score_ok
+    if _score_ok is None:
+        s = scorer()
+        _score_ok = bool(s and s.available())
+    return _score_ok
 
 
 class Config:
@@ -247,7 +285,9 @@ class Handler(BaseHTTPRequestHandler):
             if not self._authed():
                 self._send(401, {"ok": False, "error": "토큰이 맞지 않습니다"})
                 return
-            self._send(200, {"ok": True, "version": VERSION, "root": str(Config.root.resolve())})
+            self._send(200, {"ok": True, "version": VERSION,
+                             "root": str(Config.root.resolve()),
+                             "score": score_ok()})
             return
 
         if u.path == "/list":
@@ -347,6 +387,13 @@ class Handler(BaseHTTPRequestHandler):
             self._job_op(path)
             return
 
+        if path == "/score":
+            if not self._authed():
+                self._send(401, {"ok": False, "error": "토큰이 맞지 않습니다"})
+                return
+            self._score_op()
+            return
+
         if path in ("/mkdir", "/rename", "/delete"):
             if not self._authed():
                 self._send(401, {"ok": False, "error": "토큰이 맞지 않습니다"})
@@ -415,6 +462,54 @@ class Handler(BaseHTTPRequestHandler):
 
         rel = dest.resolve().relative_to(Config.root.resolve()).as_posix()
         self._send(200, {"ok": True, "path": rel, "bytes": len(data)})
+
+    # ── 일관성 채점 ─────────────────────────────────────────────────────
+    def _score_op(self):
+        """그림들의 특징 벡터를 뽑아 돌려준다.
+
+        ★여기서 「고르다·튄다」 를 판정하지 않는다. 판정은 앱의 consistency.js 가 한다.
+          폰에서 뽑든 여기서 뽑든 같은 잣대로 채점해야, 서버를 껐다 켰다 해도 점수가
+          안 흔들린다.
+        ★이미 올려 둔 그림은 paths 로 부르면 된다 — 올린 것을 다시 올려보낼 이유가 없다.
+          아직 안 올린 것(테스트 모드)만 data 로 보낸다.
+        """
+        s = scorer()
+        if not score_ok():
+            self._send(501, {"ok": False,
+                             "error": (s.why() if s else "score.py 가 옆에 없습니다")})
+            return
+
+        body, err = self._read_json(limit=SCORE_MAX_BYTES)
+        if err:
+            self._send(400, {"ok": False, "error": err})
+            return
+
+        kind = "identity" if body.get("kind") == "identity" else "style"
+        raws = []
+        for rel in (body.get("paths") or []):
+            if len(raws) >= SCORE_MAX_IMAGES:
+                break
+            target, e = safe_path(rel)
+            # ★한 장이 없다고 전체를 물리지 않는다. 그 자리만 빈 채로 두면 앱이
+            #   「이 장은 못 쟀다」 로 그린다.
+            raws.append(target.read_bytes() if (not e and target.is_file()) else b"")
+        for d in (body.get("data") or []):
+            if len(raws) >= SCORE_MAX_IMAGES:
+                break
+            try:
+                raws.append(base64.b64decode(d, validate=True))
+            except Exception:
+                raws.append(b"")
+        if not raws:
+            self._send(400, {"ok": False, "error": "볼 그림이 없습니다"})
+            return
+
+        try:
+            vecs = s.embed(raws, kind)
+        except Exception as e:
+            self._send(500, {"ok": False, "error": f"채점하다 멈췄습니다: {e}"})
+            return
+        self._send(200, {"ok": True, "kind": kind, "count": len(vecs), "vectors": vecs})
 
     # ── 폴더 관리 ───────────────────────────────────────────────────────
     # ── 작업 큐 ─────────────────────────────────────────────────────────
@@ -630,6 +725,10 @@ def main():
 
     Config.token = token
 
+    # ★켜는 김에 채점이 되는지 미리 본다. torch 를 불러 두는 데 몇 초가 걸리는데,
+    #   그것을 첫 /ping 이 뒤집어쓰면 「연결이 느리다」 로 오해받는다.
+    ready = score_ok()
+
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
 
     scheme = "http"
@@ -655,6 +754,11 @@ def main():
     print()
     if scheme == "http" and args.host not in ("127.0.0.1", "localhost"):
         print("  ⚠ 평문 HTTP 입니다. 인터넷에 노출된 서버라면 TLS 나 VPN 을 반드시 씌우세요.")
+    if ready:
+        print("  일관성 검사 : 켜짐 (그림체·인물 채점을 이 서버가 맡습니다)")
+    else:
+        sc = scorer()
+        print("  일관성 검사 : 꺼짐" + (f" — {sc.why()}" if sc else " — score.py 가 옆에 없습니다"))
     print("  멈추려면 Ctrl+C")
     try:
         httpd.serve_forever()

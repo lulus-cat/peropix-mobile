@@ -440,6 +440,13 @@
     <p class="hint" id="batch-hint"></p>
     <div id="batch-msg" class="msg" hidden></div>
 
+    <!-- ★인물이 도중에 다른 사람으로 바뀌는 것은 눈으로 훑어서는 잘 안 보인다.
+         스무 장 중 두 장만 얼굴이 다르면 저장까지 하고 나서야 알아챈다. -->
+    <div class="toolrow" id="res-cons-row" hidden>
+      <button id="res-cons" class="btn small">인물 일관성 검사</button>
+      <span class="hint" id="res-cons-msg"></span>
+    </div>
+
     <div id="results"></div>
   </div>
 </section>
@@ -461,6 +468,35 @@
     </label>
 
     <div id="settings-msg" class="msg" hidden></div>
+
+    <div class="row-head"><span class="label">일관성 검사</span></div>
+    <p class="hint">
+      뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 테스트 모드에서는 <b>그림체</b>가
+      고른 조합을, 대량생성에서는 <b>인물</b>이 튄 장을 짚어 줍니다.
+    </p>
+    <label class="field">
+      <span class="label">어디서 잴까</span>
+      <select id="cons-mode" class="tool-select">
+        <option value="off">안 함</option>
+        <option value="device">이 폰에서 (모델 다운로드 필요)</option>
+        <option value="server">수신함에서 (PC · VPS 가 대신)</option>
+      </select>
+      <span class="hint" id="cons-hint">기본은 안 함입니다.</span>
+    </label>
+    <div class="toolrow" id="cons-device-row" hidden>
+      <button id="cons-get" class="btn small">모델 받기</button>
+      <span class="hint" id="cons-get-msg"></span>
+    </div>
+    <div id="cons-server-row" hidden>
+      <p class="hint" id="cons-server-msg"></p>
+      <div class="toolrow">
+        <button id="cons-score-copy" class="btn small">score.py 복사</button>
+        <button id="cons-score-save" class="btn small">파일로 저장</button>
+      </div>
+      <p class="hint">수신함 폴더에 <code>score.py</code> 를 같이 두고
+        <code>pip install torch transformers pillow</code> 를 한 뒤
+        <code>receiver.py</code> 를 다시 켜면 됩니다.</p>
+    </div>
 
     <div class="row-head"><span class="label">버전</span></div>
     <div class="toolrow">
@@ -896,6 +932,32 @@
       </ul>
       <p class="hint">키는 언제나 폰에만 있습니다. 수신함으로 올라가는 것은 프롬프트와
         설정뿐이고, NovelAI 를 부르는 것도 Anlas 를 쓰는 것도 폰입니다.</p>
+    </details>
+
+    <details class="panel" data-guide="consistency">
+      <summary>일관성 검사</summary>
+      <p class="hint">뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 눈으로 스무 장을 훑어서는
+        두 장만 다른 것을 잘 못 잡아냅니다.</p>
+      <ul class="guide-ul">
+        <li><b>그림체</b> — 테스트 → 조합. 조합마다 두 장 이상 뽑으면
+          <b>그림체 일관성 검사</b> 단추가 생깁니다. 어느 조합으로 계속 뽑아도 같은 화풍이
+          나오는지 알려 줍니다. 별점이 "마음에 든 정도"라면 이쪽은 "믿을 만한 정도"입니다.
+          예쁜데 들쭉날쭉한 조합이 흔합니다.</li>
+        <li><b>인물</b> — 대량생성 결과 화면. 같은 사람끼리 묶어서 재고, 덜 닮은 장에
+          <b>인물 다름?</b> 표시를 붙입니다. 지우거나 버릴 것으로 찍지는 않습니다 —
+          최종 판단은 눈으로 하세요.</li>
+      </ul>
+      <p class="hint">쓰려면 설정 → <b>일관성 검사</b> 에서 어디서 잴지 먼저 고릅니다.</p>
+      <ul class="guide-ul">
+        <li><b>이 폰에서</b>: 모델을 한 번 받아 두면(수십 MB) 다음부터는 인터넷 없이도
+          됩니다. 오래된 폰에서는 느립니다. Wi-Fi 에서 받으세요.</li>
+        <li><b>수신함에서</b>: PC · VPS 가 대신 잽니다. 폰은 아무것도 안 받습니다.
+          그 서버에 <code>score.py</code> 를 <code>receiver.py</code> 옆에 두고
+          <code>pip install torch transformers pillow</code> 를 한 번 하면 됩니다.
+          <code>score.py</code> 는 설정 화면에서 바로 꺼낼 수 있습니다.</li>
+      </ul>
+      <p class="hint">장수가 적으면 판정을 그대로 믿지 마세요. 넉 장으로 "고르다" 가
+        나와도 우연일 수 있어서, 그럴 때는 "참고만 하세요" 라고 같이 적어 둡니다.</p>
     </details>
 
     <details class="panel" data-guide="stuck">
@@ -1525,6 +1587,10 @@
           가중치가 당겨집니다.</p>
         <div id="cmb-shots" class="shots"></div>
         <div id="cmb-list"></div>
+        <div class="toolrow" id="cmb-cons-row" hidden>
+          <button id="cmb-cons" class="btn small">그림체 일관성 검사</button>
+          <span class="hint" id="cmb-cons-msg"></span>
+        </div>
         <button id="cmb-refine" class="btn primary block" hidden>점수 반영해서 다시 뽑기</button>
       </div>
     </div>
@@ -1662,6 +1728,8 @@
 <script src="js/bisect.js"></script>
 <script src="js/styletest.js"></script>
 <script src="js/updater.js"></script>
+<script src="js/consistency.js"></script>
+<script src="js/embed.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>

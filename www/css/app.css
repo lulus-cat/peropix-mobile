@@ -1632,3 +1632,30 @@ textarea.expandable { cursor: pointer; }
 }
 .pick-head:first-child { margin-top: 0; }
 .pick-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── 일관성 검사 ─────────────────────────────────────────────────────── */
+/* 튄 장 표시. ★버릴 것(reject)과 헷갈리면 안 되니 색과 자리를 다르게 둔다 —
+   이것은 "여기를 보세요" 일 뿐, 무엇도 지우거나 고르지 않는다. */
+.card .cons-out {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--warn, #d98014);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  animation: pop-in 0.18s ease-out;
+}
+
+/* 조합 줄에 붙는 등급 */
+.cmb-main .cons {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.cmb-main .cons.best {
+  color: var(--ok);
+  font-weight: 700;
+}

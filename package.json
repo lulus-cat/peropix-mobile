@@ -4,7 +4,7 @@
   "private": true,
   "description": "Peropix Lkit mobile ver. — NAI 전용 안드로이드 앱",
   "scripts": {
-    "test": "node tools/verify_payload.js && node tools/test_naming.js && node tools/test_jobs.js && node tools/test_github.js && node tools/test_danbooru.js && node tools/test_artists.js && node tools/test_bisect.js && node tools/test_styletest.js && node tools/test_updater.js && node tools/test_import.js && node tools/test_image.js && node tools/test_anlas.js && node tools/test_wildcards.js && node tools/test_results.js && node tools/test_compose.js",
+    "test": "node tools/verify_payload.js && node tools/test_naming.js && node tools/test_jobs.js && node tools/test_github.js && node tools/test_danbooru.js && node tools/test_artists.js && node tools/test_bisect.js && node tools/test_styletest.js && node tools/test_updater.js && node tools/test_consistency.js && node tools/test_embed.js && node tools/test_import.js && node tools/test_image.js && node tools/test_anlas.js && node tools/test_wildcards.js && node tools/test_results.js && node tools/test_compose.js",
     "verify": "node tools/verify_payload.js",
     "receiver": "python tools/receiver.py --root ./images",
     "preview": "node tools/serve.js",

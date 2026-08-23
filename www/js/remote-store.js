@@ -69,7 +69,13 @@ const RemoteStore = (function () {
     try {
       const r = await request(dest, 'GET', '/ping', null);
       if (r.status === 200 && r.body.ok) {
-        return { ok: true, message: '연결됨 · 저장 폴더: ' + (r.body.root || '?'), root: r.body.root };
+        return {
+          ok: true,
+          message: '연결됨 · 저장 폴더: ' + (r.body.root || '?'),
+          root: r.body.root,
+          // 이 수신함이 일관성 검사를 맡을 수 있는가 (score.py 를 옆에 두었는가).
+          canScore: r.body.score === true
+        };
       }
       return { ok: false, message: explain(r.status, r.body) };
     } catch (e) {
@@ -87,6 +93,26 @@ const RemoteStore = (function () {
   async function upload(dest, relPath, b64) {
     const r = await request(dest, 'POST', '/upload', { path: relPath, data: b64 });
     if (r.status === 200 && r.body.ok) return r.body.path;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /**
+   * 그림들의 특징 벡터를 받아 온다 (일관성 검사).
+   * ★고른지 아닌지 판정은 여기서 하지 않는다 — consistency.js 가 한다. 폰에서 뽑든
+   *   서버에서 뽑든 잣대가 하나여야 서버를 껐다 켰다 해도 점수가 안 흔들린다.
+   * @param {object} dest {url, token}
+   * @param {string} kind 'style'(그림체) 또는 'identity'(인물)
+   * @param {object} o {paths:[상대경로], data:[base64]} — 이미 올린 것은 paths 로
+   * @returns {Promise<Array<Array<number>>>} 못 잰 장은 빈 배열
+   */
+  async function score(dest, kind, o) {
+    const body = { kind: kind === 'identity' ? 'identity' : 'style' };
+    if (o && o.paths && o.paths.length) body.paths = o.paths;
+    if (o && o.data && o.data.length) body.data = o.data;
+    const r = await request(dest, 'POST', '/score', body);
+    if (r.status === 200 && r.body.ok) return r.body.vectors || [];
+    // 501 은 「채점기를 안 깔았다」 — 서버가 왜인지와 고치는 법까지 적어 보낸다.
+    if (r.status === 501) throw new Error(r.body.error || '이 수신함에는 검사 기능이 없습니다.');
     throw new Error(explain(r.status, r.body));
   }
 
@@ -175,7 +201,8 @@ const RemoteStore = (function () {
   return {
     ping: ping, upload: upload, list: list, baseUrl: baseUrl,
     browse: browse, mkdir: mkdir, rename: rename, remove: remove,
-    listJobs: listJobs, claimJob: claimJob, updateJob: updateJob, deleteJob: deleteJob
+    listJobs: listJobs, claimJob: claimJob, updateJob: updateJob, deleteJob: deleteJob,
+    score: score
   };
 })();
 

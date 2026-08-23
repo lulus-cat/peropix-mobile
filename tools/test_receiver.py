@@ -322,6 +322,129 @@ check("★남이 못 읽게 둔다 (0600)", oct(made.stat().st_mode)[-3:] == "60
 check("다시 켜면 그대로 읽어 쓴다", made.read_text(encoding="utf-8").strip() == tok)
 shutil.rmtree(auto, ignore_errors=True)
 
+# ── 6. 일관성 채점 ────────────────────────────────────────────────────
+# ★채점기는 **선택 설치**다. 안 깔린 채로 이 창구를 부르면 반드시 「없다」 고 분명히
+#   말해야 한다. 조용히 빈 결과를 주면 앱은 「전부 고르다」 로 그려 버린다 — 재지도
+#   않고 합격 도장을 찍는 셈이라 제일 나쁜 고장이다.
+def score_req(payload, token=TOKEN):
+    return req("POST", "/score", data=json.dumps(payload).encode("utf-8"), token=token)
+
+
+# 앞의 검사들이 지웠을 수 있으니 잴 그림을 하나 새로 올려 둔다.
+SCORE_PIC = "채점/한장.png"
+req("POST", "/upload", data=PNG, xpath=SCORE_PIC)
+
+
+have = receiver.score_ok()
+status, body = req("GET", "/ping")
+check("ping 이 채점 가능 여부를 알려 준다", "score" in body)
+check("ping 의 답이 실제 상태와 같다", body.get("score") is have)
+
+status, _ = score_req({"kind": "style", "paths": [SCORE_PIC]},
+                      token="wrong-token-xxxxxxxxxxxx")
+check(f"★채점도 토큰 검사 (받은 {status})", status == 401)
+
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+if have:
+    check(f"채점기가 있으면 벡터를 준다 (받은 {status})",
+          status == 200 and body.get("ok") and len(body.get("vectors") or []) == 1)
+    check("무엇으로 쟀는지 알려 준다", body.get("kind") == "style")
+else:
+    check(f"★채점기가 없으면 501 로 분명히 거절 (받은 {status})", status == 501)
+    check("★왜 안 되는지, 어떻게 고치는지 말해 준다",
+          "pip install" in (body.get("error") or "") or "score.py" in (body.get("error") or ""))
+    check("빈 결과를 주지 않는다 (그러면 앱이 「다 고르다」 로 읽는다)",
+          not body.get("ok") and not body.get("vectors"))
+
+status, body = score_req({"kind": "style", "paths": []})
+check(f"볼 그림이 없으면 거절 (받은 {status})", status in (400, 501))
+
+# ★경로 탈출은 여기서도 막혀야 한다. 채점하겠다며 /etc/passwd 를 읽어 오면 안 된다.
+status, body = score_req({"kind": "style", "paths": ["../../etc/passwd"]})
+if have:
+    check("★채점 창구로 서버 밖 파일을 못 읽는다",
+          status == 200 and (body.get("vectors") or [[]])[0] == [])
+else:
+    check("★채점 창구로 서버 밖 파일을 못 읽는다 (채점기 없음)", status == 501)
+
+check("장수 상한이 있다 (한 번에 서버를 재우지 못하게)", receiver.SCORE_MAX_IMAGES <= 64)
+
+# ★여기부터는 채점기를 가짜로 끼워 넣고 본다. torch 를 깔아야만 검사되는 코드로 두면
+#   정작 앱이 쓰는 길(경로 찾기·base64·상한·응답 모양)은 아무도 안 보게 된다.
+class _FakeScore:
+    """진짜 모델 대신. 바이트 길이만 보고 아무 벡터나 만든다."""
+    last_kind = ""
+
+    @staticmethod
+    def available():
+        return True
+
+    @staticmethod
+    def why():
+        return ""
+
+    @staticmethod
+    def embed(raws, kind="style", batch=8):
+        _FakeScore.last_kind = kind
+        return [[len(r) % 7 + 1.0, 2.0] if r else [] for r in raws]
+
+
+receiver._mods["score"] = _FakeScore
+receiver._score_ok = None
+
+status, body = req("GET", "/ping")
+check("채점기를 끼우면 ping 이 켜졌다고 말한다", body.get("score") is True)
+
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+check(f"★올려 둔 그림은 경로만 주면 된다 (다시 올릴 이유가 없다) — 받은 {status}",
+      status == 200 and len(body.get("vectors") or []) == 1 and body["vectors"][0])
+
+status, body = score_req({"kind": "identity", "paths": [SCORE_PIC]})
+check("무엇을 재라고 했는지 그대로 넘어간다", _FakeScore.last_kind == "identity"
+      and body.get("kind") == "identity")
+
+status, body = score_req({"kind": "엉뚱한것", "paths": [SCORE_PIC]})
+check("모르는 종류는 그림체로 본다", body.get("kind") == "style")
+
+status, body = score_req({"kind": "style", "paths": ["../../etc/passwd"]})
+check("★채점 창구로 서버 밖 파일을 못 읽는다",
+      status == 200 and body["vectors"][0] == [])
+
+status, body = score_req({"kind": "style", "paths": ["없는폴더/없는그림.png"]})
+check("★없는 장은 그 자리만 비운다 (한 장 없다고 전부 물리지 않는다)",
+      status == 200 and body["vectors"] == [[]])
+
+status, body = score_req({"kind": "style",
+                          "data": [base64.b64encode(PNG).decode("ascii")]})
+check(f"★아직 안 올린 그림은 본문으로 보낼 수 있다 (테스트 모드) — 받은 {status}",
+      status == 200 and len(body.get("vectors") or []) == 1 and body["vectors"][0])
+
+status, body = score_req({"kind": "style", "data": ["이건base64가아님!!"]})
+check("망가진 본문 한 장도 그 자리만 비운다", status == 200 and body["vectors"] == [[]])
+
+status, body = score_req({"kind": "style",
+                          "paths": [SCORE_PIC] * (receiver.SCORE_MAX_IMAGES + 10)})
+check("★상한을 넘겨 보내면 잘라서 받는다",
+      status == 200 and len(body["vectors"]) == receiver.SCORE_MAX_IMAGES)
+
+status, body = score_req({"kind": "style", "paths": []})
+check(f"볼 그림이 하나도 없으면 거절 (받은 {status})", status == 400)
+
+
+class _BrokenScore(_FakeScore):
+    @staticmethod
+    def embed(raws, kind="style", batch=8):
+        raise RuntimeError("모델이 터졌다")
+
+
+receiver._mods["score"] = _BrokenScore
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+check(f"★채점 중에 터져도 서버는 안 죽고 500 을 말한다 (받은 {status})",
+      status == 500 and not body.get("ok"))
+
+receiver._mods["score"] = None
+receiver._score_ok = None
+
 # ── 앱에 넣어 둔 사본 ───────────────────────────────────────────────────
 # ★앱 안에서 receiver.py 를 꺼내 쓸 수 있게 www/ 에 사본을 둔다. 그런데 사본은 조용히
 #   낡는다 — 여기를 고쳐도 앱이 옛 파일을 내주면, 「비밀번호 안 만들어도 된다더니 왜
@@ -332,6 +455,12 @@ check("앱에 넣어 둔 사본이 있다", copy.exists())
 if copy.exists():
     check("★사본이 지금 receiver.py 와 같다 (다르면 앱이 옛 파일을 내준다)",
           copy.read_bytes() == real.read_bytes())
+
+sc_copy = Path(__file__).resolve().parent.parent / "www" / "score.py.txt"
+sc_real = Path(__file__).resolve().parent / "score.py"
+check("채점기 사본도 앱에 들어 있다", sc_copy.exists())
+if sc_copy.exists():
+    check("★채점기 사본이 지금 score.py 와 같다", sc_copy.read_bytes() == sc_real.read_bytes())
 
 httpd.shutdown()
 shutil.rmtree(ROOT, ignore_errors=True)
