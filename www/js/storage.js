@@ -378,6 +378,39 @@ const Store = (function () {
     await setRaw(KEY_STYLE, JSON.stringify(cfg || {}));
   }
 
+  // ── 새 판 알림 ────────────────────────────────────────────────────────
+  // ★언제 마지막으로 봤는지와, 「이 판은 건너뛴다」 로 정한 판만 남긴다. 받아 온 내용은
+  //   안 남긴다 — 다음에 켤 때 다시 물어보면 되고, 오래된 것을 보여 주면 더 헷갈린다.
+  const KEY_UPD_AT = 'update_checked_at';
+  const KEY_UPD_SKIP = 'update_skipped';
+
+  async function getUpdateCheckedAt() {
+    return parseInt(await getRaw(KEY_UPD_AT), 10) || 0;
+  }
+
+  async function setUpdateCheckedAt(t) {
+    await setRaw(KEY_UPD_AT, String(t || 0));
+  }
+
+  async function getUpdateSkipped() {
+    return (await getRaw(KEY_UPD_SKIP)) || '';
+  }
+
+  async function setUpdateSkipped(v) {
+    await setRaw(KEY_UPD_SKIP, String(v || ''));
+  }
+
+  const KEY_UPD_AUTO = 'update_auto';
+
+  /** 켤 때 새 판을 확인할지. ★기본 켜짐 — 옆에서 받아 까는 앱이라 스토어가 안 알려 준다. */
+  async function getUpdateAuto() {
+    return (await getRaw(KEY_UPD_AUTO)) !== '0';
+  }
+
+  async function setUpdateAuto(on) {
+    await setRaw(KEY_UPD_AUTO, on ? '1' : '0');
+  }
+
   const KEY_RECO_MIN = 'artist_reco_min';
 
   /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
@@ -514,6 +547,12 @@ const Store = (function () {
     setWeightRange: setWeightRange,
     getStyleTest: getStyleTest,
     setStyleTest: setStyleTest,
+    getUpdateCheckedAt: getUpdateCheckedAt,
+    setUpdateCheckedAt: setUpdateCheckedAt,
+    getUpdateSkipped: getUpdateSkipped,
+    setUpdateSkipped: setUpdateSkipped,
+    getUpdateAuto: getUpdateAuto,
+    setUpdateAuto: setUpdateAuto,
     getRecoMin: getRecoMin,
     setRecoMin: setRecoMin,
     getRecoOff: getRecoOff,

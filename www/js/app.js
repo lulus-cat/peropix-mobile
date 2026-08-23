@@ -132,6 +132,129 @@
     window.scrollTo(0, 0);
   }
 
+  // ── 새 판 알림 ──────────────────────────────────────────────────────────
+  // ★조용히 알아서 깔리게는 **못 만든다.** 안드로이드는 옆에서 받아 까는 앱을 설치할 때
+  //   반드시 사람이 확인 화면을 눌러야 한다. 그러니 앱이 할 수 있는 것은 여기까지다 —
+  //   새 판이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.
+  // ★스토어를 안 거치므로 아무도 안 알려 준다. 그래서 앱이 직접 본다.
+  const UPDATE_REPO = 'lulus-cat/peropix-mobile';
+  let appVersion = '';        // 지금 깔려 있는 판 (네이티브에서만 알 수 있다)
+  let updLatest = null;
+
+  /** 지금 깔린 판. ★브라우저 미리보기에서는 알 길이 없어 빈 값이다. */
+  async function loadAppVersion() {
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.App || !P.App.getInfo) return '';
+    try {
+      const info = await P.App.getInfo();
+      return String(info && info.version || '');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /**
+   * GitHub 릴리즈를 본다.
+   * ★인박스 토큰을 붙이지 않는다. 공개 저장소라 필요도 없고, 남의 토큰 한도를 쓸 일도
+   *   아니다 (ghGet 은 토큰을 붙이므로 여기서 안 쓴다).
+   */
+  async function fetchLatest() {
+    const url = Updater.latestUrl(UPDATE_REPO);
+    if (!url) throw new Error('저장소 주소가 잘못됐습니다.');
+    const headers = { Accept: 'application/vnd.github+json' };
+    const C = window.Capacitor;
+    const P = (C && C.Plugins) ? C.Plugins : null;
+    if (C && typeof C.isNativePlatform === 'function' && C.isNativePlatform() && P && P.CapacitorHttp) {
+      const r = await P.CapacitorHttp.request({
+        method: 'GET', url: url, headers: headers, connectTimeout: 15000, readTimeout: 25000
+      });
+      if (r.status >= 400) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+      return Updater.parseLatest(typeof r.data === 'string' ? r.data : JSON.stringify(r.data));
+    }
+    const r = await fetch(url, { headers: headers, cache: 'no-store' });
+    if (!r.ok) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+    return Updater.parseLatest(await r.text());
+  }
+
+  /** 시작 화면의 알림 줄. */
+  function renderUpdate(d) {
+    const box = $('home-upd');
+    if (!d || !d.show || !updLatest) { box.hidden = true; return; }
+    box.hidden = false;
+    $('upd-title').textContent = '새 판이 나왔습니다';
+    $('upd-ver').textContent = Updater.summary(appVersion, updLatest);
+    const list = $('upd-list');
+    list.innerHTML = '';
+    Updater.highlights(updLatest.notes, 4).forEach(function (line) {
+      const li = document.createElement('li');
+      li.textContent = line;
+      list.appendChild(li);
+    });
+    // 크기를 적어 준다 — 데이터를 아끼는 사람에게는 이게 판단 근거다.
+    $('upd-get').textContent = updLatest.apkSize
+      ? ('받으러 가기 (' + Math.round(updLatest.apkSize / 1048576) + 'MB)')
+      : '받으러 가기';
+  }
+
+  /**
+   * 새 판이 있는지 본다.
+   * @param {boolean} manual 사람이 눌러서 부른 것인가 (그러면 간격을 안 따지고 결과도 적는다)
+   */
+  async function checkUpdate(manual) {
+    const msg = $('ver-msg');
+    if (!manual) {
+      if (!(await Store.getUpdateAuto())) return;
+      if (!Updater.due(await Store.getUpdateCheckedAt(), Date.now())) return;
+    }
+    if (manual) msg.textContent = '보는 중…';
+    // 깔린 판을 그때그때 다시 읽는다. 켤 때 한 번만 읽어 두면, 읽기 전에 확인이 돌면
+    // 「지금 판을 모른다」 로 새어 나간다.
+    appVersion = await loadAppVersion();
+    try {
+      updLatest = await fetchLatest();
+      await Store.setUpdateCheckedAt(Date.now());
+      const d = Updater.decide({
+        current: appVersion,
+        latest: updLatest,
+        skipped: await Store.getUpdateSkipped()
+      });
+      renderUpdate(d);
+      if (!manual) return;
+      // ★눌러서 본 것은 결과를 반드시 적어 준다. 아무 일도 안 일어나면 고장으로 보인다.
+      if (d.show) msg.textContent = '새 판 ' + d.version + ' 이 있습니다. 아래 시작 화면에서 받으세요.';
+      else if (d.reason === 'current') msg.textContent = '최신입니다 (' + d.version + ').';
+      else if (d.reason === 'skipped') msg.textContent = d.version + ' 은 건너뛰기로 해 두셨습니다.';
+      else if (d.reason === 'unknown') {
+        msg.textContent = '가장 새 판은 ' + d.version + ' 입니다. '
+          + '(브라우저 미리보기에서는 지금 판을 알 수 없어 견주지 못합니다.)';
+      } else msg.textContent = '릴리즈를 찾지 못했습니다.';
+    } catch (e) {
+      updLatest = null;
+      if (manual) msg.textContent = '보지 못했습니다: ' + (e.message || e);
+    }
+  }
+
+  function bindUpdate() {
+    $('upd-get').addEventListener('click', function () {
+      if (!updLatest) return;
+      // ★앱 안에서 깔아 주지는 못한다. 받는 곳까지 데려다주고 나머지는 사람이 누른다.
+      window.open(updLatest.apkUrl || updLatest.pageUrl, '_blank');
+    });
+    $('upd-skip').addEventListener('click', async function () {
+      if (!updLatest) return;
+      await Store.setUpdateSkipped(updLatest.version);
+      $('home-upd').hidden = true;
+      toast(updLatest.version + ' 은 다시 안 알립니다. 그 다음 판부터 알려 드립니다.', 3000);
+    });
+    // 「나중에」 는 이번에만 접는다 (다음에 켜면 또 알려 준다).
+    $('upd-later').addEventListener('click', function () { $('home-upd').hidden = true; });
+
+    $('ver-check').addEventListener('click', function () { checkUpdate(true); });
+    $('ver-auto').addEventListener('change', async function () {
+      await Store.setUpdateAuto($('ver-auto').checked);
+    });
+  }
+
   /**
    * 가이드.
    * ★인트로 팁은 한 번에 하나만 보여 준다. 「그거 뭐였더라」 를 찾아볼 곳이 따로 있어야 한다.
@@ -6007,6 +6130,13 @@
       setTimeout(function () { openReco(false); }, INTRO_MS + 700);
     }
 
+    // ★새 판은 조용히 본다. 스토어를 안 거치므로 아무도 안 알려 주는데, 그렇다고 켤 때마다
+    //   물어보면 GitHub 한도(토큰 없이 시간당 60번)를 헛되이 쓴다. 여섯 시간에 한 번이다.
+    appVersion = await loadAppVersion();
+    $('ver-now').textContent = appVersion ? ('지금 ' + appVersion + ' 판') : '판 번호를 알 수 없습니다 (미리보기)';
+    $('ver-auto').checked = await Store.getUpdateAuto();
+    checkUpdate(false);
+
     // ★설정을 다 읽은 뒤에 인트로를 걷는다. 먼저 걷으면 빈 화면이 잠깐 보인다.
     startIntro();
   }
@@ -6211,6 +6341,7 @@
       renderDrawer();
     });
     bindLabelBar();
+    bindUpdate();
     $('drw-import').addEventListener('click', importTagsetToDrawer);
     $('mix-norm').addEventListener('change', renderMix);
     $('mix-apply').addEventListener('click', applyMix);

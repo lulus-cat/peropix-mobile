@@ -109,6 +109,21 @@
       </button>
     </div>
 
+    <!-- ★새 판이 나오면 여기에 뜬다. 시작 화면은 어차피 지나가는 곳이라, 알림을 따로
+         띄워 하려던 일을 가로막지 않아도 된다. -->
+    <div class="upd" id="home-upd" hidden>
+      <div class="upd-top">
+        <b id="upd-title"></b>
+        <span id="upd-ver" class="upd-ver"></span>
+      </div>
+      <ul class="upd-list" id="upd-list"></ul>
+      <div class="toolrow">
+        <button id="upd-get" class="btn small primary">받으러 가기</button>
+        <button id="upd-skip" class="btn small">이 판 건너뛰기</button>
+        <button id="upd-later" class="btn small">나중에</button>
+      </div>
+    </div>
+
     <p class="home-tip" id="home-tip"></p>
   </div>
 </section>
@@ -446,6 +461,17 @@
     </label>
 
     <div id="settings-msg" class="msg" hidden></div>
+
+    <div class="row-head"><span class="label">판 번호</span></div>
+    <div class="toolrow">
+      <span class="hint" id="ver-now">확인 중…</span>
+      <span class="spacer"></span>
+      <button id="ver-check" class="btn small">새 판 확인</button>
+    </div>
+    <p class="hint" id="ver-msg">GitHub 릴리즈를 봅니다. 토큰은 필요 없습니다.</p>
+    <label class="check">
+      <input id="ver-auto" type="checkbox" checked> 켤 때 새 판이 나왔는지 확인
+    </label>
 
     <button id="settings-save" class="btn primary block">키 확인하고 저장</button>
     <button id="settings-test" class="btn block">현재 키 상태 확인</button>
@@ -1605,6 +1631,7 @@
 <script src="js/artists.js"></script>
 <script src="js/bisect.js"></script>
 <script src="js/styletest.js"></script>
+<script src="js/updater.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>
