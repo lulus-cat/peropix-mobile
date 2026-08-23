@@ -157,17 +157,13 @@ const Embed = (function () {
    * @param {object} ev  transformers.js 가 준 것
    * @returns {{percent:number, loaded:number, total:number, file:string}}
    */
-  function tally(bag, ev) {
+  function tally(bag, ev, expectedBytes) {
     const e = ev || {};
-    // ★크기를 아직 모르는 파일(total=0)은 **아예 안 센다.** 받은 양만 더하고 총량에는
-    //   안 더하면 loaded 가 total 을 넘어서 퍼센트가 계속 100 이 된다 (실제로 그랬다).
     if (e.file && Number(e.total) > 0) {
       const total = Number(e.total);
-      // 한 파일이 제 크기보다 더 받을 수는 없다. 넘어오면 잘라 둔다.
       const loaded = Math.min(Number(e.loaded) || 0, total);
       bag[e.file] = { loaded: loaded, total: total, done: loaded >= total };
     }
-    // 크기를 모르는 채로 받고 있는 파일은 세지 않되, 몇 개인지는 알려 준다.
     if (e.file && !(Number(e.total) > 0) && !bag[e.file]) bag[e.file] = null;
 
     let loaded = 0;
@@ -181,15 +177,29 @@ const Embed = (function () {
       total += v.total;
       known++;
     });
-    // ★총량을 모르면 퍼센트를 지어내지 않는다. -1 로 「아직 모른다」 를 알린다.
-    // ★다 받았다고 말하는 것은 여기서 하지 않는다. 마지막 파일이 아직 안 잡혔을 수도
-    //   있어서, 진행 중에 100 을 띄우면 다 된 줄 알고 앱을 끈다. 99 에서 멈춘다.
-    const raw = total > 0 ? (loaded / total) * 100 : -1;
+
+    // ★분모는 **받을 것으로 아는 전체 크기**를 쓴다. 지금 앱은 CapacitorHttp 가 fetch 를
+    //   갈아 끼워 두어서 스트리밍이 안 된다 — 파일이 통째로 한 번에 도착하고, 그래서
+    //   transformers.js 는 파일마다 「받은 양 = 총량」 으로 딱 한 번 알려 준다.
+    //   그 값들만 더하면 분자와 분모가 늘 같아서 퍼센트가 처음부터 끝까지 100 이다
+    //   (실제로 「3MB / 3MB」 로 붙어 있었다). 모델 크기는 우리가 알고 있으니 그걸 쓴다.
+    //   나중에 스트리밍이 되면 total 이 그보다 커질 테니 큰 쪽을 쓴다.
+    const denom = Math.max(Number(expectedBytes) || 0, total);
+    const raw = denom > 0 ? (loaded / denom) * 100 : -1;
+    // 진행 중에는 99 에서 멈춘다. 다 된 줄 알고 앱을 끄면 반쪽만 받는다.
     const percent = raw < 0 ? -1 : Math.max(0, Math.min(99, Math.floor(raw)));
     return {
-      percent: percent, loaded: loaded, total: total,
+      percent: percent, loaded: loaded, total: total, denom: denom,
       files: known, unknown: unknown, file: String(e.file || '')
     };
+  }
+
+  /** 이 갈래를 받으려면 대략 몇 바이트인지. 퍼센트의 분모로 쓴다. */
+  function expectedBytes(kinds) {
+    return (kinds && kinds.length ? kinds : ['style', 'identity'])
+      .map(kindOf)
+      .filter(function (k, i, a) { return a.indexOf(k) === i; })
+      .reduce(function (n, k) { return n + MODELS[k].mb * 1048576; }, 0);
   }
 
   /** 바이트를 사람이 읽는 크기로. */
@@ -249,6 +259,7 @@ const Embed = (function () {
     usable: usable,
     flatten: flatten,
     tally: tally,
+    expectedBytes: expectedBytes,
     mb: mb,
     have: have,
     fromServer: fromServer,

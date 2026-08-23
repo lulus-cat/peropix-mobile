@@ -19,10 +19,25 @@ public class KeepAwakePlugin extends Plugin {
 
     @PluginMethod
     public void start(PluginCall call) {
-        String text = call.getString("text", "그림을 뽑는 중입니다");
+        run(call, call.getString("text", "그림을 뽑는 중입니다"),
+                call.getInt("percent", -1));
+    }
+
+    /**
+     * 떠 있는 알림의 글자와 막대만 고쳐 쓴다.
+     * ★알림을 새로 띄우면 안드로이드가 있던 것을 지우고 다시 그려서 깜박인다.
+     *   진행을 보여 주려면 같은 알림을 고쳐 써야 한다.
+     */
+    @PluginMethod
+    public void update(PluginCall call) {
+        run(call, call.getString("text", "작업 중입니다"), call.getInt("percent", -1));
+    }
+
+    private void run(PluginCall call, String text, Integer percent) {
         try {
             Intent i = new Intent(getContext(), KeepAwakeService.class);
             i.putExtra(KeepAwakeService.EXTRA_TEXT, text);
+            i.putExtra(KeepAwakeService.EXTRA_PERCENT, percent == null ? -1 : percent);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 getContext().startForegroundService(i);
             } else {

@@ -123,6 +123,34 @@ check('★총량을 모르면 퍼센트를 지어내지 않는다',
 check('빈 것도 안 터진다', E.tally({}, null).percent === -1 && E.tally({}, {}).percent === -1);
 check('받은 양도 알려 준다', E.tally({}, { file: 'q', loaded: 5, total: 10 }).loaded === 5);
 
+// ★진짜로 터진 자리. CapacitorHttp 가 fetch 를 갈아 끼워 두어 스트리밍이 안 된다.
+//   파일이 통째로 도착해서 transformers.js 가 「받은 양 = 총량」 으로 한 번만 알려 준다.
+//   그 값만 더하면 분자와 분모가 늘 같아 퍼센트가 처음부터 99 에 붙는다 (「3MB / 3MB」).
+const WHOLE = 3 * 1048576;
+let bag4 = {};
+const first = E.tally(bag4, { file: 'a', loaded: WHOLE, total: WHOLE }, 135 * 1048576);
+check('★파일이 통째로 와도 퍼센트가 처음부터 99 가 아니다', first.percent < 10,
+  JSON.stringify(first));
+const second = E.tally(bag4, { file: 'b', loaded: WHOLE * 20, total: WHOLE * 20 }, 135 * 1048576);
+check('★받을수록 오른다', second.percent > first.percent, first.percent + ' → ' + second.percent);
+check('아는 크기를 분모로 쓴다', second.denom === 135 * 1048576, String(second.denom));
+check('★다 받아도 99 를 안 넘는다',
+  E.tally({}, { file: 'z', loaded: 999 * 1048576, total: 999 * 1048576 }, 135 * 1048576)
+    .percent === 99);
+// 나중에 스트리밍이 되면 실제 총량이 더 클 수 있다. 그때는 큰 쪽을 쓴다.
+check('실제 총량이 더 크면 그쪽을 쓴다',
+  E.tally({}, { file: 'q', loaded: 0, total: 500 * 1048576 }, 135 * 1048576).denom
+    === 500 * 1048576);
+check('아는 크기도 없고 총량도 없으면 퍼센트를 안 만든다',
+  E.tally({}, { file: 'w', loaded: 5, total: 0 }, 0).percent === -1);
+
+check('★받을 크기를 미리 안다', E.expectedBytes(['style']) === E.MODELS.style.mb * 1048576);
+check('둘이면 합친다',
+  E.expectedBytes(['style', 'identity'])
+  === (E.MODELS.style.mb + E.MODELS.identity.mb) * 1048576);
+check('같은 것을 두 번 세지 않는다',
+  E.expectedBytes(['style', 'style']) === E.expectedBytes(['style']));
+
 check('크기를 사람 말로', E.mb(1048576) === '1.0MB' && E.mb(52428800) === '50MB');
 check('0 도 된다', E.mb(0) === '0.0MB' && E.mb(null) === '0.0MB');
 

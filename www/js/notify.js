@@ -99,46 +99,6 @@ const Notify = (function () {
     }
   }
 
-  // 진행 알림은 **같은 id 로 다시 띄워** 덮어쓴다. id 를 매번 새로 주면 알림 목록에
-  // 「12% 13% 14%…」 가 줄줄이 쌓여 못 쓰게 된다.
-  const PROGRESS_ID = 20260823;
-
-  /**
-   * 상태바에 진행을 띄운다 (같은 줄을 계속 고쳐 쓴다).
-   * @param {string} title 제목
-   * @param {string} body  몇 %인지 등
-   * @param {boolean} [ongoing] 받는 동안 밀어서 못 지우게 할지
-   */
-  async function progress(title, body, ongoing) {
-    if (!isNative()) return false;
-    const P = plugin();
-    if (!P) return false;
-    if (!(await ensurePermission())) return false;
-    try {
-      await P.schedule({
-        notifications: [{
-          id: PROGRESS_ID,
-          title: title,
-          body: body,
-          smallIcon: 'ic_stat_icon_config_sample',
-          ongoing: !!ongoing,
-          autoCancel: !ongoing
-        }]
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /** 진행 알림을 치운다. 다 됐는데 남아 있으면 아직 받는 줄 안다. */
-  async function clearProgress() {
-    if (!isNative()) return;
-    const P = plugin();
-    if (!P) return;
-    try { await P.cancel({ notifications: [{ id: PROGRESS_ID }] }); } catch (e) { /* 무시 */ }
-  }
-
   /** 지금 권한 상태만 본다 (묻지 않는다). 'granted' | 'denied' | 'prompt' | 'unavailable' */
   async function status() {
     const P = plugin();
@@ -174,7 +134,6 @@ const Notify = (function () {
 
   return {
     done: done, isNative: isNative, status: status, request: request,
-    progress: progress, clearProgress: clearProgress,
     exactStatus: exactStatus, requestExact: requestExact
   };
 })();
