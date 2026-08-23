@@ -4,7 +4,7 @@
 //   화면을 눌러야 한다 (시스템 앱이나 기기 관리자면 예외인데, 옆에서 받아 까는 앱은
 //   거기 해당하지 않는다). 그러니 앱이 할 수 있는 것은 여기까지다 —
 //   **새 버전이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.**
-//   그 뒤 「설치」 를 누르는 것은 사람 몫이다.
+//   그 뒤 "설치" 를 누르는 것은 사람 몫이다.
 //
 // ★여기는 주소를 만들고 응답을 읽는 일만 한다. 실제로 부르는 것은 app.js — 그래야
 //   Node 에서 검사할 수 있다 (다른 조회 계층과 같은 규칙).
@@ -46,7 +46,7 @@ const Updater = (function () {
 
   /**
    * 응답에서 쓸 것만 꺼낸다.
-   * ★APK 를 못 찾으면 릴리즈 쪽(html_url)이라도 준다. 소스만 올라간 릴리스에서 「받기」 가
+   * ★APK 를 못 찾으면 릴리스 쪽(html_url)이라도 준다. 소스만 올라간 릴리스에서 "받기" 가
    *   아무 데도 안 가면 고장으로 보인다.
    */
   function parseLatest(body) {
@@ -94,7 +94,7 @@ const Updater = (function () {
     const opt = o || {};
     const latest = opt.latest;
     if (!latest || !latest.version) return { show: false, reason: 'none' };
-    // ★현재 버전을 모르면(브라우저 미리보기 등) 알림을 띄우지 않는다. 늘 「새 버전이다」 가
+    // ★현재 버전을 모르면(브라우저 미리보기 등) 알림을 띄우지 않는다. 늘 "새 버전이다" 가
     //   되어 버려 알림이 무의미해진다.
     if (!opt.current) return { show: false, version: latest.version, reason: 'unknown' };
     if (compare(latest.version, opt.current) <= 0) {
@@ -106,14 +106,14 @@ const Updater = (function () {
     return { show: true, version: latest.version, reason: 'new' };
   }
 
-  /** 「1.2.5 → 1.2.6」 처럼 사람이 읽을 한 줄. */
+  /** "1.2.5 → 1.2.6" 처럼 사람이 읽을 한 줄. */
   function summary(current, latest) {
     if (!latest || !latest.version) return '';
     if (!current) return latest.name;
     return current + ' → ' + latest.version;
   }
 
-  /** 릴리즈 본문에서 바뀐 것만 몇 줄 뽑는다 (접힌 부분과 꼬리표는 버린다). */
+  /** 릴리스 본문에서 바뀐 것만 몇 줄 뽑는다 (접힌 부분과 꼬리표는 버린다). */
   function highlights(notes, max) {
     return String(notes || '')
       .replace(/<details[\s\S]*?<\/details>/gi, '')

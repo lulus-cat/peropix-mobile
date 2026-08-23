@@ -112,7 +112,7 @@
   // ★뒤로가기가 "어디서 눌렸는지" 알아야 해서 지금 화면을 들고 있는다.
   let currentScreen = 'main';
 
-  // ★어디서 들어왔는지 기억한다. 홈에서 연 화면의 「뒤로」 가 대량생성으로 가면
+  // ★어디서 들어왔는지 기억한다. 홈에서 연 화면의 "뒤로" 가 대량생성으로 가면
   //   가 본 적 없는 곳에 떨어진다.
   let hubScreen = 'home';
 
@@ -124,7 +124,7 @@
       $('screen-' + n).hidden = (n !== which);
     });
     // ★들어오는 화면만 짧게 떠오르게. 클래스를 뗐다 붙이지 않으면 같은 화면을
-    //   다시 열었을 때 애니메이션이 안 돈다 (브라우저가 「그대로」 로 본다).
+    //   다시 열었을 때 애니메이션이 안 돈다 (브라우저가 "그대로" 로 본다).
     const el = $('screen-' + which);
     el.classList.remove('sc-in');
     void el.offsetWidth;
@@ -137,7 +137,7 @@
   //   반드시 사람이 확인 화면을 눌러야 한다. 그러니 앱이 할 수 있는 것은 여기까지다 —
   //   새 버전이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.
   // ★스토어를 안 거치므로 아무도 안 알려 준다. 그래서 앱이 직접 본다.
-  const UPDATE_REPO = 'lulus-cat/peropix-mobile';
+  let updRepo = Store.DEFAULT_UPDATE_REPO;
   let appVersion = '';        // 지금 깔려 있는 버전 (네이티브에서만 알 수 있다)
   let updLatest = null;
 
@@ -154,13 +154,13 @@
   }
 
   /**
-   * GitHub 릴리즈를 본다.
+   * GitHub 릴리스를 본다.
    * ★인박스 토큰을 붙이지 않는다. 공개 저장소라 필요도 없고, 남의 토큰 한도를 쓸 일도
    *   아니다 (ghGet 은 토큰을 붙이므로 여기서 안 쓴다).
    */
   async function fetchLatest() {
-    const url = Updater.latestUrl(UPDATE_REPO);
-    if (!url) throw new Error('저장소 주소가 잘못됐습니다.');
+    const url = Updater.latestUrl(updRepo);
+    if (!url) throw new Error('저장소를 owner/repo 로 적어 주세요 (지금: ' + updRepo + ')');
     const headers = { Accept: 'application/vnd.github+json' };
     const C = window.Capacitor;
     const P = (C && C.Plugins) ? C.Plugins : null;
@@ -192,8 +192,8 @@
     });
     // 크기를 적어 준다 — 데이터를 아끼는 사람에게는 이게 판단 근거다.
     $('upd-get').textContent = updLatest.apkSize
-      ? ('받으러 가기 (' + Math.round(updLatest.apkSize / 1048576) + 'MB)')
-      : '받으러 가기';
+      ? ('받아서 설치 (' + Math.round(updLatest.apkSize / 1048576) + 'MB)')
+      : '받아서 설치';
   }
 
   /**
@@ -208,7 +208,7 @@
     }
     if (manual) msg.textContent = '보는 중…';
     // 깔린 버전을 그때그때 다시 읽는다. 켤 때 한 번만 읽어 두면, 읽기 전에 확인이 돌면
-    // 「현재 버전을 모른다」 로 새어 나간다.
+    // "현재 버전을 모른다" 로 새어 나간다.
     appVersion = await loadAppVersion();
     try {
       updLatest = await fetchLatest();
@@ -227,29 +227,106 @@
       else if (d.reason === 'unknown') {
         msg.textContent = '최신 버전은 ' + d.version + ' 입니다. '
           + '(브라우저 미리보기에서는 현재 버전을 알 수 없어 견주지 못합니다.)';
-      } else msg.textContent = '릴리즈를 찾지 못했습니다.';
+      } else msg.textContent = '릴리스를 찾지 못했습니다.';
     } catch (e) {
       updLatest = null;
       if (manual) msg.textContent = '보지 못했습니다: ' + (e.message || e);
     }
   }
 
-  function bindUpdate() {
-    $('upd-get').addEventListener('click', function () {
-      if (!updLatest) return;
-      // ★앱 안에서 깔아 주지는 못한다. 받는 곳까지 데려다주고 나머지는 사람이 누른다.
+  /** 저장소 고르는 줄. 목록에 없는 것이면 「직접 적기」 로 펴 준다. */
+  function renderUpdateRepo() {
+    const sel = $('ver-repo');
+    const known = Array.from(sel.options).some(function (o) { return o.value === updRepo; });
+    sel.value = known ? updRepo : '__custom__';
+    $('ver-repo-row').hidden = known;
+    $('ver-repo-text').value = updRepo;
+  }
+
+  async function readUpdateRepo() {
+    const pick = $('ver-repo').value;
+    if (pick === '__custom__') {
+      $('ver-repo-row').hidden = false;
+      updRepo = $('ver-repo-text').value.trim() || Store.DEFAULT_UPDATE_REPO;
+    } else {
+      updRepo = pick;
+      $('ver-repo-row').hidden = true;
+    }
+    await Store.setUpdateRepo(updRepo);
+    // ★저장소를 바꾸면 「언제 마지막으로 봤는지」 를 지운다. 안 그러면 여섯 시간 동안
+    //   옛 저장소의 결과를 그대로 들고 있는다.
+    await Store.setUpdateCheckedAt(0);
+    updLatest = null;
+    $('home-upd').hidden = true;
+  }
+
+  /**
+   * 새 버전 APK 를 받아서 설치 화면까지 띄운다.
+   *
+   * ★조용히 알아서 깔지는 못한다. 안드로이드는 스토어를 안 거친 APK 를 설치할 때 반드시
+   *   사람이 확인 화면을 눌러야 한다. 앱이 하는 일은 받아 두고 그 화면까지 데려다주는 것이다.
+   * ★네이티브 플러그인이 없으면(PC 미리보기 등) 그냥 링크를 연다. 브라우저에서도
+   *   똑같이 굴러가야 검사를 할 수 있다.
+   */
+  async function downloadAndInstall() {
+    if (!updLatest) return;
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    // ponytail: Filesystem.downloadFile 은 7.1 부터 deprecated 다 (아직 돌아간다).
+    //   빠지면 @capacitor/file-transfer 로 옮긴다. 그때까지 의존성을 하나 더 들이지 않는다.
+    const native = !!(P && P.Installer && P.Filesystem
+      && typeof P.Filesystem.downloadFile === 'function' && updLatest.apkUrl);
+    if (!native) {
       window.open(updLatest.apkUrl || updLatest.pageUrl, '_blank');
-    });
+      return;
+    }
+
+    const btn = $('upd-get');
+    const label = btn.textContent;
+    btn.disabled = true;
+    try {
+      // 권한이 없으면 먼저 설정으로 보낸다. 없는 채로 띄우면 아무 일도 안 일어난다.
+      const can = await P.Installer.canInstall();
+      if (!can || !can.granted) {
+        btn.textContent = '권한을 켜 주세요';
+        await P.Installer.openSettings();
+        toast('"이 출처 허용" 을 켠 뒤 다시 눌러 주세요.', 4000);
+        return;
+      }
+
+      btn.textContent = '받는 중…';
+      const name = 'peropix-' + updLatest.version + '.apk';
+      // ★캐시 폴더에 받는다. FileProvider 가 내주는 곳이 거기다 (res/xml/file_paths.xml).
+      await P.Filesystem.downloadFile({
+        url: updLatest.apkUrl, path: name, directory: 'CACHE'
+      });
+
+      btn.textContent = '설치 화면 여는 중…';
+      await P.Installer.install({ name: name });
+      btn.textContent = label;
+    } catch (e) {
+      // 받다가 안 되면 링크라도 열어 준다. 여기서 막히면 업데이트할 길이 없어진다.
+      toast('앱에서 받지 못했습니다. 브라우저로 엽니다: ' + (e.message || e), 4000);
+      window.open(updLatest.apkUrl || updLatest.pageUrl, '_blank');
+      btn.textContent = label;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function bindUpdate() {
+    $('upd-get').addEventListener('click', downloadAndInstall);
     $('upd-skip').addEventListener('click', async function () {
       if (!updLatest) return;
       await Store.setUpdateSkipped(updLatest.version);
       $('home-upd').hidden = true;
       toast(updLatest.version + ' 은 다시 안 알립니다. 그 다음 버전부터 알려 드립니다.', 3000);
     });
-    // 「나중에」 는 이번에만 접는다 (다음에 켜면 또 알려 준다).
+    // "나중에" 는 이번에만 접는다 (다음에 켜면 또 알려 준다).
     $('upd-later').addEventListener('click', function () { $('home-upd').hidden = true; });
 
     $('ver-check').addEventListener('click', function () { checkUpdate(true); });
+    $('ver-repo').addEventListener('change', readUpdateRepo);
+    $('ver-repo-text').addEventListener('change', readUpdateRepo);
     $('ver-auto').addEventListener('change', async function () {
       await Store.setUpdateAuto($('ver-auto').checked);
     });
@@ -257,7 +334,7 @@
 
   /**
    * 가이드.
-   * ★인트로 팁은 한 번에 하나만 보여 준다. 「그거 뭐였더라」 를 찾아볼 곳이 따로 있어야 한다.
+   * ★인트로 팁은 한 번에 하나만 보여 준다. "그거 뭐였더라" 를 찾아볼 곳이 따로 있어야 한다.
    * ★팁 목록은 인트로와 **같은 배열**을 쓴다. 두 벌로 두면 한쪽만 고쳐진다.
    */
   function openGuide() {
@@ -400,7 +477,7 @@
   }
 
   // ── 쓸어서 여러 줄 한꺼번에 켜고 끄기 ───────────────────────────────────
-  // ★「전체 켜기/끄기」 는 전부 아니면 전무다. 실제로는 "이 구간만" 이 잦다.
+  // ★"전체 켜기/끄기" 는 전부 아니면 전무다. 실제로는 "이 구간만" 이 잦다.
   //   원을 누른 채 위아래로 쓸면 지나간 줄이 전부 첫 줄과 같은 상태가 된다.
   //   ─ 켜진 줄에서 시작하면 쓸고 간 자리가 꺼지고, 꺼진 줄에서 시작하면 켜진다.
   //
@@ -1667,13 +1744,13 @@
   // ★통신이 없다. Anlas 도 들지 않고 인터넷도 필요 없다 — 전부 폰 안에서 끝난다.
   // ★자리는 **알파 경계**로 잡는다. 슬롯마다 인물이 잡힌 크기·여백이 달라서,
   //   같은 배율로 얹으면 어떤 장은 배경 밖으로 나가고 어떤 장은 한가운데 뜬다.
-  //   경계를 찾아 「높이의 92% · 바닥에서 2%」 로 맞추면 수십 장이 같은 자리에 선다.
+  //   경계를 찾아 "높이의 92% · 바닥에서 2%" 로 맞추면 수십 장이 같은 자리에 선다.
   let cmpTarget = null;      // { item } 또는 { batch: true }
   let cmpBg = null;          // { name, w, h, data, canvas }
   let cmpFg = null;          // 미리보기 기준 { name, w, h, straight, bounds, detected, canvas }
   let cmpBgCache = null;     // 결과 크기로 줄여 둔 배경, 같은 배경으로 여러 장 돌릴 때 재사용
   // 무작위 배치의 씨앗. ★Math.random 을 그냥 쓰면 미리보기를 다시 그릴 때마다 인물이 튄다.
-  //   씨앗을 들고 있다가 「다시 굴려 보기」 를 눌렀을 때만 바꾼다. 장마다는 씨앗 + 번호를 쓴다.
+  //   씨앗을 들고 있다가 "다시 굴려 보기" 를 눌렀을 때만 바꾼다. 장마다는 씨앗 + 번호를 쓴다.
   let cmpSeed = 1;
 
   const CMP_PREVIEW_MAX = 560;
@@ -1909,9 +1986,9 @@
   }
 
   // ── 원격 작업 ────────────────────────────────────────────────────────────
-  // ★PC·VPS 수신함에 누군가(예: Claude Code)가 올려 둔 「이거 뽑으세요」 를 받아 온다.
+  // ★PC·VPS 수신함에 누군가(예: Claude Code)가 올려 둔 "이거 뽑으세요" 를 받아 온다.
   //   ★키도 Anlas 도 이 폰 것이다 — 그래서 실행 여부는 언제나 여기서 정한다.
-  //     「받으면 바로 실행」 을 켜야만 묻지 않고 돈다.
+  //     "받으면 바로 실행" 을 켜야만 묻지 않고 돈다.
   //   ★결과는 그 수신함으로 저장된다. 올린 쪽이 결과를 봐야 왕복이 완성되기 때문이다.
   let jobsSource = 'dest';    // 'dest' 수신함 | 'github' 저장소 지시함
   let ghCfg = { repo: '', branch: 'main', token: '' };
@@ -2086,6 +2163,7 @@
   let cmbSel = [];             // 그중 고른 것
   let cmbLast = [];            // 방금 뽑은 조합들 (어느 그림이 어느 조합인지)
   let cmbShots = [];           // 그 조합으로 생성한 이미지
+  let cmbPerUsed = 1;          // 뽑을 때 조합마다 몇 장씩 뽑았는지 (그림↔조합 짝을 세는 기준)
   let styleBusy = false;
   let styleView = null;        // 조합·깎기에서 연 뷰어일 때 {items, meta}
   let styleMode = 'combo';
@@ -2136,7 +2214,7 @@
     renderComboResult();
     setStyleMode(styleMode);
     renderBisPick();
-    // ★깎기는 뽑으러 메인으로 갔다가 돌아온다. 다시 그리지 않으면 「답하기」 가 안 뜬다.
+    // ★깎기는 뽑으러 메인으로 갔다가 돌아온다. 다시 그리지 않으면 "답하기" 가 안 뜬다.
     renderBis();
     // 전체 이미지 수는 한 번만 물어 둔다 (특징 태그의 분모).
     if (!artTotal) {
@@ -2222,7 +2300,7 @@
         return;
       }
       const st = Danbooru.stats(posts);
-      // 특징 태그를 재려면 「남들은 얼마나 그리는가」 가 필요하다 — 한 번에 묻는다.
+      // 특징 태그를 재려면 "남들은 얼마나 그리는가" 가 필요하다 — 한 번에 묻는다.
       let dist = [];
       if (st && artTotal) {
         try {
@@ -2480,7 +2558,7 @@
   /**
    * 고른 모음을 서랍에 담는다.
    *
-   * ★모음에는 퀄리티 태그도 섞여 있다 (「artist:wlop, masterpiece, best quality」).
+   * ★모음에는 퀄리티 태그도 섞여 있다 ("artist:wlop, masterpiece, best quality").
    *   그래서 Danbooru 에 갈래를 물어 **작가인 것만** 담는다. 안 거르면 서랍이
    *   masterpiece 로 채워져 쓸 수가 없다.
    * ★한 번에 다 묻는다. 태그마다 부르면 스무 개짜리 모음 하나에 스무 번이 나간다.
@@ -2506,7 +2584,7 @@
       });
       if (added) await Store.setArtists(artDrawer);
       renderDrawer();
-      // ★무엇이 빠졌는지 적어 준다. 「스무 개 넣었는데 세 명만 담겼다」 를 말없이
+      // ★무엇이 빠졌는지 적어 준다. "스무 개 넣었는데 세 명만 담겼다" 를 말없이
       //   두면 고장으로 보인다.
       const skipped = names.length - artists.length;
       msg.textContent = added + '명을 담았습니다.'
@@ -2589,14 +2667,14 @@
     });
 
     // 지금 걸러 보고 있는 사람 전부에게 한 번에. 검색·즐겨찾기·장르와 같이 쓰면
-    // 「19금 작가 전부에 '어두움' 붙이기」 가 한 번에 끝난다.
+    // "19금 작가 전부에 '어두움' 붙이기" 가 한 번에 끝난다.
     $('drw-label-all').addEventListener('click', async function () {
       if (!labeling()) return;
       const rows = visibleDrawerRows();
       if (!rows.length) return;
       const tags = rows.map(function (e) { return e.tag; });
       const off = rows.filter(function (e) { return e.cats.indexOf(drwLabel) === -1; });
-      // 다 붙어 있으면 「전부 떼기」 로 뒤집는다 — 같은 자리에서 되돌릴 수 있어야 한다.
+      // 다 붙어 있으면 "전부 떼기" 로 뒤집는다 — 같은 자리에서 되돌릴 수 있어야 한다.
       const on = off.length > 0;
       if (!window.confirm(rows.length + '명에게 "' + drwLabel + '" 을 '
         + (on ? '붙일까요?' : '전부 뗄까요?'))) return;
@@ -2767,7 +2845,7 @@
 
       const w = document.createElement('span');
       w.className = 'mix-w';
-      // ★손으로 정한 값을 크게 보여 준다. 여기에 「나가는 값」(합 고정을 거친 것)을 적으면,
+      // ★손으로 정한 값을 크게 보여 준다. 여기에 "나가는 값"(합 고정을 거친 것)을 적으면,
       //   ＋ 를 눌러도 정규화가 도로 깎아 **숫자가 안 움직이는 것처럼 보인다** — 셋을 섞어
       //   놓고 한 명을 올리면 셋이 같이 조정되기 때문이다. 고장으로 보이는 자리다.
       //   대신 나가는 값이 다르면 옆에 작게 덧붙인다. 둘 다 알아야 하기 때문이다.
@@ -3217,7 +3295,7 @@
     ST_NUMS.forEach(function (p) {
       if (String($(p[0]).value).trim() !== '') o[p[1]] = Number($(p[0]).value);
     });
-    // ★켜고 끄는 것에는 「안 정했다」 가 없다. 대량생성 값과 같으면 안 담는다 —
+    // ★켜고 끄는 것에는 "안 정했다" 가 없다. 대량생성 값과 같으면 안 담는다 —
     //   담아 두면 나중에 대량생성 쪽을 바꿔도 테스트은 옛 상태에 묶인다.
     ST_BOOLS.forEach(function (p) {
       if ($(p[0]).checked !== !!options[p[1]]) o[p[1]] = $(p[0]).checked;
@@ -3312,6 +3390,9 @@
     try {
       for (let i = 0; i < shots.length; i++) {
         renderStyleShots(box, out, shots, i, hooks);
+        // 컷마다 시드를 따로 줄 수 있다. 같은 조합을 여러 장 뽑을 때 쓴다.
+        // 안 주면 styleApply 가 넣어 둔 시드를 그대로 쓴다.
+        if (shots[i].seed !== undefined && shots[i].seed !== null) options.seed = shots[i].seed;
         const item = await runOneJob(token, {
           slot: { label: shots[i].label, prompt: shots[i].prompt },
           slotName: shots[i].label,
@@ -3467,25 +3548,49 @@
     $('cw-max').value = String(cr.max);
     $('cw-step').value = String(cr.step);
     const n = parseInt($('cmb-n').value, 10) || 6;
+    const per = cmbPerNow();
     $('cmb-n-val').textContent = n + '개';
+    $('cmb-per-val').textContent = per + '장';
     const r = wr();
     $('cmb-range').textContent = r.min + '부터 ' + r.max + '까지 ' + r.step
       + '씩 끊어서 아무 값이나 뽑습니다. 서랍에서 바꿔도 같이 바뀝니다.';
+    const shots = n * per;
     $('cmb-est').textContent = cmbSel.length
-      ? (n + '장' + (bisCost(n) ? (' · 약 ' + bisCost(n) + ' Anlas') : ''))
+      ? (per > 1
+        ? ('조합 ' + n + '개 × ' + per + '장 = ' + shots + '장'
+          + (bisCost(shots) ? (' · 약 ' + bisCost(shots) + ' Anlas') : ''))
+        : (shots + '장' + (bisCost(shots) ? (' · 약 ' + bisCost(shots) + ' Anlas') : '')))
       : '작가를 한 명 이상 골라 주세요.';
     $('cmb-run').disabled = !cmbSel.length;
+  }
+
+  function cmbPerNow() {
+    return Math.min(4, Math.max(1, parseInt($('cmb-per').value, 10) || 1));
+  }
+
+  /**
+   * 컷 번호로 어느 조합인지 찾는다.
+   * ★뽑을 때 쓴 장수(cmbPerUsed)로 센다. 뽑고 난 뒤에 슬라이더를 움직여도 이미 나온
+   *   그림의 짝이 어긋나지 않게 하려는 것이다.
+   */
+  function comboOfShot(r) {
+    const i = cmbShots.indexOf(r);
+    return i === -1 ? null : (cmbLast[Math.floor(i / cmbPerUsed)] || null);
   }
 
   async function cmbRun(sets) {
     if (!cmbSel.length) return;
     const n = parseInt($('cmb-n').value, 10) || 6;
+    const per = cmbPerNow();
     const use = sets || Artists.combos(Artists.mix(cmbSel, wRange), n, wRange);
     if (!use.length) return;
     if (!sets && use.length < n) {
       toast('서로 다른 조합이 ' + use.length + '개밖에 안 나옵니다. 가중치 폭을 넓혀 보세요.', 3000);
     }
-    if (!window.confirm(use.length + '장을 뽑을까요?\n\n'
+    const total = use.length * per;
+    if (!window.confirm(
+      (per > 1 ? ('조합 ' + use.length + '개 × ' + per + '장 = ' + total + '장') : (total + '장'))
+      + ' 을 뽑을까요?\n\n'
       + '작가 태그 화면에 그대로 머물고, 평소 슬롯·프롬프트는 건드리지 않습니다.')) {
       return;
     }
@@ -3495,22 +3600,40 @@
         prompt: Artists.bake(m, { cfg: wRange })
       };
     });
+    cmbPerUsed = per;
     cmbShots = [];
     renderComboResult();
-    const seed = $('cmb-seed-fix').checked ? Math.floor(Math.random() * 1e9) : undefined;
-    const comboNote = function (c) {
-      return c.name + ', ' + c.mix.filter(function (x) { return x.on; })
-        .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+
+    // ★시드를 고정해도 한 조합 안에서는 장마다 달라야 한다. 안 그러면 같은 그림이
+    //   그대로 여러 장 나온다. 대신 **조합끼리는 같은 시드 묶음**을 써서 견줄 수 있게 한다.
+    const fix = $('cmb-seed-fix').checked;
+    const seeds = [];
+    for (let k = 0; k < per; k++) seeds.push(Math.floor(Math.random() * 1e9));
+
+    const comboNote = function (c, k) {
+      return c.name + (per > 1 ? (' (' + (k + 1) + '/' + per + ')') : '') + ', '
+        + c.mix.filter(function (x) { return x.on; })
+          .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
     };
-    cmbShots = (await styleGenerate(cmbLast.map(function (c) {
-      return { label: c.name, prompt: c.prompt, note: comboNote(c) };
-    }), seed, 'cmb-shots', {
+    const jobs = [];
+    cmbLast.forEach(function (c, i) {
+      for (let k = 0; k < per; k++) {
+        jobs.push({
+          label: c.name + (per > 1 ? ('-' + (k + 1)) : ''),
+          prompt: c.prompt,
+          note: comboNote(c, k),
+          seed: fix ? seeds[k] : undefined
+        });
+      }
+    });
+
+    cmbShots = (await styleGenerate(jobs, fix ? seeds[0] : undefined, 'cmb-shots', {
       rate: function (r, score) {
-        const c = cmbLast[cmbShots.indexOf(r)];
+        const c = comboOfShot(r);
         if (c) { c.score = score; renderComboResult(); }
       },
       scoreOf: function (r) {
-        const c = cmbLast[cmbShots.indexOf(r)];
+        const c = comboOfShot(r);
         return c ? c.score : 0;
       }
     })) || [];
@@ -3527,30 +3650,35 @@
       const row = document.createElement('div');
       row.className = 'cmb-row';
 
-      const shot = cmbShots[i];
-      if (shot && shot.bytes) {
+      // 그 조합으로 뽑은 것 전부. 조합마다 여러 장이면 나란히 붙는다.
+      const mine = cmbShots.slice(i * cmbPerUsed, (i + 1) * cmbPerUsed);
+      mine.forEach(function (shot) {
+        if (!shot || !shot.bytes) return;
         const img = document.createElement('img');
         img.className = 'cmb-thumb';
         img.src = URL.createObjectURL(new Blob([shot.bytes], { type: 'image/png' }));
         img.addEventListener('click', function () {
-        openViewerFor(shot, cmbShots,
-          function (r) {
-            const c = cmbLast[cmbShots.indexOf(r)];
-            return c ? (c.name + ', ' + c.mix.filter(function (x) { return x.on; })
-              .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; })
-              .join(' · ')) : '';
-          },
-          function (r, score) {
-            const c = cmbLast[cmbShots.indexOf(r)];
-            if (c) { c.score = score; renderComboResult(); }
-          },
-          function (r) {
-            const c = cmbLast[cmbShots.indexOf(r)];
-            return c ? c.score : 0;
-          });
-      });
+          openViewerFor(shot, cmbShots,
+            function (r) {
+              const cc = comboOfShot(r);
+              if (!cc) return '';
+              const k = cmbShots.indexOf(r) % cmbPerUsed;
+              return cc.name + (cmbPerUsed > 1 ? (' (' + (k + 1) + '/' + cmbPerUsed + ')') : '')
+                + ', ' + cc.mix.filter(function (x) { return x.on; })
+                  .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; })
+                  .join(' · ');
+            },
+            function (r, score) {
+              const cc = comboOfShot(r);
+              if (cc) { cc.score = score; renderComboResult(); }
+            },
+            function (r) {
+              const cc = comboOfShot(r);
+              return cc ? cc.score : 0;
+            });
+        });
         row.appendChild(img);
-      }
+      });
 
       const main = document.createElement('div');
       main.className = 'cmb-main';
@@ -3615,7 +3743,7 @@
   }
 
 
-  // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
+  // ── "이런 작태는 어떠세요" ──────────────────────────────────────────────
   // ★**앱을 켤 때** 한 번 띄운다. 뽑고 난 뒤가 아니다 — 다 뽑고 나면 이미 그 세션은 끝났고,
   //   새 작가는 다음 세트를 짜기 **전에** 알아야 쓸모가 있다.
   // ★근거는 **이미지 수 100 이상**이다. 그 아래는 NAI 가 배울 거리가 없어 태그를 넣어도
@@ -3641,7 +3769,7 @@
   /**
    * 권할 작가를 받아 그린다.
    *
-   * ★켤 때 뜨는 시트와 「작가 태그 → 추천」 탭이 **같은 코드**를 쓴다. 두 벌로 두면
+   * ★켤 때 뜨는 시트와 "작가 태그 → 추천" 탭이 **같은 코드**를 쓴다. 두 벌로 두면
    *   한쪽만 고쳐져 팝업과 메뉴가 다른 것을 보여 주게 된다.
    *
    * @param {object} o {box, min, count} box 를 안 주면 시트에 그리고 시트를 연다
@@ -3672,7 +3800,7 @@
   }
 
   /**
-   * 그 작가를 「찾기」 에서 펼친다. 추천 목록의 이름을 눌렀을 때 온다.
+   * 그 작가를 "찾기" 에서 펼친다. 추천 목록의 이름을 눌렀을 때 온다.
    * ★시트가 떠 있으면 먼저 닫는다. 뒤에서 화면이 바뀌어 봐야 가려서 안 보인다.
    */
   function showArtist(name) {
@@ -3690,7 +3818,7 @@
     await loadReco({});
   }
 
-  /** 「작가 태그 → 추천」 탭. ★자리가 넓으니 열 명을 보여 준다. */
+  /** "작가 태그 → 추천" 탭. ★자리가 넓으니 열 명을 보여 준다. */
   async function loadRecoTab() {
     await loadReco({
       box: 'reco-tab-list',
@@ -3716,8 +3844,8 @@
 
       const main = document.createElement('div');
       main.className = 'reco-main';
-      // ★이름을 누르면 찾기로 넘어가 바로 펼친다. 권해 놓고 「더 볼 방법은 알아서
-      //   찾으세요」 는 불친절하다 — 담을지 말지는 그림을 봐야 정해진다.
+      // ★이름을 누르면 찾기로 넘어가 바로 펼친다. 권해 놓고 "더 볼 방법은 알아서
+      //   찾으세요" 는 불친절하다 — 담을지 말지는 그림을 봐야 정해진다.
       const nm = document.createElement('button');
       nm.className = 'reco-name';
       nm.textContent = r.name.replace(/_/g, ' ');
@@ -3867,7 +3995,7 @@
       }
       const del = document.createElement('button');
       del.className = 'btn small danger';
-      // ★GitHub 지시는 저장소를 건드리지 않는다 — 대신 「한 것」 으로 표시해 넘긴다.
+      // ★GitHub 지시는 저장소를 건드리지 않는다 — 대신 "한 것" 으로 표시해 넘긴다.
       del.textContent = (j.source === 'github') ? '건너뛰기' : '지우기';
       del.addEventListener('click', async function () {
         try {
@@ -4374,7 +4502,7 @@
       opusExhausted: subscription ? subscription.opusExhausted : false,
       refCount: cap.char_ref ? references.length : 0,
       // ★실제로 뽑을 이미지 수로 센다 — 배수와 한 명 모드의 바퀴까지 포함이다.
-      //   슬롯 수만 세면 「배수 3」 을 켠 사람에게 1/3 로 적힌 값을 보여 주게 된다.
+      //   슬롯 수만 세면 "배수 3" 을 켠 사람에게 1/3 로 적힌 값을 보여 주게 된다.
       count: Math.max(1, plannedJobs().length)
     });
 
@@ -4765,7 +4893,7 @@
 
       main.appendChild(nm);
       main.appendChild(sub);
-      // 이름을 눌러도 열린다 — 「수정」 을 정확히 겨냥하지 않아도 되게.
+      // 이름을 눌러도 열린다 — "수정" 을 정확히 겨냥하지 않아도 되게.
       main.addEventListener('click', function () { openItemEdit('char', i); });
 
       const edit = document.createElement('button');
@@ -4914,9 +5042,9 @@
   // 항목 구조와 분류 규칙은 results-model.js 에 있다 (화면과 분리해 검사한다).
   let results = [];
   let resultFilter = 'all';
-  // ★중지 등으로 **손도 못 댄** 작업들. 실패한 장과 함께 「못 만든 것 다시 생성」 이 집는다.
+  // ★중지 등으로 **손도 못 댄** 작업들. 실패한 장과 함께 "못 만든 것 다시 생성" 이 집는다.
   let pendingJobs = [];
-  // 「다시 생성」 이 도는 중인지. running 만으로는 생성 중과 구별되지 않아 버튼 글자가 엉킨다.
+  // "다시 생성" 이 도는 중인지. running 만으로는 생성 중과 구별되지 않아 버튼 글자가 엉킨다.
   let retrying = false;
   // 이번 실행의 조건 (공통 프롬프트 · 이름 규칙 · 한 명 모드). 다시 뽑을 때 그대로 쓴다.
   let lastRun = null;
@@ -5092,7 +5220,7 @@
     btn.className = 'btn primary small block';
     // 생성이 도는 중에는 누르지 못하게 한다 (같은 장을 두 번 뽑게 된다).
     btn.disabled = running;
-    // ★그림이 없는 장만 다시 뽑는다. 「저장 실패」 는 그림이 이미 있으니 뷰어에서 저장하면 된다.
+    // ★그림이 없는 장만 다시 뽑는다. "저장 실패" 는 그림이 이미 있으니 뷰어에서 저장하면 된다.
     $('retry-hint').textContent = pendingJobs.length
       ? ('실패 ' + failedItems().length + '장 + 중지로 안 만든 ' + pendingJobs.length
         + '장입니다. 이미 나온 장은 건드리지 않습니다.')
@@ -5200,7 +5328,7 @@
 
   /**
    * 딱 그 한 장만 버린다. 파생본은 건드리지 않는다.
-   * ★「인핸스 성공하면 원본 지우기」 가 이걸 쓴다 — deleteItem 을 쓰면 방금 만든
+   * ★"인핸스 성공하면 원본 지우기" 가 이걸 쓴다 — deleteItem 을 쓰면 방금 만든
    *   인핸스본까지 딸려 지워져 결과가 통째로 사라진다 (실제로 그렇게 났다).
    */
   async function deleteOne(r) {
@@ -5227,7 +5355,7 @@
   // ── 전체화면 텍스트 편집기 ───────────────────────────────────────────────
   // ★폰에서 2~3줄 칸에 긴 프롬프트를 넣으면 앞뒤가 안 보여 고칠 수가 없다.
   //   프롬프트 칸을 누르면 여기가 열려 전체를 펼쳐 놓고 고친다.
-  // ★고치는 즉시 원래 칸에 반영하고 저장까지 한다 — 「완료」 를 안 눌러 잃는 일이 없게.
+  // ★고치는 즉시 원래 칸에 반영하고 저장까지 한다 — "완료" 를 안 눌러 잃는 일이 없게.
   let editorTarget = null;
   let editorOriginal = '';
 
@@ -5353,7 +5481,7 @@
     });
 
     $('editor-clear').addEventListener('click', function () {
-      // ★확인을 묻지 않는다 — 「되돌리기」 가 있어서 되살릴 수 있다.
+      // ★확인을 묻지 않는다 — "되돌리기" 가 있어서 되살릴 수 있다.
       $('editor-text').value = '';
       editorSync();
       editorSay('전부 지웠습니다. 되돌리려면 "되돌리기".');
@@ -5385,7 +5513,7 @@
   const ZOOM_STEP = 1.6;      // 단추 한 번 · 두 번 누르기의 배율
 
   /** 지금 필터로 화면에 보이는 그림들. 일괄 작업은 이걸 대상으로 한다 —
-   *  필터로 골라 놓고 「보이는 것 인핸스」 를 누르는 흐름이 자연스럽다. */
+   *  필터로 골라 놓고 "보이는 것 인핸스" 를 누르는 흐름이 자연스럽다. */
   function visibleItems() {
     return ResultsModel.applyFilter(results, resultFilter)
       .reduce(function (acc, g) { return acc.concat(g.items); }, [])
@@ -5515,7 +5643,7 @@
 
   /**
    * 화면 한가운데의 큰 글씨. p 는 0~1 로 기준에 얼마나 다가갔는지 —
-   * 1 이 되면 「놓으면 실행」 이라는 뜻이라 한 번 커진다.
+   * 1 이 되면 "놓으면 실행" 이라는 뜻이라 한 번 커진다.
    */
   function setFlash(text, kind, p) {
     const el = $('viewer-flash');
@@ -5598,7 +5726,7 @@
     setTimeout(paintViewer, 200);
   }
 
-  /** 아래로 밀어 저장. 이미 저장돼 있으면 「남길 것」 표시만 남긴다. */
+  /** 아래로 밀어 저장. 이미 저장돼 있으면 "남길 것" 표시만 남긴다. */
   async function swipeSave() {
     const r = currentItem();
     if (!r) return;
@@ -5731,7 +5859,7 @@
       img.style.transition = 'transform 0.18s ease';
       setFlash('');
 
-      // 거의 안 움직였으면 「두 번 누르기」 인지 본다.
+      // 거의 안 움직였으면 "두 번 누르기" 인지 본다.
       if (Math.abs(dragX) < 10 && Math.abs(dragY) < 10) {
         const now = Date.now();
         const x = startX;
@@ -5796,7 +5924,7 @@
    * 한 장을 뽑아 결과 항목 하나를 만든다. 성공하든 실패하든 **항목을 돌려준다**
    * (실패 항목에는 그림 대신 error 와 job 이 들어 있어 나중에 다시 뽑을 수 있다).
    *
-   * ★생성과 「다시 생성」 이 같은 길을 쓰게 하려고 떼어 놓았다. 두 벌로 두면 한쪽만
+   * ★생성과 "다시 생성" 이 같은 길을 쓰게 하려고 떼어 놓았다. 두 벌로 두면 한쪽만
    *   고쳐져서, 다시 뽑은 장만 프롬프트가 다르거나 엉뚱한 폴더로 가는 일이 생긴다.
    * @param {object} ctx { base, tpl, oneChar, seq, onWait(문구) }
    */
@@ -5851,7 +5979,7 @@
       }), usedPaths);
 
       const item = ResultsModel.make({
-        // ★한 명 모드면 「인물 · 슬롯」 으로 묶는다. 슬롯으로만 묶으면 인물 8명이
+        // ★한 명 모드면 "인물 · 슬롯" 으로 묶는다. 슬롯으로만 묶으면 인물 8명이
         //   한 묶음에 섞여 뷰어에서 누구를 보고 있는지 알 수 없다.
         slotLabel: job.group,
         cycle: job.cycle,
@@ -5934,7 +6062,7 @@
 
     const tpl = namingTemplateNow();
     const totalJobs = jobs.length;
-    // 「못 만든 것 다시 생성」 이 같은 조건으로 이어 뽑도록 들고 있는다.
+    // "못 만든 것 다시 생성" 이 같은 조건으로 이어 뽑도록 들고 있는다.
     lastRun = { base: base, tpl: tpl, oneChar: oneChar };
 
     running = true;
@@ -5949,7 +6077,7 @@
 
     for (let ji = 0; ji < jobs.length; ji++) {
       if (cancelRequested) {
-        // ★아직 손도 못 댄 것들을 들고 있는다. 결과 화면의 「못 만든 것 다시 생성」 이
+        // ★아직 손도 못 댄 것들을 들고 있는다. 결과 화면의 "못 만든 것 다시 생성" 이
         //   실패한 장과 함께 이어서 뽑는다 — 처음부터 다시 돌리지 않게.
         pendingJobs = jobs.slice(ji);
         break;
@@ -5981,7 +6109,7 @@
     const summary = done + '/' + totalJobs + ' 완료'
       + (failed ? ', 실패 ' + failed + '건' : '') + stopped;
     setProgress(done, totalJobs, summary);
-    // ★끝난 뒤에 한 번 더 그린다. 도는 동안에는 「못 만든 것 다시 생성」 이 잠겨 있고,
+    // ★끝난 뒤에 한 번 더 그린다. 도는 동안에는 "못 만든 것 다시 생성" 이 잠겨 있고,
     //   중지로 남은 장은 루프를 빠져나온 뒤에야 정해진다 — 다시 안 그리면 줄이 안 뜬다.
     renderResults();
     $('progress-open').hidden = ResultsModel.live(results).length === 0;
@@ -6155,6 +6283,8 @@
     // ★업데이트는 조용히 본다. 스토어를 안 거치므로 아무도 안 알려 주는데, 그렇다고 켤 때마다
     //   물어보면 GitHub 한도(토큰 없이 시간당 60번)를 헛되이 쓴다. 여섯 시간에 한 번이다.
     appVersion = await loadAppVersion();
+    updRepo = await Store.getUpdateRepo();
+    renderUpdateRepo();
     $('ver-now').textContent = appVersion ? ('현재 ' + appVersion) : '버전을 알 수 없습니다 (미리보기)';
     $('ver-auto').checked = await Store.getUpdateAuto();
     checkUpdate(false);
@@ -6451,6 +6581,7 @@
       renderCombo();
     });
     $('cmb-n').addEventListener('input', renderCombo);
+    $('cmb-per').addEventListener('input', renderCombo);
     $('cmb-run').addEventListener('click', function () { cmbRun(); });
     $('cmb-refine').addEventListener('click', cmbRefine);
     ['cw-min', 'cw-max', 'cw-step'].forEach(function (id) {
@@ -6464,7 +6595,7 @@
       renderMix();
     });
 
-    // 「이런 작태는 어떠세요」
+    // "이런 작태는 어떠세요"
     $('reco-close').addEventListener('click', function () { $('reco').hidden = true; });
     $('reco').addEventListener('click', function (e) {
       if (e.target === $('reco')) $('reco').hidden = true;    // 바깥을 눌러도 닫힌다

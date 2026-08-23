@@ -400,6 +400,22 @@ const Store = (function () {
     await setRaw(KEY_UPD_SKIP, String(v || ''));
   }
 
+  const KEY_UPD_REPO = 'update_repo';
+  const DEFAULT_UPDATE_REPO = 'lulus-cat/peropix-mobile';
+
+  /**
+   * 업데이트를 확인할 저장소.
+   * ★두 저장소(peropix-mobile · peropix-Lkit-mobile)가 같은 www/ 를 쓰기 때문에, 어느
+   *   APK 를 깔았는지는 앱이 알 수 없다. 그래서 사람이 고른다.
+   */
+  async function getUpdateRepo() {
+    return (await getRaw(KEY_UPD_REPO)) || DEFAULT_UPDATE_REPO;
+  }
+
+  async function setUpdateRepo(v) {
+    await setRaw(KEY_UPD_REPO, String(v || '').trim() || DEFAULT_UPDATE_REPO);
+  }
+
   const KEY_UPD_AUTO = 'update_auto';
 
   /** 켤 때 업데이트를 확인할지. ★기본 켜짐 — 옆에서 받아 까는 앱이라 스토어가 안 알려 준다. */
@@ -553,6 +569,9 @@ const Store = (function () {
     setUpdateSkipped: setUpdateSkipped,
     getUpdateAuto: getUpdateAuto,
     setUpdateAuto: setUpdateAuto,
+    getUpdateRepo: getUpdateRepo,
+    setUpdateRepo: setUpdateRepo,
+    DEFAULT_UPDATE_REPO: DEFAULT_UPDATE_REPO,
     getRecoMin: getRecoMin,
     setRecoMin: setRecoMin,
     getRecoOff: getRecoOff,
