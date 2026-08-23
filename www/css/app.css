@@ -1525,15 +1525,16 @@ textarea.expandable { cursor: pointer; }
 
 /* 목록 — 위에서부터 차례로. 여섯 줄까지만 늦추고 그 뒤는 같이 뜬다
    (더 늦추면 아래쪽 줄을 기다리게 된다).
-   ★뽑는 동안 계속 다시 그려지는 칸(.shots, #cmb-list)에는 걸지 않는다. 한 장 나올
-     때마다 줄 전체가 다시 튀어 올라 눈이 아프다. 그쪽은 새로 들어온 그림만 뜬다. */
-.drw-list > *, .reco-list > * { animation: row-in .22s ease both; }
-.drw-list > :nth-child(2), .reco-list > :nth-child(2) { animation-delay: .025s; }
-.drw-list > :nth-child(3), .reco-list > :nth-child(3) { animation-delay: .05s; }
-.drw-list > :nth-child(4), .reco-list > :nth-child(4) { animation-delay: .075s; }
-.drw-list > :nth-child(5), .reco-list > :nth-child(5) { animation-delay: .1s; }
-.drw-list > :nth-child(6), .reco-list > :nth-child(6) { animation-delay: .125s; }
-.drw-list > :nth-child(n+7), .reco-list > :nth-child(n+7) { animation-delay: .15s; }
+   ★계속 다시 그려지는 칸에는 걸지 않는다 — 서랍(작가를 누를 때마다), 뽑는 중인 칸
+     (.shots, #cmb-list). 한 번 누를 때마다 줄 전체가 다시 튀어 오르면 눈이 아프다.
+     그림 쪽은 새로 들어온 한 장만 뜬다. */
+.reco-list > * { animation: row-in .22s ease both; }
+.reco-list > :nth-child(2) { animation-delay: .025s; }
+.reco-list > :nth-child(3) { animation-delay: .05s; }
+.reco-list > :nth-child(4) { animation-delay: .075s; }
+.reco-list > :nth-child(5) { animation-delay: .1s; }
+.reco-list > :nth-child(6) { animation-delay: .125s; }
+.reco-list > :nth-child(n+7) { animation-delay: .15s; }
 
 /* 방금 나온 그림 한 장만 떠오른다 */
 .shot img.pop { animation: pop-in .3s cubic-bezier(.2, .8, .3, 1) both; }
@@ -1561,9 +1562,29 @@ textarea.expandable { cursor: pointer; }
 .viewer { animation: fade-in .14s ease both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-in, .drw-list > *, .reco-list > *, .shot img.pop, .shot-ph.doing,
+  .sc-in, .reco-list > *, .shot img.pop, .shot-ph.doing,
   .stars button.on, .reco, .reco-sheet, .viewer { animation: none; }
   .chip, .tab, .drw-row, .cmb-row, .bis-pick button, .art-ac button, .card { transition: none; }
   .chip:active, .bis-pick button:active, .art-ac button:active,
   .drw-row:active, .cmb-row:active, .card:active { transform: none; }
 }
+
+/* 라벨 붙이기 줄 — 라벨 하나를 고르고 나서 작가를 넣고 뺀다 */
+.label-bar {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.label-bar .chips { margin-bottom: 8px; }
+.label-bar .toolrow { margin-bottom: 6px; flex-wrap: wrap; }
+.label-bar .hint { margin: 0; }
+#drw-label-now { white-space: nowrap; }
+.btn.small.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+/* 가이드 — 읽을거리라 줄 간격을 넉넉히 둔다 */
+.guide-ul, .guide-ol { margin: 8px 0 0; padding-left: 20px; }
+.guide-ul li, .guide-ol li { margin-bottom: 9px; line-height: 1.6; font-size: 14px; }
+.guide-ul li:last-child, .guide-ol li:last-child { margin-bottom: 0; }
+#guide-nav { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 4px 0 10px; }

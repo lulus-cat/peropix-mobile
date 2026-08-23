@@ -94,6 +94,32 @@ check('★사람이 고쳐 둔 것은 건드리지 않는다',
 check('저장한 것을 그대로 돌려준다',
   S.settings({ preset: 'scene', comp: 'x', char: 'y', base: 'z', negative: 'w' }).comp === 'x');
 
+// ── 6. 시험용 이미지 설정 ─────────────────────────────────────────────────
+// ★모델·크기·스텝을 바꾸면 그림체 인상이 통째로 달라진다. 그런데 대량생성 값을 직접
+//   고치면 「시험 좀 해 봤다가 평소 설정이 바뀌어 있는」 일이 생긴다. 따로 들고 돈다.
+check('처음에는 아무것도 안 정한 상태', Object.keys(S.settings(null).opts).length === 0);
+check('모르는 열쇠는 버린다',
+  S.opts({ nai_model: 'x', 없는것: 1 }).없는것 === undefined);
+check('숫자로 바꿔 담는다', S.opts({ steps: '28' }).steps === 28);
+check('★0 이나 음수는 없는 것으로 본다 (그대로 내보내면 생성이 터진다)',
+  S.opts({ steps: 0, width: -1 }).steps === undefined
+  && S.opts({ width: -1 }).width === undefined);
+check('★글자가 들어와도 안 터진다', S.opts({ steps: '스물여덟' }).steps === undefined);
+check('빈 값은 「안 정했다」 로 둔다',
+  S.opts({ nai_model: '', steps: '' }).nai_model === undefined);
+check('켜고 끄는 것은 참·거짓으로', S.opts({ variety_plus: 1 }).variety_plus === true);
+
+const base = { nai_model: 'A', width: 832, height: 1216, steps: 28, cfg: 5, sampler: 's' };
+let w = S.withOpts(base, { steps: 50 });
+check('정한 것만 덮어쓴다', w.steps === 50 && w.width === 832 && w.nai_model === 'A');
+check('★안 정한 것은 대량생성 값 그대로 (안 그러면 모델이 새로 나와도 옛것에 묶인다)',
+  S.withOpts(base, {}).nai_model === 'A' && S.withOpts(base, null).steps === 28);
+check('원본을 건드리지 않는다', base.steps === 28);
+check('★거짓으로 정한 것도 덮어쓴다 (「끄기」 가 「안 정했다」 가 되면 못 끈다)',
+  S.withOpts({ variety_plus: true }, { variety_plus: false }).variety_plus === false);
+check('저장했다 되읽어도 남는다',
+  S.settings({ opts: { steps: 40, nai_model: 'B' } }).opts.steps === 40);
+
 const total = pass + fails.length;
 console.log('그림체 시험 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

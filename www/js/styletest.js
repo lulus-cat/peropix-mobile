@@ -60,6 +60,46 @@ const StyleTest = (function () {
   const DEFAULT_NEG = 'lowres, worst quality, bad anatomy, bad hands, watermark, '
     + 'signature, artist name, jpeg artifacts';
 
+  // ── 시험에 쓰는 이미지 설정 ─────────────────────────────────────────────
+  // ★모델·크기·스텝을 바꾸면 그림체 인상이 통째로 달라진다. 그래서 시험에서도 이 값들을
+  //   골라야 하는데, 대량생성 쪽 값을 그대로 고치면 「시험 좀 해 봤다가 평소 설정이
+  //   바뀌어 있는」 일이 생긴다. 그래서 **시험은 자기 값을 따로 들고 돈다.**
+  // ★비워 두면 대량생성 값을 그대로 쓴다. 전부 채우게 하면 모델이 새로 나올 때마다
+  //   시험 쪽이 옛 모델에 묶인다.
+  const OPT_KEYS = ['nai_model', 'sampler', 'width', 'height', 'steps', 'cfg', 'variety_plus'];
+  const OPT_NUM = { width: 0, height: 0, steps: 0, cfg: 0 };
+
+  /** 저장해 둔 시험 설정을 성한 값으로. 모르는 열쇠는 버린다. */
+  function opts(raw) {
+    const o = raw || {};
+    const out = {};
+    OPT_KEYS.forEach(function (k) {
+      const v = o[k];
+      if (v === undefined || v === null || v === '') return;
+      if (k === 'variety_plus') { out[k] = !!v; return; }
+      if (k in OPT_NUM) {
+        const n = Number(v);
+        // ★0 이나 음수, 글자가 들어오면 없는 것으로 본다. 그대로 내보내면 생성이 터진다.
+        if (!isFinite(n) || n <= 0) return;
+        out[k] = n;
+        return;
+      }
+      out[k] = String(v);
+    });
+    return out;
+  }
+
+  /**
+   * 대량생성 설정 위에 시험 설정을 덮어쓴 결과.
+   * ★비어 있는 열쇠는 그대로 둔다 — 「안 정했다」 와 「0 으로 정했다」 는 다르다.
+   */
+  function withOpts(base, o) {
+    const out = Object.assign({}, base || {});
+    const use = opts(o);
+    Object.keys(use).forEach(function (k) { out[k] = use[k]; });
+    return out;
+  }
+
   function preset(key) {
     return PRESETS.find(function (p) { return p.key === key; }) || PRESETS[0];
   }
@@ -122,7 +162,8 @@ const StyleTest = (function () {
       comp: String(s.comp === undefined ? '' : s.comp),
       char: char,
       base: String(s.base === undefined ? DEFAULT_BASE : s.base),
-      negative: String(s.negative === undefined ? DEFAULT_NEG : s.negative)
+      negative: String(s.negative === undefined ? DEFAULT_NEG : s.negative),
+      opts: opts(s.opts)
     };
   }
 
@@ -131,8 +172,11 @@ const StyleTest = (function () {
     DEFAULT_CHAR: DEFAULT_CHAR,
     DEFAULT_BASE: DEFAULT_BASE,
     DEFAULT_NEG: DEFAULT_NEG,
+    OPT_KEYS: OPT_KEYS,
     preset: preset,
     build: build,
+    opts: opts,
+    withOpts: withOpts,
     settings: settings
   };
 })();

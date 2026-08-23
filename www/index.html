@@ -97,6 +97,16 @@
         </span>
         <span class="home-card-txt"><b>설정</b><i>키 · 저장 위치</i></span>
       </button>
+
+      <button class="home-card wide" id="home-guide">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>가이드</b>
+          <i>어디에 뭐가 있는지 · 자주 막히는 곳</i>
+        </span>
+      </button>
     </div>
 
     <p class="home-tip" id="home-tip"></p>
@@ -463,7 +473,8 @@
              autocapitalize="off" autocorrect="off" spellcheck="false">
       <span class="hint">
         수신함을 켜면 화면에 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
-        이름·주소·토큰이 한 번에 채워집니다.
+        이름·주소·비밀번호가 한 번에 채워집니다. <b>비밀번호는 만들 필요가 없습니다</b> —
+        <code>python receiver.py --root ./images</code> 만 하면 알아서 만들어 기억합니다.
       </span>
     </label>
     <div id="dest-paste-msg" class="msg" hidden></div>
@@ -747,6 +758,113 @@
      PC·VPS 수신함에 누군가(예: Claude Code) 올려 둔 「이거 뽑으세요」 를 받아 온다.
      ★키도 Anlas 도 이 폰 것이다. 그래서 **누를지 말지는 언제나 여기서 정한다** —
        「받으면 바로 실행」 을 켜야만 자동으로 돈다. -->
+<!-- ── 가이드 ─────────────────────────────────────────────────────────
+     ★기능이 늘면서 어디에 뭐가 있는지 찾기 어려워졌다. 인트로 팁은 한 번에 하나씩만
+       보여 주므로, 찾아볼 곳이 따로 있어야 한다. -->
+<section id="screen-guide" class="screen" hidden>
+  <header class="topbar">
+    <button id="guide-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">가이드</h1>
+  </header>
+
+  <div class="pad scroll">
+    <div class="chips" id="guide-nav"></div>
+
+    <details class="panel" open data-guide="start">
+      <summary>처음 켰다면</summary>
+      <ol class="guide-ol">
+        <li><b>설정 → API 키</b>에 NovelAI 키를 넣습니다. 키는 <b>이 폰에만</b> 저장됩니다.
+          APK 를 남에게 줘도 키는 따라가지 않습니다.</li>
+        <li><b>설정 → 저장 위치</b>에서 폰에 저장할지, PC·VPS 수신함으로 보낼지 고릅니다.</li>
+        <li><b>이미지 대량생성</b>에서 슬롯에 프롬프트를 넣고 「생성」.</li>
+      </ol>
+      <p class="hint">Anlas 잔량은 홈 오른쪽 위에 뜹니다. 뽑기 전에 몇 장이 나오고
+        Anlas 가 얼마나 드는지 화면에 먼저 적어 줍니다.</p>
+    </details>
+
+    <details class="panel" data-guide="bulk">
+      <summary>이미지 대량생성</summary>
+      <ul class="guide-ul">
+        <li><b>슬롯</b> 하나가 프롬프트 한 벌입니다. 슬롯을 여러 개 켜 두면 차례로 다 뽑습니다.
+          왼쪽으로 밀면 슬롯 서랍이 열립니다.</li>
+        <li><b>인물</b>은 오른쪽으로 밀면 나옵니다. 켠 인물만 나갑니다.</li>
+        <li><b>한 명씩 돌리기</b> — 인물이 많고 슬롯이 적을 때 켜세요. 인물 수만큼 자동으로
+          돌고, 저장 경로에 인물 폴더가 한 겹 끼어듭니다.</li>
+        <li>서랍 목록에서 <b>동그라미를 누른 채 쓸면</b> 지나간 줄이 한꺼번에 켜지고 꺼집니다.</li>
+        <li>인터넷이 끊겨 몇 장이 깨졌으면 결과 화면 맨 위의
+          <b>「못 만든 N장 다시 생성」</b> 이 그것만 다시 뽑습니다. 이미 나온 장은 다시 안 뽑습니다.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="viewer">
+      <summary>결과 보기 · 뷰어</summary>
+      <ul class="guide-ul">
+        <li>그림을 누르면 전체화면입니다. <b>위로 밀면 버리기, 아래로 밀면 저장</b>,
+          좌우로 밀면 다음 장.</li>
+        <li>손가락 두 개로 벌리거나 두 번 누르면 확대됩니다. 확대해 둔 동안에는 밀기가 꺼지고
+          끌기가 이동이 됩니다.</li>
+        <li>투명 배경으로 뽑았다면 <b>배경 합성</b>으로 배경 그림 위에 얹을 수 있습니다.
+          통신도 Anlas 도 안 듭니다.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="artists">
+      <summary>작가 태그 테스트</summary>
+      <ul class="guide-ul">
+        <li><b>찾기</b> — 이름을 넣으면 Danbooru 에 그때그때 물어봅니다. 그림이 몇 장인지,
+          NAI 가 알아볼 만한지, 어떤 걸 주로 그리는지가 나옵니다.</li>
+        <li><b>서랍</b> — 마음에 든 작가를 담아 둡니다. 눌러서 <b>섞기</b>에 넣고 세기를 정합니다.
+          한 조합에 20명까지입니다.</li>
+        <li><b>라벨</b> — 「라벨 붙이기」 를 누르고 라벨을 하나 고르면, 그 뒤로는
+          <b>작가 줄을 누르기만</b> 하면 붙었다 떨어집니다. 이름을 다시 적지 않아도 됩니다.</li>
+        <li><b>추천</b> — 그림 100장 이상인 작가 중에서 골라 줍니다. 이름을 누르면
+          「찾기」로 넘어가 그 작가가 펼쳐집니다.</li>
+        <li><b>테스트 → 조합</b> — 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 견줍니다.
+          딱 맞는 게 없으면 <b>별점을 매기고</b> 「점수 반영해서 다시 뽑기」.</li>
+        <li><b>테스트 → 깎기</b> — 작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모를 때.
+          5라운드면 범인을 찾습니다.</li>
+      </ul>
+      <p class="hint">테스트는 <b>자기 프롬프트와 자기 이미지 설정</b>을 따로 씁니다.
+        평소 슬롯·설정은 건드리지 않고, 다 뽑으면 그대로 돌아옵니다.</p>
+    </details>
+
+    <details class="panel" data-guide="remote">
+      <summary>원격 작업 · 저장 위치</summary>
+      <ul class="guide-ul">
+        <li><b>폰에 저장</b> — 아무것도 준비할 게 없습니다. 갤러리에 바로 들어갑니다.</li>
+        <li><b>PC · VPS 수신함</b> — <code>receiver.py</code> 를 띄우면 화면에
+          <code>peropix://…</code> 한 줄이 나옵니다. 그걸 설정 칸에 붙여넣으면 끝입니다.
+          주소·비밀번호를 따로 옮겨 적지 않습니다.</li>
+        <li><b>GitHub 지시함</b> — 저장소에 JSON 을 올려 두면 폰이 받아 뽑습니다.
+          앱은 저장소에 <b>쓰지 않습니다</b>.</li>
+      </ul>
+      <p class="hint">키는 언제나 폰에만 있습니다. 수신함으로 올라가는 것은 프롬프트와
+        설정뿐이고, NovelAI 를 부르는 것도 Anlas 를 쓰는 것도 폰입니다.</p>
+    </details>
+
+    <details class="panel" data-guide="stuck">
+      <summary>자주 막히는 곳</summary>
+      <ul class="guide-ul">
+        <li><b>뽑히다 말았다</b> — 안드로이드가 백그라운드를 재웁니다. 뽑는 동안에는
+          앱을 켜 두세요.</li>
+        <li><b>APK 가 안 깔린다</b> — 예전에 다른 서명으로 깔았던 것이 남아 있으면
+          지우고 다시 깔아야 합니다. 지금 판끼리는 덮어 설치되고 키·슬롯도 남습니다.</li>
+        <li><b>인핸스하면 투명 배경이 풀린다</b> — 이제 원본 알파를 다시 씌워 지킵니다.</li>
+        <li><b>＋ 를 눌러도 세기 숫자가 안 움직인다</b> — 합 고정이 켜져 있으면 한 명을
+          올릴 때 나머지가 내려갑니다. 큰 숫자가 정한 값, 옆의 작은 <code>→1.10</code> 이
+          실제로 나가는 값입니다.</li>
+        <li><b>작가 태그를 넣었는데 그림에 안 나온다</b> — 그림 수가 적은 작가는 NAI 가
+          배운 게 없습니다. 「찾기」에서 반영율을 먼저 보세요.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="tips">
+      <summary>꿀팁 모아 보기</summary>
+      <ul class="guide-ul" id="guide-tips"></ul>
+    </details>
+  </div>
+</section>
+
 <section id="screen-jobs" class="screen" hidden>
   <header class="topbar">
     <button id="jobs-back" class="btn icon" aria-label="뒤로">←</button>
@@ -1074,6 +1192,24 @@
          따로 둔다 — 한 작가가 「배경」이면서 「19금」일 수 있다. -->
     <div id="drw-genres" class="chips"></div>
     <div id="drw-cats" class="chips"></div>
+
+    <!-- ★라벨은 한 번 고르고 나서 작가를 넣고 뺀다. 작가마다 이름을 다시 적게 하면
+         스무 명한테 붙이려고 스무 번을 타이핑해야 한다. -->
+    <div class="toolrow">
+      <button id="drw-label-mode" class="btn small">라벨 붙이기</button>
+      <span id="drw-label-now" class="hint"></span>
+    </div>
+    <div id="drw-label-bar" class="label-bar" hidden>
+      <div id="drw-label-pick" class="chips"></div>
+      <div class="toolrow">
+        <button id="drw-label-new" class="btn small">＋ 새 라벨</button>
+        <button id="drw-label-all" class="btn small" disabled>보이는 작가 전부</button>
+        <button id="drw-label-rename" class="btn small" disabled>이름 바꾸기</button>
+        <button id="drw-label-del" class="btn small danger-text" disabled>라벨 지우기</button>
+      </div>
+      <p class="hint" id="drw-label-hint">라벨을 고른 다음 작가 줄을 누르면 붙었다 떨어집니다.</p>
+    </div>
+
     <div id="drw-list" class="drw-list"></div>
 
     <div class="row-head"><span class="label">섞기</span></div>
@@ -1184,7 +1320,44 @@
         <span class="label">네거티브</span>
         <textarea id="st-neg" rows="2"></textarea>
       </label>
+      <!-- ★모델·크기·스텝을 바꾸면 그림체 인상이 통째로 달라진다. 여기서 고를 수 있어야
+           한다. 다만 대량생성 값을 직접 고치면 시험 좀 해 봤다가 평소 설정이 바뀌어
+           있게 되므로, 시험은 자기 값을 따로 들고 돈다. -->
+      <div class="row-head"><span class="label">이미지 설정</span></div>
+      <p class="hint">여기서 정한 값은 <b>테스트할 때만</b> 쓰입니다. 대량생성 설정은
+        그대로 있습니다. 비워 두면 대량생성에서 쓰던 값을 씁니다.</p>
+      <div class="grid2">
+        <label class="field">
+          <span class="label">모델</span>
+          <select id="st-model"></select>
+        </label>
+        <label class="field">
+          <span class="label">샘플러</span>
+          <select id="st-sampler"></select>
+        </label>
+        <label class="field">
+          <span class="label">가로</span>
+          <input id="st-width" type="number" inputmode="numeric" step="64" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">세로</span>
+          <input id="st-height" type="number" inputmode="numeric" step="64" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">스텝</span>
+          <input id="st-steps" type="number" inputmode="numeric" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">가이던스</span>
+          <input id="st-cfg" type="number" inputmode="decimal" step="0.1" placeholder="대량생성 값">
+        </label>
+      </div>
+      <label class="check">
+        <input id="st-variety" type="checkbox"> Variety+
+      </label>
+      <p class="hint" id="st-opt-echo"></p>
       <div class="toolrow">
+        <button id="st-opt-same" class="btn small">대량생성 설정 그대로</button>
         <button id="st-reset" class="btn small">기본으로</button>
       </div>
       <p class="hint" id="st-preview"></p>

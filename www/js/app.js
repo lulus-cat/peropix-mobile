@@ -120,7 +120,7 @@
     if (currentScreen === 'home' || currentScreen === 'main') hubScreen = currentScreen;
     currentScreen = which;
     ['setup', 'perms', 'home', 'main', 'settings', 'import', 'folders', 'results',
-     'wildcards', 'enhance', 'compose', 'jobs', 'artists'].forEach(function (n) {
+     'wildcards', 'enhance', 'compose', 'jobs', 'artists', 'guide'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     // ★들어오는 화면만 짧게 떠오르게. 클래스를 뗐다 붙이지 않으면 같은 화면을
@@ -130,6 +130,41 @@
     void el.offsetWidth;
     el.classList.add('sc-in');
     window.scrollTo(0, 0);
+  }
+
+  /**
+   * 가이드.
+   * ★인트로 팁은 한 번에 하나만 보여 준다. 「그거 뭐였더라」 를 찾아볼 곳이 따로 있어야 한다.
+   * ★팁 목록은 인트로와 **같은 배열**을 쓴다. 두 벌로 두면 한쪽만 고쳐진다.
+   */
+  function openGuide() {
+    show('guide');
+
+    const tips = $('guide-tips');
+    if (!tips.children.length) {
+      TIPS.forEach(function (t) {
+        const li = document.createElement('li');
+        li.textContent = t;
+        tips.appendChild(li);
+      });
+    }
+
+    const nav = $('guide-nav');
+    if (!nav.children.length) {
+      Array.from(document.querySelectorAll('#screen-guide details')).forEach(function (d) {
+        const c = document.createElement('button');
+        c.className = 'chip';
+        c.textContent = d.querySelector('summary').textContent;
+        // 눌러서 그 항목만 펴고 그리로 옮겨 준다 — 긴 글을 스크롤로 찾게 하지 않는다.
+        c.addEventListener('click', function () {
+          Array.from(document.querySelectorAll('#screen-guide details')).forEach(function (x) {
+            x.open = (x === d);
+          });
+          d.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        });
+        nav.appendChild(c);
+      });
+    }
   }
 
   /** 온 곳으로 돌아간다. */
@@ -1868,6 +1903,10 @@
   let artTab = 'find';
   let artTotal = 0;            // Danbooru 전체 장수 (특징 태그의 분모)
   let drwF = { q: '', cat: '', fav: false, genre: '' };
+  // 라벨 붙이기 모드. ★라벨은 **한 번 고르고 나서** 작가를 넣고 뺀다. 작가마다 이름을
+  //   다시 적게 하면 스무 명한테 붙이려고 스무 번을 타이핑하게 된다.
+  let drwLabelMode = false;
+  let drwLabel = '';
   let acTimer = null;
   let lastBaked = '';          // 작가 태그 칸에 넣어 둔 조합 (다시 넣을 때 갈아 끼우려고)
   let wRange = null;           // 세기 범위 (사람이 정한다. null 이면 기본값)
@@ -2171,13 +2210,11 @@
       renderDrawer();
     });
     $('drw-fav').classList.toggle('on', drwF.fav);
+    renderLabelBar();
 
     const list = $('drw-list');
     list.innerHTML = '';
-    let rows = Artists.filter(artDrawer, drwF);
-    if (drwF.genre) {
-      rows = rows.filter(function (e) { return (e.genres || []).indexOf(drwF.genre) !== -1; });
-    }
+    const rows = visibleDrawerRows();
     if (!rows.length) {
       list.innerHTML = '<p class="hint">'
         + (artDrawer.length ? '이 조건에 맞는 작가가 없습니다.'
@@ -2206,22 +2243,33 @@
         c.textContent = e.cats.join(' · ');
         nm.appendChild(c);
       }
-      nm.addEventListener('click', function () { addToMix(e.tag); });
+      // 라벨 모드에서는 줄을 누르는 것이 곧 라벨 붙이기/떼기다. 평소에는 섞기로 담는다.
+      nm.addEventListener('click', function () {
+        if (labeling()) toggleLabel(e.tag);
+        else addToMix(e.tag);
+      });
 
       const n = document.createElement('span');
       n.className = 'n';
       n.textContent = Danbooru.reach(e.count, { deprecated: false }).label;
 
+      // 라벨 모드일 때는 지금 고른 라벨이 붙어 있는지를 그대로 보여 주는 단추가 된다.
       const cat = document.createElement('button');
       cat.className = 'btn small';
-      cat.textContent = '라벨';
-      cat.addEventListener('click', async function () {
-        const name = window.prompt('라벨 이름을 적으세요. 이미 붙어 있는 이름을 다시 적으면 뗍니다.', '');
-        if (name === null) return;
-        artDrawer = Artists.toggleCat(artDrawer, e.tag, name.trim());
-        await Store.setArtists(artDrawer);
-        renderDrawer();
-      });
+      if (labeling()) {
+        const on = e.cats.indexOf(drwLabel) !== -1;
+        cat.textContent = on ? '✓' : '＋';
+        cat.classList.toggle('primary', on);
+        cat.title = drwLabel;
+        cat.addEventListener('click', function () { toggleLabel(e.tag); });
+      } else {
+        cat.textContent = '라벨';
+        cat.addEventListener('click', function () {
+          drwLabelMode = true;
+          renderDrawer();
+          toast('라벨을 고른 다음 작가 줄을 누르세요.', 2600);
+        });
+      }
 
       const del = document.createElement('button');
       del.className = 'btn small';
@@ -2239,6 +2287,121 @@
       row.appendChild(del);
       list.appendChild(row);
     });
+  }
+
+  /** 지금 라벨을 붙이고 있는 중인가 (모드가 켜져 있고 라벨도 골라 뒀는가). */
+  function labeling() { return drwLabelMode && !!drwLabel; }
+
+  /** 한 사람에게 지금 고른 라벨을 붙이거나 뗀다. */
+  async function toggleLabel(tag) {
+    if (!labeling()) return;
+    artDrawer = Artists.toggleCat(artDrawer, tag, drwLabel);
+    await Store.setArtists(artDrawer);
+    renderDrawer();
+  }
+
+  /** 라벨 고르는 줄. */
+  function renderLabelBar() {
+    $('drw-label-mode').classList.toggle('on', drwLabelMode);
+    $('drw-label-mode').textContent = drwLabelMode ? '라벨 붙이기 끝내기' : '라벨 붙이기';
+    $('drw-label-bar').hidden = !drwLabelMode;
+    $('drw-label-now').textContent = labeling()
+      ? ('「' + drwLabel + '」 붙이는 중')
+      : (drwLabelMode ? '라벨을 고르세요' : '');
+
+    // ★막 만든 라벨과, 마지막 한 명에게서 떨어진 라벨은 아직/이제 아무한테도 안 붙어 있어
+    //   목록에 안 나온다. 그래도 고른 채로 남겨 둔다 — 만들자마자 사라지면 붙일 수가 없고,
+    //   실수로 뗀 것을 바로 다시 붙이지도 못한다.
+    const cats = Artists.categories(artDrawer);
+    if (drwLabel && !cats.some(function (c) { return c.name === drwLabel; })) {
+      cats.push({ name: drwLabel, count: 0 });
+    }
+
+    const box = $('drw-label-pick');
+    box.innerHTML = '';
+    cats.forEach(function (c) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (drwLabel === c.name ? ' on' : '');
+      b.textContent = c.name + ' ' + c.count;
+      b.addEventListener('click', function () {
+        drwLabel = (drwLabel === c.name) ? '' : c.name;
+        renderDrawer();
+      });
+      box.appendChild(b);
+    });
+    if (!cats.length) box.innerHTML = '<p class="hint">아직 라벨이 없습니다. 「＋ 새 라벨」 로 만드세요.</p>';
+
+    ['drw-label-all', 'drw-label-rename', 'drw-label-del'].forEach(function (id) {
+      $(id).disabled = !labeling();
+    });
+    $('drw-label-hint').textContent = labeling()
+      ? '작가 줄을 누르면 「' + drwLabel + '」 이 붙었다 떨어집니다.'
+      : '라벨을 고른 다음 작가 줄을 누르면 붙었다 떨어집니다.';
+  }
+
+  function bindLabelBar() {
+    $('drw-label-mode').addEventListener('click', function () {
+      drwLabelMode = !drwLabelMode;
+      renderDrawer();
+    });
+
+    // ★새 라벨은 이름만 받는다. 만들자마자 그 라벨을 고른 상태가 되므로, 바로 작가 줄을
+    //   눌러 담으면 된다. (아무한테도 안 붙은 라벨은 저장할 데가 없어 목록에 안 뜬다.)
+    $('drw-label-new').addEventListener('click', function () {
+      const name = String(window.prompt('새 라벨 이름', '') || '').trim();
+      if (!name) return;
+      drwLabelMode = true;
+      drwLabel = name;
+      renderDrawer();
+      toast('「' + name + '」 을 붙일 작가를 누르세요.', 2800);
+    });
+
+    // 지금 걸러 보고 있는 사람 전부에게 한 번에. 검색·즐겨찾기·장르와 같이 쓰면
+    // 「19금 작가 전부에 '어두움' 붙이기」 가 한 번에 끝난다.
+    $('drw-label-all').addEventListener('click', async function () {
+      if (!labeling()) return;
+      const rows = visibleDrawerRows();
+      if (!rows.length) return;
+      const tags = rows.map(function (e) { return e.tag; });
+      const off = rows.filter(function (e) { return e.cats.indexOf(drwLabel) === -1; });
+      // 다 붙어 있으면 「전부 떼기」 로 뒤집는다 — 같은 자리에서 되돌릴 수 있어야 한다.
+      const on = off.length > 0;
+      if (!window.confirm(rows.length + '명에게 「' + drwLabel + '」 을 '
+        + (on ? '붙일까요?' : '전부 뗄까요?'))) return;
+      artDrawer = Artists.setCat(artDrawer, tags, drwLabel, on);
+      await Store.setArtists(artDrawer);
+      renderDrawer();
+    });
+
+    $('drw-label-rename').addEventListener('click', async function () {
+      if (!labeling()) return;
+      const to = String(window.prompt('새 이름', drwLabel) || '').trim();
+      if (!to || to === drwLabel) return;
+      artDrawer = Artists.renameCat(artDrawer, drwLabel, to);
+      await Store.setArtists(artDrawer);
+      if (drwF.cat === drwLabel) drwF.cat = to;
+      drwLabel = to;
+      renderDrawer();
+    });
+
+    $('drw-label-del').addEventListener('click', async function () {
+      if (!labeling()) return;
+      if (!window.confirm('「' + drwLabel + '」 라벨을 없앨까요?\n작가는 서랍에 그대로 남습니다.')) return;
+      artDrawer = Artists.removeCat(artDrawer, drwLabel);
+      await Store.setArtists(artDrawer);
+      if (drwF.cat === drwLabel) drwF.cat = '';
+      drwLabel = '';
+      renderDrawer();
+    });
+  }
+
+  /** 지금 서랍에 실제로 보이고 있는 줄 (걸러 낸 뒤). */
+  function visibleDrawerRows() {
+    let rows = Artists.filter(artDrawer, drwF);
+    if (drwF.genre) {
+      rows = rows.filter(function (e) { return (e.genres || []).indexOf(drwF.genre) !== -1; });
+    }
+    return rows;
   }
 
   async function addToMix(tag) {
@@ -2721,11 +2884,58 @@
     $('st-base').value = stCfg.base;
     $('st-neg').value = stCfg.negative;
 
+    renderStyleOpts();
+
     const b = StyleTest.build(stCfg);
     $('st-preview').textContent = '최종: ' + b.base
       + (b.character ? (' / 캐릭터: ' + b.character) : ' / 캐릭터 없음 (배경만 보는 구도)');
     // 배경만 보는 구도에서는 캐릭터 칸을 안 쓴다. 흐려 두어 알려 준다.
     $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
+  }
+
+  /** 시험용 이미지 설정. 비어 있는 칸은 대량생성 값을 자리표시로 보여 준다. */
+  function renderStyleOpts() {
+    const o = stCfg.opts || {};
+    // 고르는 목록은 대량생성 쪽과 같은 것을 쓴다. 두 벌로 두면 모델이 늘 때 한쪽만 는다.
+    const models = Array.from($('opt-model').options).map(function (x) {
+      return { value: x.value, text: x.text };
+    });
+    fillSelect($('st-model'), [{ value: '', text: '대량생성 값 그대로' }].concat(models),
+      o.nai_model || '');
+    const samplers = Array.from($('opt-sampler').options).map(function (x) {
+      return { value: x.value, text: x.text };
+    });
+    fillSelect($('st-sampler'), [{ value: '', text: '대량생성 값 그대로' }].concat(samplers),
+      o.sampler || '');
+
+    [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'], ['st-cfg', 'cfg']]
+      .forEach(function (p) {
+        $(p[0]).value = (o[p[1]] === undefined) ? '' : String(o[p[1]]);
+        $(p[0]).placeholder = '대량생성 값 (' + options[p[1]] + ')';
+      });
+    $('st-variety').checked = (o.variety_plus === undefined)
+      ? !!options.variety_plus : !!o.variety_plus;
+
+    // 실제로 나갈 값을 한 줄로 적어 준다 — 어느 쪽 값이 쓰이는지 헷갈리는 자리다.
+    const use = StyleTest.withOpts(options, o);
+    $('st-opt-echo').textContent = '테스트에 쓰일 값: ' + (MODEL_LABELS[use.nai_model] || use.nai_model)
+      + ' · ' + use.width + '×' + use.height + ' · ' + use.steps + '스텝 · 가이던스 ' + use.cfg
+      + ' · ' + use.sampler + (use.variety_plus ? ' · Variety+' : '');
+  }
+
+  async function readStyleOpts() {
+    const o = {};
+    if ($('st-model').value) o.nai_model = $('st-model').value;
+    if ($('st-sampler').value) o.sampler = $('st-sampler').value;
+    [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'], ['st-cfg', 'cfg']]
+      .forEach(function (p) {
+        if (String($(p[0]).value).trim() !== '') o[p[1]] = Number($(p[0]).value);
+      });
+    // ★Variety+ 는 켜고 끄는 것이라 「안 정했다」 가 없다. 대량생성 값과 같으면 안 담는다.
+    if ($('st-variety').checked !== !!options.variety_plus) o.variety_plus = $('st-variety').checked;
+    stCfg = StyleTest.settings(Object.assign({}, stCfg, { opts: o }));
+    await Store.setStyleTest(stCfg);
+    renderStyleUI();
   }
 
   async function readStyleUI() {
@@ -2756,9 +2966,16 @@
         persona: persona,
         target: slotTarget,
         one: options.one_char_mode,
-        save: options.auto_save
+        save: options.auto_save,
+        // ★시험용 이미지 설정으로 바꾼 것만 담아 둔다. 안 정한 것까지 담으면 되돌릴 때
+        //   그 사이에 대량생성 쪽에서 바꾼 값을 옛것으로 덮어쓴다.
+        opts: {}
       };
+      Object.keys(StyleTest.opts(stCfg.opts)).forEach(function (k) {
+        styleSaved.opts[k] = options[k];
+      });
     }
+    Object.assign(options, StyleTest.opts(stCfg.opts));
     const b = StyleTest.build(stCfg);
     characters = b.character
       ? [{ prompt: b.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false, enabled: true }]
@@ -2776,6 +2993,7 @@
 
   function styleRestore() {
     if (!styleSaved) return;
+    Object.keys(styleSaved.opts || {}).forEach(function (k) { options[k] = styleSaved.opts[k]; });
     characters = styleSaved.chars;
     options.negative_prompt = styleSaved.neg;
     options.seed = styleSaved.seed;
@@ -3115,90 +3333,6 @@
     await cmbRun(next);
   }
 
-  // ── 그림체 시험 판 ───────────────────────────────────────────────────────
-  // ★그림체를 견주려면 작가 말고는 아무것도 달라지면 안 된다. 평소 슬롯으로 돌리면
-  //   베이스·네거티브·인물이 전부 딸려 들어와 무엇 때문에 달라졌는지 알 수 없다.
-  //   그래서 시험은 **자기 프롬프트 한 벌**을 쓰고, 끝나면 평소 것을 그대로 돌려놓는다.
-
-  function renderStyleUI() {
-    const sel = $('st-preset');
-    if (!sel.options.length) {
-      StyleTest.PRESETS.forEach(function (p) {
-        const o = document.createElement('option');
-        o.value = p.key;
-        o.textContent = p.label;
-        sel.appendChild(o);
-      });
-    }
-    sel.value = stCfg.preset;
-    $('st-comp-row').hidden = (stCfg.preset !== 'custom');
-    $('st-comp').value = stCfg.comp;
-    $('st-char').value = stCfg.char;
-    $('st-base').value = stCfg.base;
-    $('st-neg').value = stCfg.negative;
-
-    const b = StyleTest.build(stCfg);
-    $('st-preview').textContent = '최종: ' + b.base
-      + (b.character ? (' / 캐릭터: ' + b.character) : ' / 캐릭터 없음 (배경만 보는 구도)');
-    // 배경만 보는 구도에서는 캐릭터 칸을 안 쓴다. 흐려 두어 알려 준다.
-    $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
-  }
-
-  async function readStyleUI() {
-    stCfg = StyleTest.settings({
-      preset: $('st-preset').value,
-      comp: $('st-comp').value,
-      char: $('st-char').value,
-      base: $('st-base').value,
-      negative: $('st-neg').value
-    });
-    await Store.setStyleTest(stCfg);
-    renderStyleUI();
-  }
-
-  // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
-  function cmbAdd(tags, pick) {
-    (tags || []).forEach(function (t) {
-      if (cmbPool.indexOf(t) === -1) cmbPool.push(t);
-      if (pick && cmbSel.indexOf(t) === -1 && cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
-    });
-    renderCombo();
-  }
-
-  function renderCombo() {
-    const box = $('cmb-pick');
-    box.innerHTML = '';
-    if (!cmbPool.length) box.innerHTML = '<p class="hint">위 단추로 작가를 불러오세요.</p>';
-    cmbPool.forEach(function (t) {
-      const on = cmbSel.indexOf(t) !== -1;
-      const b = document.createElement('button');
-      b.className = on ? 'on' : '';
-      b.textContent = t.replace(/_/g, ' ');
-      b.disabled = !on && cmbSel.length >= Artists.MAX_TAGS;
-      b.addEventListener('click', function () {
-        if (on) cmbSel = cmbSel.filter(function (x) { return x !== t; });
-        else if (cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
-        renderCombo();
-      });
-      box.appendChild(b);
-    });
-    $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
-
-    renderWeightChips('cmb-presets', 'cmb-steps');
-    const cr = wr();
-    $('cw-min').value = String(cr.min);
-    $('cw-max').value = String(cr.max);
-    $('cw-step').value = String(cr.step);
-    const n = parseInt($('cmb-n').value, 10) || 6;
-    $('cmb-n-val').textContent = n + '개';
-    const r = wr();
-    $('cmb-range').textContent = r.min + '부터 ' + r.max + '까지 ' + r.step
-      + '씩 끊어서 아무 값이나 뽑습니다. 서랍에서 바꿔도 같이 바뀝니다.';
-    $('cmb-est').textContent = cmbSel.length
-      ? (n + '장' + (bisCost(n) ? (' · 약 ' + bisCost(n) + ' Anlas') : ''))
-      : '작가를 한 명 이상 골라 주세요.';
-    $('cmb-run').disabled = !cmbSel.length;
-  }
 
   // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
   // ★**앱을 켤 때** 한 번 띄운다. 뽑고 난 뒤가 아니다 — 다 뽑고 나면 이미 그 판은 끝났고,
@@ -5897,6 +6031,8 @@
     $('home-folders').addEventListener('click', function () { $('go-folders').click(); });
     $('home-results').addEventListener('click', function () { renderResults(); show('results'); });
     $('home-jobs').addEventListener('click', function () { $('go-jobs').click(); });
+    $('home-guide').addEventListener('click', openGuide);
+    $('guide-back').addEventListener('click', goBack);
     $('artists-back').addEventListener('click', goHome);
     ['find', 'drawer', 'reco', 'style'].forEach(function (n) {
       $('tab-' + n).addEventListener('click', function () { setArtTab(n); });
@@ -5938,6 +6074,7 @@
       drwF.fav = !drwF.fav;
       renderDrawer();
     });
+    bindLabelBar();
     $('mix-norm').addEventListener('change', renderMix);
     $('mix-apply').addEventListener('click', applyMix);
     $('mix-copy').addEventListener('click', async function () {
@@ -5987,6 +6124,24 @@
     ['st-preset', 'st-comp', 'st-char', 'st-base', 'st-neg'].forEach(function (id) {
       $(id).addEventListener('change', readStyleUI);
     });
+    // ★대량생성 쪽 슬롯 칸과 **같은 전체화면 편집기**를 쓴다. 두 줄짜리 칸에서 긴
+    //   프롬프트를 고치는 것은 폰에서 사실상 불가능하다 (복사·되돌리기·글자수도 없다).
+    //   편집기는 고칠 때 input 을 흘리므로 여기서도 input 을 받아야 저장된다.
+    [['st-comp', '테스트 구도 태그'], ['st-char', '테스트용 캐릭터'],
+     ['st-base', '테스트 품질 프롬프트'], ['st-neg', '테스트 네거티브']]
+      .forEach(function (p) {
+        makeExpandable($(p[0]), p[1]);
+        $(p[0]).addEventListener('input', readStyleUI);
+      });
+    ['st-model', 'st-sampler', 'st-width', 'st-height', 'st-steps', 'st-cfg', 'st-variety']
+      .forEach(function (id) { $(id).addEventListener('change', readStyleOpts); });
+    $('st-opt-same').addEventListener('click', async function () {
+      stCfg = StyleTest.settings(Object.assign({}, stCfg, { opts: {} }));
+      await Store.setStyleTest(stCfg);
+      renderStyleUI();
+      toast('대량생성 설정을 그대로 씁니다.', 2200);
+    });
+
     $('st-reset').addEventListener('click', async function () {
       stCfg = StyleTest.settings(null);
       await Store.setStyleTest(stCfg);

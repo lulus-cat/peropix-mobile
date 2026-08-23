@@ -258,6 +258,57 @@ check('평가가 없으면 빈 결과',
   && A.refine([{ mix: [{ tag: 'a', weight: 1, on: true }], score: 0 }], 5).length === 0);
 
 
+// ── 라벨 한꺼번에 다루기 ────────────────────────────────────────────────
+// ★라벨을 작가마다 손으로 적게 하면 스무 명한테 붙이려고 스무 번을 타이핑하게 된다.
+//   그래서 「한 번 고르고 여럿에게」 가 가능해야 한다.
+let ls = A.add(A.add(A.add([], { name: 'a' }), { name: 'b' }), { name: 'c' });
+ls = A.toggleCat(ls, 'b', '수채');
+
+const catsOf = function (l, t) {
+  const e = l.find(function (x) { return x.tag === t; });
+  return e ? e.cats.slice() : null;
+};
+
+let ls2 = A.setCat(ls, ['a', 'b', 'c'], '수채', true);
+check('여럿에게 한 번에 붙는다',
+  ['a', 'b', 'c'].every(function (t) { return catsOf(ls2, t).indexOf('수채') !== -1; }));
+check('★이미 붙어 있던 사람이 거꾸로 떨어지지 않는다 (토글이 아니라 지정이다)',
+  catsOf(ls2, 'b').filter(function (c) { return c === '수채'; }).length === 1,
+  JSON.stringify(catsOf(ls2, 'b')));
+
+let ls3 = A.setCat(ls2, ['a', 'b', 'c'], '수채', false);
+check('여럿에게서 한 번에 뗀다',
+  ['a', 'b', 'c'].every(function (t) { return catsOf(ls3, t).indexOf('수채') === -1; }));
+check('고른 사람만 건드린다',
+  catsOf(A.setCat(ls2, ['a'], '수채', false), 'b').indexOf('수채') !== -1);
+check('빈 이름은 아무것도 안 한다',
+  JSON.stringify(A.setCat(ls, ['a'], '  ', true)) === JSON.stringify(ls));
+
+// 이름 바꾸기
+let lr = A.setCat(ls, ['a', 'b'], '두꺼운 선', true);
+lr = A.setCat(lr, ['b'], '굵은 선', true);
+const lr2 = A.renameCat(lr, '두꺼운 선', '굵은 선');
+check('이름을 바꾸면 붙어 있던 사람이 따라온다',
+  catsOf(lr2, 'a').indexOf('굵은 선') !== -1 && catsOf(lr2, 'a').indexOf('두꺼운 선') === -1);
+check('★새 이름을 이미 갖고 있던 사람에게 두 번 들어가지 않는다 (같은 라벨이 둘이면 세는 것이 어긋난다)',
+  catsOf(lr2, 'b').filter(function (c) { return c === '굵은 선'; }).length === 1,
+  JSON.stringify(catsOf(lr2, 'b')));
+check('안 붙어 있던 사람은 그대로', catsOf(lr2, 'c').length === 0);
+check('같은 이름으로 바꾸라고 하면 그대로',
+  JSON.stringify(A.renameCat(lr, '두꺼운 선', '두꺼운 선')) === JSON.stringify(lr));
+check('빈 이름으로는 안 바꾼다',
+  JSON.stringify(A.renameCat(lr, '두꺼운 선', ' ')) === JSON.stringify(lr));
+
+// 라벨 지우기
+const ld = A.removeCat(lr, '두꺼운 선');
+check('라벨을 지우면 전부 떨어진다',
+  A.categories(ld).every(function (c) { return c.name !== '두꺼운 선'; }),
+  JSON.stringify(A.categories(ld)));
+check('★라벨을 지워도 작가는 서랍에 남는다', ld.length === 3);
+check('다른 라벨은 안 건드린다', catsOf(ld, 'b').indexOf('굵은 선') !== -1);
+check('없는 라벨을 지우라고 해도 안 터진다',
+  JSON.stringify(A.removeCat(lr, '없는것')) === JSON.stringify(lr));
+
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

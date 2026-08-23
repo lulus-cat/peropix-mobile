@@ -138,6 +138,20 @@ def unique_path(dest: Path) -> Path:
 # ★이미지 폴더 안의 숨은 폴더(.jobs)에 둔다. 따로 경로를 받으면 설정이 하나 더 늘고,
 #   두 곳을 옮길 때 짝이 어긋난다. 대신 **목록·폴더 화면에서는 숨긴다** (아래 _visible).
 JOBS_DIR = ".jobs"
+# 만들어 둔 비밀번호를 여기 적어 둔다. 점으로 시작하므로 파일 목록에는 안 나온다.
+TOKEN_FILE = ".peropix-token"
+
+
+def token_ok(t: str) -> bool:
+    """비밀번호로 쓸 수 있는가.
+
+    ★한글은 **못 쓴다.** 비밀번호는 HTTP 헤더(Authorization)로 실려 나가는데, 헤더에는
+      latin-1 밖에 담기지 않아 앱의 fetch 가 보내기도 전에 거절한다. 여기서 막지 않으면
+      「받는 쪽은 잘 떴는데 폰에서만 안 되는」 상태가 되어 원인을 찾을 수가 없다.
+    ★그래서 영문·숫자·기호로 16자 이상. 어차피 손으로 옮겨 적지 않는다 — 화면에 나오는
+      peropix:// 한 줄을 그대로 붙여넣으면 끝이다.
+    """
+    return len(t) >= 16 and all(32 <= ord(c) < 127 for c in t)
 JOB_MAX_BYTES = 1024 * 1024          # 지시문은 작다. 이보다 크면 뭔가 잘못된 것이다.
 JOB_STATUSES = ("pending", "running", "done", "failed", "cancelled")
 
@@ -572,7 +586,9 @@ def main():
     ap.add_argument("--host", default="0.0.0.0", help="바인드 주소")
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--token", default=os.environ.get("PEROPIX_TOKEN", ""),
-                    help="접속 토큰 (환경변수 PEROPIX_TOKEN 도 가능)")
+                    help="접속 비밀번호 (영문·숫자·기호 16자 이상). "
+                         "안 주면 한 번 만들어 두고 다음부터 그대로 씁니다. "
+                         "환경변수 PEROPIX_TOKEN 도 됩니다")
     ap.add_argument("--cert", help="TLS 인증서 (.pem)")
     ap.add_argument("--key", help="TLS 개인키 (.pem)")
     ap.add_argument("--new-token", action="store_true", help="토큰을 하나 만들어 출력하고 끝낸다")
@@ -582,14 +598,37 @@ def main():
         print(secrets.token_urlsafe(32))
         return
 
-    if not args.token or len(args.token) < 16:
-        print("토큰이 없거나 너무 짧습니다 (16자 이상).", file=sys.stderr)
-        print("먼저 만들어 두세요:  python receiver.py --new-token", file=sys.stderr)
-        sys.exit(2)
-
     Config.root = Path(args.root)
     Config.root.mkdir(parents=True, exist_ok=True)
-    Config.token = args.token
+
+    # ★비밀번호를 만들고 옮겨 적는 절차 자체를 없앤다. 안 주면 한 번 만들어 두고
+    #   다음부터 그대로 쓴다 — VPS 에 다시 들어가 「그 토큰 뭐였지」 를 안 해도 된다.
+    #   (점으로 시작하는 파일이라 /list·/browse 에는 안 나온다. 권한은 0600.)
+    token = args.token
+    if not token:
+        keep = Config.root / TOKEN_FILE
+        if keep.exists():
+            token = keep.read_text(encoding="utf-8").strip()
+        if not token or not token_ok(token):
+            token = secrets.token_urlsafe(32)
+            keep.write_text(token, encoding="utf-8")
+            try:
+                os.chmod(keep, 0o600)
+            except OSError:
+                pass
+            print(f"비밀번호를 새로 만들어 {keep} 에 넣어 두었습니다.")
+
+    if not token_ok(token):
+        if any(ord(c) > 126 or ord(c) < 32 for c in token):
+            print("비밀번호에 한글·특수문자는 쓸 수 없습니다 (영문·숫자·기호만).",
+                  file=sys.stderr)
+            print("  HTTP 헤더에 담기지 않아 폰에서 보내기도 전에 막힙니다.", file=sys.stderr)
+        else:
+            print("비밀번호가 너무 짧습니다 (16자 이상).", file=sys.stderr)
+        print("  그냥 --token 을 빼고 실행하면 알아서 만들어 기억해 둡니다.", file=sys.stderr)
+        sys.exit(2)
+
+    Config.token = token
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
 
@@ -603,7 +642,7 @@ def main():
     # ★주소·토큰을 따로 옮겨 적게 하면 반드시 오타가 난다. 한 줄로 만들어 준다 —
     #   앱의 「한 줄로 붙여넣기」 칸에 그대로 넣으면 세 칸이 알아서 채워진다.
     shown_host = args.host if args.host not in ("0.0.0.0", "::") else "이서버주소"
-    pair = f"peropix://{shown_host}:{args.port}#{args.token}"
+    pair = f"peropix://{shown_host}:{args.port}#{token}"
 
     print(f"PeroPix 수신함 {VERSION}")
     print(f"  저장 폴더 : {Config.root.resolve()}")

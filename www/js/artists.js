@@ -168,6 +168,54 @@ const Artists = (function () {
     return out;
   }
 
+  /**
+   * 라벨을 붙이거나 뗀다 — 어느 쪽인지 **직접 정해서**.
+   * ★토글과 따로 둔 이유. 「보이는 작가 전부에 붙이기」 같은 것을 토글로 하면 이미 붙어
+   *   있던 사람은 거꾸로 떨어져 나간다. 여럿을 한꺼번에 다룰 때는 토글이 아니라 지정이다.
+   */
+  function setCat(list, tags, cat, on) {
+    const name = String(cat || '').trim();
+    if (!name) return (list || []).slice();
+    const want = [].concat(tags || []);
+    return (list || []).map(function (e) {
+      if (want.indexOf(e.tag) === -1) return e;
+      const has = (e.cats || []).indexOf(name) !== -1;
+      if (has === !!on) return e;
+      const cats = on
+        ? (e.cats || []).concat([name])
+        : (e.cats || []).filter(function (c) { return c !== name; });
+      return Object.assign({}, e, { cats: cats });
+    });
+  }
+
+  /**
+   * 라벨 이름을 바꾼다.
+   * ★새 이름이 이미 붙어 있는 사람에게 두 번 들어가지 않게 한다 — 같은 라벨이 두 개
+   *   보이면 세는 것도 거르는 것도 어긋난다.
+   */
+  function renameCat(list, from, to) {
+    const a = String(from || '').trim();
+    const b = String(to || '').trim();
+    if (!a || !b || a === b) return (list || []).slice();
+    return (list || []).map(function (e) {
+      if ((e.cats || []).indexOf(a) === -1) return e;
+      const cats = e.cats.filter(function (c) { return c !== a && c !== b; }).concat([b]);
+      return Object.assign({}, e, { cats: cats });
+    });
+  }
+
+  /** 라벨을 통째로 없앤다 (작가는 그대로 남는다). */
+  function removeCat(list, cat) {
+    const name = String(cat || '').trim();
+    if (!name) return (list || []).slice();
+    return (list || []).map(function (e) {
+      if ((e.cats || []).indexOf(name) === -1) return e;
+      return Object.assign({}, e, {
+        cats: e.cats.filter(function (c) { return c !== name; })
+      });
+    });
+  }
+
   /** 쓰이고 있는 갈래를 많은 순으로. 화면의 갈래 단추를 이걸로 그린다. */
   function categories(list) {
     const n = Object.create(null);
@@ -416,6 +464,9 @@ const Artists = (function () {
     remove: remove,
     toggleFav: toggleFav,
     toggleCat: toggleCat,
+    setCat: setCat,
+    renameCat: renameCat,
+    removeCat: removeCat,
     categories: categories,
     filter: filter,
     mix: mix,

@@ -7,6 +7,7 @@
 
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -295,6 +296,31 @@ status, body = op("/jobs/delete", {"id": job_id})
 check(f"작업을 지울 수 있다 (받은 {status})", status == 200)
 status, body = get("/jobs")
 check("지우면 목록에서 빠진다", body.get("count") == 0)
+
+# ── 비밀번호 ────────────────────────────────────────────────────────────
+# ★한글 비밀번호를 받아 주면 「받는 쪽은 잘 떴는데 폰에서만 안 되는」 상태가 된다.
+#   HTTP 헤더(Authorization)에는 latin-1 밖에 안 실려서 앱이 보내기도 전에 막힌다.
+check("영문·숫자 16자는 받는다", receiver.token_ok("abcdefghijklmnop"))
+check("기호도 받는다", receiver.token_ok("my-vps-password-1"))
+check("★한글 비밀번호는 막는다 (HTTP 헤더에 안 실려 폰에서만 안 되게 된다)",
+      not receiver.token_ok("우리집고양이이름은나비입니다"))
+check("★탭·줄바꿈도 막는다", not receiver.token_ok("tab\there-is-bad!!"))
+check("15자는 짧다", not receiver.token_ok("abcdefghijklmno"))
+check("빈 값은 안 된다", not receiver.token_ok(""))
+
+# 「토큰 만들기」 단계를 없앤 부분 — 만들어 둔 비밀번호가 남에게 보이면 안 된다.
+auto = ROOT / "자동비번시험"
+auto.mkdir(parents=True, exist_ok=True)
+made = auto / receiver.TOKEN_FILE
+tok = "abcdefghijklmnopqrstuvwxyz012345"
+made.write_text(tok, encoding="utf-8")
+os.chmod(made, 0o600)
+check("★만들어 둔 비밀번호는 파일 목록에 안 나온다 (점으로 시작한다)",
+      not receiver._visible(receiver.TOKEN_FILE))
+check("만들어 두는 비밀번호는 규칙을 통과한다", receiver.token_ok(tok))
+check("★남이 못 읽게 둔다 (0600)", oct(made.stat().st_mode)[-3:] == "600")
+check("다시 켜면 그대로 읽어 쓴다", made.read_text(encoding="utf-8").strip() == tok)
+shutil.rmtree(auto, ignore_errors=True)
 
 httpd.shutdown()
 shutil.rmtree(ROOT, ignore_errors=True)
