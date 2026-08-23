@@ -159,18 +159,37 @@ const Embed = (function () {
    */
   function tally(bag, ev) {
     const e = ev || {};
-    if (e.file && (e.total || e.loaded)) {
-      bag[e.file] = { loaded: Number(e.loaded) || 0, total: Number(e.total) || 0 };
+    // ★크기를 아직 모르는 파일(total=0)은 **아예 안 센다.** 받은 양만 더하고 총량에는
+    //   안 더하면 loaded 가 total 을 넘어서 퍼센트가 계속 100 이 된다 (실제로 그랬다).
+    if (e.file && Number(e.total) > 0) {
+      const total = Number(e.total);
+      // 한 파일이 제 크기보다 더 받을 수는 없다. 넘어오면 잘라 둔다.
+      const loaded = Math.min(Number(e.loaded) || 0, total);
+      bag[e.file] = { loaded: loaded, total: total, done: loaded >= total };
     }
+    // 크기를 모르는 채로 받고 있는 파일은 세지 않되, 몇 개인지는 알려 준다.
+    if (e.file && !(Number(e.total) > 0) && !bag[e.file]) bag[e.file] = null;
+
     let loaded = 0;
     let total = 0;
+    let known = 0;
+    let unknown = 0;
     Object.keys(bag).forEach(function (k) {
-      loaded += bag[k].loaded;
-      total += bag[k].total;
+      const v = bag[k];
+      if (!v) { unknown++; return; }
+      loaded += v.loaded;
+      total += v.total;
+      known++;
     });
     // ★총량을 모르면 퍼센트를 지어내지 않는다. -1 로 「아직 모른다」 를 알린다.
-    const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : -1;
-    return { percent: percent, loaded: loaded, total: total, file: String(e.file || '') };
+    // ★다 받았다고 말하는 것은 여기서 하지 않는다. 마지막 파일이 아직 안 잡혔을 수도
+    //   있어서, 진행 중에 100 을 띄우면 다 된 줄 알고 앱을 끈다. 99 에서 멈춘다.
+    const raw = total > 0 ? (loaded / total) * 100 : -1;
+    const percent = raw < 0 ? -1 : Math.max(0, Math.min(99, Math.floor(raw)));
+    return {
+      percent: percent, loaded: loaded, total: total,
+      files: known, unknown: unknown, file: String(e.file || '')
+    };
   }
 
   /** 바이트를 사람이 읽는 크기로. */

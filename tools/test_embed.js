@@ -95,12 +95,32 @@ check('★두 번째 파일이 시작해도 퍼센트가 뒤로 안 간다',
   String(E.tally(bag, { file: 'b', loaded: 0, total: 100 }).percent));
 check('두 번째가 차면 오른다', E.tally(bag, { file: 'b', loaded: 100, total: 100 }).percent === 75);
 check('같은 파일이 또 오면 덮어쓴다 (더하지 않는다)',
-  E.tally(bag, { file: 'a', loaded: 100, total: 100 }).percent === 100);
+  E.tally(bag, { file: 'a', loaded: 100, total: 100 }).percent === 99);
+
+// ★여기가 실제로 터진 자리다. 크기를 아직 모르는 파일의 받은 양만 더하면 loaded 가
+//   total 을 넘어서 퍼센트가 계속 100 으로 붙어 버린다. 화면에는 「100% 인데 용량만
+//   계속 오르는」 것으로 보이고, 알림은 조각마다 새로 떴다.
+let bag2 = {};
+E.tally(bag2, { file: 'known', loaded: 50, total: 100 });
+const mixed = E.tally(bag2, { file: 'unknown', loaded: 999999, total: 0 });
+check('★크기를 모르는 파일은 퍼센트에 안 넣는다', mixed.percent === 50, JSON.stringify(mixed));
+check('크기를 모르는 파일이 몇 개인지는 알려 준다', mixed.unknown === 1, JSON.stringify(mixed));
+check('★그 파일의 받은 양도 총량에 안 섞는다', mixed.loaded === 50 && mixed.total === 100,
+  JSON.stringify(mixed));
+
+// ★한 파일이 제 크기보다 더 받을 수는 없다. 그런 값이 오면 잘라 둔다.
+check('★파일 하나가 제 크기를 넘으면 잘라 둔다',
+  E.tally({}, { file: 'x', loaded: 300, total: 100 }).percent === 99,
+  String(E.tally({}, { file: 'x', loaded: 300, total: 100 }).percent));
+
+// ★진행 중에는 절대 100 을 말하지 않는다. 다 된 줄 알고 앱을 끄면 반쪽만 받힌다.
+let bag3 = {};
+check('★다 받은 것처럼 보여도 99 에서 멈춘다',
+  E.tally(bag3, { file: 'a', loaded: 100, total: 100 }).percent === 99);
+
 check('★총량을 모르면 퍼센트를 지어내지 않는다',
   E.tally({}, { file: 'x', loaded: 10, total: 0 }).percent === -1);
 check('빈 것도 안 터진다', E.tally({}, null).percent === -1 && E.tally({}, {}).percent === -1);
-check('100 을 넘지 않는다',
-  E.tally({}, { file: 'z', loaded: 300, total: 100 }).percent === 100);
 check('받은 양도 알려 준다', E.tally({}, { file: 'q', loaded: 5, total: 10 }).loaded === 5);
 
 check('크기를 사람 말로', E.mb(1048576) === '1.0MB' && E.mb(52428800) === '50MB');

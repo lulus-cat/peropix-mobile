@@ -1457,6 +1457,43 @@
     }
   }
 
+  // ── 오래 걸리는 일 붙잡아 두기 ───────────────────────────────────────────
+  // ★안드로이드는 화면에 안 보이는 앱을 재운다. 그러면 WebView 의 자바스크립트가 멈추고
+  //   DNS 도 막혀, 다른 앱을 잠깐 보고 돌아오면 「인터넷 연결이 끊겼습니다」 가 뜬다.
+  //   몇 분씩 걸리는 일을 하면서 화면을 계속 켜 두라고 할 수는 없다.
+  // ★실패해도 하던 일은 그대로 간다. 붙잡아 두지 못할 뿐이지, 이것 때문에 못 뽑으면
+  //   본말이 뒤집힌다.
+  let keepDepth = 0;
+
+  /**
+   * 오래 걸리는 일의 시작·끝을 한 곳에서 잡는다.
+   * ★running 을 직접 대입하면 붙잡기(keepAwake)와 놓기(releaseAwake)의 짝이 언젠가
+   *   어긋난다. 놓기를 한 번 빠뜨리면 알림이 안 사라지고 배터리를 계속 먹는다.
+   *   드나드는 문을 하나로 두면 그 실수가 안 생긴다.
+   */
+  async function setRunning(on, text) {
+    running = !!on;
+    if (on) await keepAwake(text);
+    else await releaseAwake();
+  }
+
+
+  async function keepAwake(text) {
+    keepDepth++;
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.KeepAwake) return;
+    try { await P.KeepAwake.start({ text: text || '작업 중입니다' }); } catch (e) { /* 무시 */ }
+  }
+
+  async function releaseAwake() {
+    // ★겹쳐 부를 수 있다 (뽑는 중에 또 뽑기). 마지막 하나가 끝날 때만 놓는다.
+    keepDepth = Math.max(0, keepDepth - 1);
+    if (keepDepth > 0) return;
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.KeepAwake) return;
+    try { await P.KeepAwake.stop(); } catch (e) { /* 무시 */ }
+  }
+
   // ── 일관성 검사 ──────────────────────────────────────────────────────────
   // ★재는 곳은 둘, 잣대는 하나다. 벡터를 어디서 뽑든 판정은 consistency.js 가 한다.
   //   양쪽에 따로 두면 서버를 껐다 켰다 할 때 같은 그림의 점수가 달라진다.
@@ -1581,20 +1618,28 @@
     const fill = $('cons-get-fill');
     bar.hidden = false;
     box.textContent = '받는 중…';
+    await keepAwake('일관성 검사 모델을 받는 중입니다');
     // ★파일마다 따로 오는 진행을 하나로 합친다. 그러지 않으면 퍼센트가 왔다 갔다 한다.
     const bag = {};
-    let lastShown = -1;
+    let lastAt = 0;
+    let lastLine = '';
     const onProgress = function (ev) {
       const t = Embed.tally(bag, ev);
-      if (t.percent < 0) return;
-      fill.style.width = t.percent + '%';
-      const line = t.percent + '% · ' + Embed.mb(t.loaded) + ' / ' + Embed.mb(t.total);
+      const line = t.percent < 0
+        // 아직 총량을 모를 때 — 퍼센트를 지어내지 않고 받은 양만 적는다.
+        ? (Embed.mb(t.loaded) + ' 받는 중…')
+        : (t.percent + '% · ' + Embed.mb(t.loaded) + ' / ' + Embed.mb(t.total));
+      if (t.percent >= 0) fill.style.width = t.percent + '%';
       box.textContent = '받는 중… ' + line;
-      // ★상태바에는 5%마다만 고쳐 쓴다. 매 조각마다 부르면 알림이 깜박이고 배터리를 먹는다.
-      if (t.percent >= lastShown + 5 || t.percent === 100) {
-        lastShown = t.percent;
-        Notify.progress('일관성 검사 모델 받는 중', line, t.percent < 100);
-      }
+
+      // ★상태바는 **시간으로** 막는다. 예전에는 퍼센트가 바뀔 때만 고쳐 쓰게 했는데,
+      //   퍼센트가 한 값에 붙어 버리면 그 조건이 매번 참이 되어 알림이 조각마다 떴다.
+      //   1.5초에 한 번, 글이 달라졌을 때만 고쳐 쓴다.
+      const now = Date.now();
+      if (now - lastAt < 1500 || line === lastLine) return;
+      lastAt = now;
+      lastLine = line;
+      Notify.progress('일관성 검사 모델 받는 중', line, true);
     };
 
     try {
@@ -1620,6 +1665,8 @@
       bar.hidden = true;
       box.textContent = '못 받았습니다: ' + (e.message || e)
         + ' — 대신 「수신함에서」 를 쓰실 수 있습니다.';
+    } finally {
+      await releaseAwake();
     }
   }
 
@@ -2196,7 +2243,7 @@
     const strength = parseFloat($('enh-strength').value);
     const noise = parseFloat($('enh-noise').value);
 
-    running = true;
+    await setRunning(true, '인핸스하는 중입니다');
     cancelRequested = false;
     $('enh-run').disabled = true;
     let done = 0;
@@ -2251,7 +2298,7 @@
       done++;
     }
 
-    running = false;
+    await setRunning(false);
     $('enh-run').disabled = false;
     const msg = done + '/' + targets.length + ' 완료' + (failed ? ', 실패 ' + failed + '건' : '');
     say($('enh-msg'), msg, failed ? 'err' : 'ok');
@@ -2267,7 +2314,7 @@
     const targets = items.filter(function (r) { return r && r.bytes; });
     if (!targets.length) return;
 
-    running = true;
+    await setRunning(true, '업스케일하는 중입니다');
     const box = $('batch-msg');
     box.hidden = false;
     let failed = 0;
@@ -2293,7 +2340,7 @@
       }
     }
 
-    running = false;
+    await setRunning(false);
     say(box, targets.length + '장 처리 완료' + (failed ? ', 실패 ' + failed + '건' : ''),
       failed ? 'err' : 'ok');
     refreshAnlas();
@@ -2500,7 +2547,7 @@
     if (!targets.length) return;
 
     const s = cmpSettings();
-    running = true;
+    await setRunning(true, '배경을 합성하는 중입니다');
     $('cmp-run').disabled = true;
     let failed = 0;
 
@@ -2536,7 +2583,7 @@
       }
     }
 
-    running = false;
+    await setRunning(false);
     $('cmp-run').disabled = false;
     const okCount = targets.length - failed;
     say($('cmp-msg'), okCount + '/' + targets.length + ' 완료'
@@ -4013,6 +4060,7 @@
     if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return null; }
 
     styleBusy = true;
+    await keepAwake('그림체 테스트를 뽑는 중입니다');
     const b = styleApply(seed);
     usedPaths = new Set();
     const out = [];
@@ -4029,6 +4077,7 @@
     } finally {
       styleRestore();
       styleBusy = false;
+      await releaseAwake();
     }
     renderStyleShots(box, out, shots, -1, hooks);
     return out;
@@ -4041,6 +4090,7 @@
     if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return; }
 
     styleBusy = true;
+    await keepAwake('한 장 다시 뽑는 중입니다');
     const b = styleApply(stRun.seed);
     delete stWait[i];
     // ★뽑는 중 표시가 그 칸에 서게 자리를 비워 둔다.
@@ -4052,6 +4102,7 @@
     } finally {
       styleRestore();
       styleBusy = false;
+      await releaseAwake();
     }
     renderStyleShots(stRun.box, stRun.out, stRun.shots, -1, stRun.hooks);
     if (stRun.hooks && stRun.hooks.after) stRun.hooks.after();
@@ -6217,7 +6268,7 @@
     const total = retryItems.length + pend.length;
     if (!total) return;
 
-    running = true;
+    await setRunning(true, '못 만든 것을 다시 뽑는 중입니다');
     retrying = true;
     cancelRequested = false;
     pendingJobs = [];
@@ -6264,7 +6315,7 @@
       renderResults();
     }
 
-    running = false;
+    await setRunning(false);
     retrying = false;
     const left = unfinishedCount();
     say(box, done + '/' + total + ' 다시 생성'
@@ -7040,7 +7091,7 @@
     // "못 만든 것 다시 생성" 이 같은 조건으로 이어 뽑도록 들고 있는다.
     lastRun = { base: base, tpl: tpl, oneChar: oneChar };
 
-    running = true;
+    await setRunning(true, '그림을 뽑는 중입니다');
     cancelRequested = false;
     $('generate').hidden = true;
     $('cancel').hidden = false;
@@ -7076,7 +7127,7 @@
       reportJobProgress(done, totalJobs);
     }
 
-    running = false;
+    await setRunning(false);
     $('generate').hidden = false;
     $('cancel').hidden = true;
 

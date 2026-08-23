@@ -34,7 +34,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
-    </application>
+    
+        <!-- 뽑는 동안 · 모델 받는 동안만 돈다. 끝나면 앱이 직접 멈춘다. -->
+        <service
+            android:name=".KeepAwakeService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+</application>
 
     <!-- Permissions -->
 
@@ -48,4 +55,11 @@
          있다. 안 적어 두면 「허용」 을 눌러도 실제로는 안 붙어서, 알림이 뜰 때마다
          또 물어보는 것처럼 보인다. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ★몇 분씩 걸리는 일을 하는 동안 앱이 재워지지 않게 한다. 안 그러면 다른 앱을
+         잠깐 보고 돌아왔을 때 WebView 가 멈춰 있고 DNS 도 막혀서
+         「인터넷 연결이 끊겼습니다」 가 뜬다. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 </manifest>

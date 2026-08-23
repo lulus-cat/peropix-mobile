@@ -85,6 +85,19 @@ const missing = screenIds.filter(function (n) {
 });
 check('★모든 화면이 show() 목록에 있다', missing.length === 0, missing.join(', '));
 
+// ── 오래 걸리는 일의 짝 맞추기 ────────────────────────────────────────────
+// ★running 을 직접 대입하면 붙잡기·놓기의 짝이 언젠가 어긋난다. 놓기를 한 번 빠뜨리면
+//   알림이 안 사라지고 배터리를 계속 먹는다. 드나드는 문을 하나(setRunning)로 못 박는다.
+const direct = (app.match(/^\s*running = (?:true|false);/gm) || []);
+check('★running 을 직접 대입하는 곳이 없다 (setRunning 만 쓴다)',
+  direct.length === 0, direct.join(' · '));
+const ons = (app.match(/setRunning\(true/g) || []).length;
+const offs = (app.match(/setRunning\(false/g) || []).length;
+check('★시작과 끝의 개수가 같다', ons === offs && ons > 0, ons + ' / ' + offs);
+check('붙잡기와 놓기가 짝을 이룬다',
+  (app.match(/keepAwake\(/g) || []).length > 0
+  && (app.match(/releaseAwake\(/g) || []).length > 0);
+
 const total = pass + fails.length;
 console.log('화면 뼈대 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });
