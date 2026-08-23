@@ -3552,6 +3552,10 @@
         target: slotTarget,
         one: options.one_char_mode,
         save: options.auto_save,
+        // ★대량생성 쪽에 걸어 둔 레퍼런스 이미지를 테스트에 끌고 오면 안 된다.
+        //   작가 태그만 보려고 뽑는 자리인데 참고 그림이 화풍을 덮어써 버리고,
+        //   Anlas 도 더 나가며, 모델이 안 받는 조합이면 그대로 400 이 난다.
+        refs: references,
         // ★테스트용 이미지 설정으로 바꾼 것만 담아 둔다. 안 정한 것까지 담으면 되돌릴 때
         //   그 사이에 대량생성 쪽에서 바꾼 값을 옛것으로 덮어쓴다.
         opts: {}
@@ -3561,6 +3565,7 @@
       });
     }
     Object.assign(options, StyleTest.opts(stCfg.opts));
+    references = [];
     const b = StyleTest.build(stCfg);
     characters = b.character
       ? [{ prompt: b.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false, enabled: true }]
@@ -3586,6 +3591,7 @@
     options.auto_save = styleSaved.save;
     slotTarget = styleSaved.target;
     persona = styleSaved.persona;
+    references = styleSaved.refs || [];
     styleSaved = null;
     renderCharDrawer();
   }
@@ -3596,6 +3602,38 @@
    * @param {object} [hooks] {rate, scoreOf} — 주면 뷰어에서 별점을 매길 수 있다
    * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
    */
+  // ★NAI 는 바로 이어 붙여 부르면 429 로 되돌린다. 한 박자 쉬고 다음 장을 부른다.
+  //   여기서 아끼는 1초가 실패 한 장의 재시도 14초보다 비쌀 일은 없다.
+  const SHOT_GAP_MS = 900;
+
+  // 마지막 테스트 실행. 실패한 장만 다시 뽑으려면 무엇을 뽑던 중이었는지 들고 있어야 한다.
+  let stRun = null;
+  // 재시도 중이라는 안내를 칸마다 따로 담는다 (index → 글).
+  let stWait = {};
+
+  /** 한 장 뽑기. 처음 뽑을 때와 다시 뽑을 때가 같은 길을 타게 한다. */
+  async function styleShot(token, b, i) {
+    const sh = stRun.shots[i];
+    // 컷마다 시드를 따로 줄 수 있다. 같은 조합을 여러 장 뽑을 때 쓴다.
+    // 안 주면 styleApply 가 넣어 둔 시드를 그대로 쓴다.
+    if (sh.seed !== undefined && sh.seed !== null) options.seed = sh.seed;
+    return await runOneJob(token, {
+      slot: { label: sh.label, prompt: sh.prompt },
+      slotName: sh.label,
+      group: '그림체',
+      name: sh.label,
+      cycle: 1
+    }, {
+      base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1,
+      // ★다시 시도하는 중이라는 것을 그 칸에 적는다. 아무 표시 없이 20초를 기다리면
+      //   멈춘 줄 알고 앱을 끄는데, 그러면 이미 나간 요청의 Anlas 만 날아간다.
+      onWait: function (msg) {
+        stWait[i] = msg;
+        renderStyleShots(stRun.box, stRun.out, stRun.shots, i, stRun.hooks);
+      }
+    });
+  }
+
   async function styleGenerate(shots, seed, box, hooks) {
     if (running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return null; }
     const token = await Store.getToken();
@@ -3605,19 +3643,14 @@
     const b = styleApply(seed);
     usedPaths = new Set();
     const out = [];
+    stWait = {};
+    stRun = { shots: shots, out: out, box: box, hooks: hooks, seed: seed };
     try {
       for (let i = 0; i < shots.length; i++) {
         renderStyleShots(box, out, shots, i, hooks);
-        // 컷마다 시드를 따로 줄 수 있다. 같은 조합을 여러 장 뽑을 때 쓴다.
-        // 안 주면 styleApply 가 넣어 둔 시드를 그대로 쓴다.
-        if (shots[i].seed !== undefined && shots[i].seed !== null) options.seed = shots[i].seed;
-        const item = await runOneJob(token, {
-          slot: { label: shots[i].label, prompt: shots[i].prompt },
-          slotName: shots[i].label,
-          group: '그림체',
-          name: shots[i].label,
-          cycle: 1
-        }, { base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1 });
+        if (i > 0) await new Promise(function (r) { setTimeout(r, SHOT_GAP_MS); });
+        const item = await styleShot(token, b, i);
+        delete stWait[i];
         out.push(item);
       }
     } finally {
@@ -3626,6 +3659,57 @@
     }
     renderStyleShots(box, out, shots, -1, hooks);
     return out;
+  }
+
+  /** 실패한 한 장만 다시. 나머지를 또 뽑아 Anlas 를 두 번 쓰지 않게 한다. */
+  async function styleRetryOne(i) {
+    if (!stRun || running || styleBusy) { toast('지금 뽑는 중입니다.', 2000); return; }
+    const token = await Store.getToken();
+    if (!token) { toast('먼저 API 키를 넣어 주세요.', 2600); return; }
+
+    styleBusy = true;
+    const b = styleApply(stRun.seed);
+    delete stWait[i];
+    // ★뽑는 중 표시가 그 칸에 서게 자리를 비워 둔다.
+    stRun.out[i] = null;
+    renderStyleShots(stRun.box, stRun.out, stRun.shots, i, stRun.hooks);
+    try {
+      stRun.out[i] = await styleShot(token, b, i);
+      delete stWait[i];
+    } finally {
+      styleRestore();
+      styleBusy = false;
+    }
+    renderStyleShots(stRun.box, stRun.out, stRun.shots, -1, stRun.hooks);
+    if (stRun.hooks && stRun.hooks.after) stRun.hooks.after();
+  }
+
+  /** 실패한 것 전부 다시. */
+  async function styleRetryFailed() {
+    if (!stRun) return;
+    const todo = [];
+    stRun.out.forEach(function (it, i) { if (it && !it.bytes) todo.push(i); });
+    for (let k = 0; k < todo.length; k++) {
+      if (k > 0) await new Promise(function (r) { setTimeout(r, SHOT_GAP_MS); });
+      await styleRetryOne(todo[k]);
+    }
+  }
+
+  /**
+   * 실패한 까닭을 칸에 적을 만큼 줄인다.
+   * ★"실패" 세 글자만 띄우면 무엇이 잘못됐는지 아무도 모른다. 키가 거부된 것인지,
+   *   Anlas 가 떨어진 것인지, 그냥 잠깐 끊긴 것인지에 따라 할 일이 완전히 다르다.
+   */
+  function shortError(msg) {
+    const t = String(msg || '').trim();
+    if (!t) return '실패';
+    if (/\(401\)/.test(t)) return 'API 키 거부 (401)';
+    if (/\(402\)/.test(t)) return 'Anlas 부족 (402)';
+    if (/\(429\)/.test(t)) return '요청이 너무 잦음 (429)';
+    if (/\(400\)/.test(t)) return '요청 거부 (400)';
+    if (/시간이 초과/.test(t)) return '응답 없음 (시간 초과)';
+    if (/연결이 끊겼|연결에 실패/.test(t)) return '인터넷 끊김';
+    return t.length > 40 ? (t.slice(0, 40) + '…') : t;
   }
 
   /** 그 칸 안의 blob 주소를 놓아준다. 안 놓으면 다시 그릴 때마다 그림이 메모리에 쌓인다. */
@@ -3660,9 +3744,25 @@
         });
         cell.appendChild(img);
       } else {
+        const failed = !!item;
         const ph = document.createElement('div');
-        ph.className = 'shot-ph' + (i === doing ? ' doing' : '');
-        ph.textContent = item ? '실패' : (i === doing ? '뽑는 중' : '');
+        ph.className = 'shot-ph' + (i === doing ? ' doing' : '') + (failed ? ' bad' : '');
+        if (failed) {
+          // ★까닭을 적는다. "실패" 세 글자만으로는 키가 거부된 것인지 잠깐 끊긴 것인지
+          //   알 수 없어, 사람이 할 수 있는 일이 "다시 다 뽑기" 밖에 없어진다.
+          const why = document.createElement('div');
+          why.className = 'shot-why';
+          why.textContent = shortError(item.error);
+          ph.appendChild(why);
+          const again = document.createElement('div');
+          again.className = 'shot-again';
+          again.textContent = '눌러서 다시';
+          ph.appendChild(again);
+          ph.title = item.error || '';
+          ph.addEventListener('click', function () { styleRetryOne(i); });
+        } else if (i === doing) {
+          ph.textContent = stWait[i] || '뽑는 중';
+        }
         cell.appendChild(ph);
       }
       const cap = document.createElement('div');
@@ -3671,6 +3771,40 @@
       cell.appendChild(cap);
       box.appendChild(cell);
     });
+
+    renderShotNote(box, done, shots);
+  }
+
+  /**
+   * 몇 장이 왜 안 됐는지 한 줄로 모아 적는다.
+   * ★칸마다 따로 보면 "그냥 잘 안 되네" 로 끝난다. 여덟 장 중 여섯 장이 429 라면
+   *   그것은 내 계정이 잠깐 막힌 것이지 조합이 잘못된 것이 아니다.
+   */
+  function renderShotNote(box, done, shots) {
+    const note = document.getElementById(box.id + '-note');
+    if (!note) return;
+    const bad = done.filter(function (x) { return x && !x.bytes; });
+    const btnOff = document.getElementById(box.id + '-retry');
+    if (!bad.length) {
+      note.hidden = true;
+      note.textContent = '';
+      if (btnOff) btnOff.hidden = true;
+      return;
+    }
+    const count = {};
+    bad.forEach(function (x) {
+      const k = shortError(x.error);
+      count[k] = (count[k] || 0) + 1;
+    });
+    const why = Object.keys(count)
+      .sort(function (a, b) { return count[b] - count[a]; })
+      .map(function (k) { return k + ' ' + count[k] + '장'; })
+      .join(' · ');
+    note.hidden = false;
+    note.textContent = shots.length + '장 중 ' + bad.length + '장 실패 — ' + why;
+
+    const btn = document.getElementById(box.id + '-retry');
+    if (btn) btn.hidden = false;
   }
 
   /**
@@ -3846,6 +3980,8 @@
     });
 
     cmbShots = (await styleGenerate(jobs, fix ? seeds[0] : undefined, 'cmb-shots', {
+      // 실패한 장을 다시 뽑고 나면 아래 조합 줄도 같이 새로 그린다.
+      after: renderComboResult,
       rate: function (r, score) {
         const c = comboOfShot(r);
         if (c) { c.score = score; renderComboResult(); }
@@ -6978,6 +7114,9 @@
     $('cmb-run').addEventListener('click', function () { cmbRun(); });
     $('cmb-refine').addEventListener('click', cmbRefine);
     $('cmb-cons').addEventListener('click', cmbConsistency);
+    ['cmb-shots-retry', 'bis-shots-retry'].forEach(function (id) {
+      $(id).addEventListener('click', styleRetryFailed);
+    });
     $('res-cons').addEventListener('click', resConsistency);
     ['cw-min', 'cw-max', 'cw-step'].forEach(function (id) {
       $(id).addEventListener('change', function () { readWeightUI('cw'); });
