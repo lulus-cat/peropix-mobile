@@ -5958,11 +5958,13 @@
     //   실패한 장을 원래 조합 그대로 되살릴 이유가 없다 (시드도 어차피 새로 나온다).
     const wcBase = Wildcards.resolve(ctx.base, wildcardPools);
     const wcSlot = Wildcards.resolve((slot.prompt || '').trim(), wildcardPools);
-    // ★한 명 모드면 이번 인물 하나만 보낸다. 켜 둔 다른 인물은 이 장에 실리지 않는다.
-    const sending = oneChar ? [job.char] : characters;
+    // ★한 명 모드면 이번 인물 하나만, 아니면 **켜 둔 인물만** 보낸다.
+    // ★여기서 enabled 를 참으로 덮어쓰면 안 된다. 뒤의 composePrompts 가 그 값으로
+    //   꺼 둔 인물을 걸러 내는데, 전부 참으로 만들어 버리면 꺼 놓은 인물이 그대로
+    //   실려 나간다. (한 명 모드에서만 필요했던 것이 반대편까지 망가뜨리고 있었다.)
+    const sending = oneChar ? [job.char] : activeChars(characters);
     const wcChars = sending.map(function (c) {
       return Object.assign({}, c, {
-        enabled: true,
         prompt: Wildcards.resolve(c.prompt || '', wildcardPools),
         uc: Wildcards.resolve(c.uc || '', wildcardPools)
       });
