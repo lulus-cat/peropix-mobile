@@ -469,35 +469,6 @@
 
     <div id="settings-msg" class="msg" hidden></div>
 
-    <div class="row-head"><span class="label">일관성 검사</span></div>
-    <p class="hint">
-      뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 테스트 모드에서는 <b>그림체</b>가
-      고른 조합을, 대량생성에서는 <b>인물</b>이 튄 장을 짚어 줍니다.
-    </p>
-    <label class="field">
-      <span class="label">어디서 잴까</span>
-      <select id="cons-mode" class="tool-select">
-        <option value="off">안 함</option>
-        <option value="device">이 폰에서 (모델 다운로드 필요)</option>
-        <option value="server">수신함에서 (PC · VPS 가 대신)</option>
-      </select>
-      <span class="hint" id="cons-hint">기본은 안 함입니다.</span>
-    </label>
-    <div class="toolrow" id="cons-device-row" hidden>
-      <button id="cons-get" class="btn small">모델 받기</button>
-      <span class="hint" id="cons-get-msg"></span>
-    </div>
-    <div id="cons-server-row" hidden>
-      <p class="hint" id="cons-server-msg"></p>
-      <div class="toolrow">
-        <button id="cons-score-copy" class="btn small">score.py 복사</button>
-        <button id="cons-score-save" class="btn small">파일로 저장</button>
-      </div>
-      <p class="hint">수신함 폴더에 <code>score.py</code> 를 같이 두고
-        <code>pip install torch transformers pillow</code> 를 한 뒤
-        <code>receiver.py</code> 를 다시 켜면 됩니다.</p>
-    </div>
-
     <div class="row-head"><span class="label">버전</span></div>
     <div class="toolrow">
       <span class="hint" id="ver-now">확인 중…</span>
@@ -568,6 +539,36 @@
     <div id="dest-paste-msg" class="msg" hidden></div>
 
     <div id="dest-list"></div>
+
+    <div class="row-head"><span class="label">일관성 검사</span></div>
+    <p class="hint">
+      뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 테스트 모드에서는 <b>그림체</b>가
+      고른 조합을, 대량생성에서는 <b>인물</b>이 튄 장을 짚어 줍니다.
+    </p>
+    <label class="field">
+      <span class="label">어디서 잴까</span>
+      <select id="cons-mode" class="tool-select">
+        <option value="off">안 함</option>
+        <option value="device">이 폰에서 (모델 다운로드 필요)</option>
+        <option value="server">수신함에서 (PC · VPS 가 대신)</option>
+      </select>
+      <span class="hint" id="cons-hint">기본은 안 함입니다.</span>
+    </label>
+    <div class="toolrow" id="cons-device-row" hidden>
+      <button id="cons-get" class="btn small">모델 받기</button>
+      <span class="hint" id="cons-get-msg"></span>
+    </div>
+    <div id="cons-server-row" hidden>
+      <p class="hint" id="cons-server-msg"></p>
+      <div class="toolrow">
+        <button id="cons-score-copy" class="btn small">score.py 복사</button>
+        <button id="cons-score-save" class="btn small">파일로 저장</button>
+      </div>
+      <p class="hint">수신함 폴더에 <code>score.py</code> 를 같이 두고
+        <code>pip install torch transformers pillow</code> 를 한 뒤
+        <code>receiver.py</code> 를 다시 켜면 됩니다.</p>
+    </div>
+
   </div>
 </section>
 
@@ -947,7 +948,8 @@
           <b>인물 다름?</b> 표시를 붙입니다. 지우거나 버릴 것으로 찍지는 않습니다 —
           최종 판단은 눈으로 하세요.</li>
       </ul>
-      <p class="hint">쓰려면 설정 → <b>일관성 검사</b> 에서 어디서 잴지 먼저 고릅니다.</p>
+      <p class="hint">쓰려면 설정 → <b>원격 저장 대상</b> 아래 <b>일관성 검사</b> 칸에서
+        어디서 잴지 먼저 고릅니다. 수신함마다 맡길지 말지를 따로 켜고 끌 수 있습니다.</p>
       <ul class="guide-ul">
         <li><b>이 폰에서</b>: 모델을 한 번 받아 두면(수십 MB) 다음부터는 인터넷 없이도
           됩니다. 오래된 폰에서는 느립니다. Wi-Fi 에서 받으세요.</li>

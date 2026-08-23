@@ -1465,6 +1465,31 @@
       msg.className = 'msg';
       msg.hidden = true;
 
+      // 이 수신함에 검사를 맡길지. ★VPS 를 세팅하는 그 자리에서 켜고 끈다 —
+      //   수신함마다 사정이 다르므로(어디는 score.py 를 깔았고 어디는 아니고),
+      //   앱 전체 설정 하나로 묶어 두면 맞출 수가 없다.
+      const consLine = document.createElement('label');
+      consLine.className = 'check';
+      const consBox = document.createElement('input');
+      consBox.type = 'checkbox';
+      consBox.checked = d.score !== false;
+      consBox.disabled = d.canScore === false;
+      consLine.appendChild(consBox);
+      consLine.appendChild(document.createTextNode(' 이 수신함에 일관성 검사 맡기기'));
+      const consWhy = document.createElement('p');
+      consWhy.className = 'hint';
+      consWhy.textContent = d.canScore === false
+        ? '이 수신함에는 검사 기능이 없습니다. score.py 를 옆에 두고 pip 로 셋만 깔면 됩니다.'
+        : (d.canScore === true ? '「연결 확인」 에서 검사 가능으로 확인되었습니다.'
+          : '「연결 확인」 을 누르면 이 수신함이 검사를 할 수 있는지 봅니다.');
+      consBox.addEventListener('change', async function () {
+        destinations[i].score = consBox.checked;
+        await Store.setDestinations(destinations);
+        renderConsistency();
+      });
+      el.appendChild(consLine);
+      el.appendChild(consWhy);
+
       const test = document.createElement('button');
       test.className = 'btn block';
       test.textContent = '연결 확인';
@@ -1477,6 +1502,12 @@
           + (r.ok ? (r.canScore ? ' · 일관성 검사 가능' : ' · 일관성 검사 없음') : ''),
           r.ok ? 'ok' : 'err');
         await askDestScore(destinations[i], r);
+        // ★목록을 통째로 다시 그리면 방금 쓴 확인 메시지가 같이 지워진다. 그 줄만 고친다.
+        consBox.checked = destinations[i].score !== false;
+        consBox.disabled = destinations[i].canScore === false;
+        consWhy.textContent = destinations[i].canScore === false
+          ? '이 수신함에는 검사 기능이 없습니다. score.py 를 옆에 두고 pip 로 셋만 깔면 됩니다.'
+          : '검사 가능으로 확인되었습니다.';
       });
 
       const del = document.createElement('button');
