@@ -27,9 +27,11 @@ public class KeepAwakeService extends Service {
 
     public static final String CHANNEL = "peropix_work";
     public static final String EXTRA_TEXT = "text";
+    public static final String EXTRA_PERCENT = "percent";
     private static final int NOTE_ID = 20260824;
 
     private PowerManager.WakeLock lock;
+    private boolean started;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -40,16 +42,26 @@ public class KeepAwakeService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String text = intent != null ? intent.getStringExtra(EXTRA_TEXT) : null;
         if (text == null || text.length() == 0) text = "작업 중입니다";
+        int percent = intent != null ? intent.getIntExtra(EXTRA_PERCENT, -1) : -1;
 
         channel();
-        Notification note = build(text);
+        Notification note = build(text, percent);
 
-        // ★안드로이드 14 부터는 무슨 일을 하는 서비스인지 밝혀야 한다. 안 밝히면
-        //   시작하자마자 예외로 죽는다.
-        if (Build.VERSION.SDK_INT >= 34) {
+        if (started) {
+            // ★이미 떠 있으면 **그 알림을 고쳐 쓴다.** 알림을 새로 띄우면 안드로이드가
+            //   있던 것을 지우고 다시 그려서, 진행 중에 알림이 깜박이며 새로 뜬다.
+            //   같은 id 로 notify 하면 자리에서 글자만 바뀐다.
+            NotificationManager nm =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.notify(NOTE_ID, note);
+        } else if (Build.VERSION.SDK_INT >= 34) {
+            // ★안드로이드 14 부터는 무슨 일을 하는 서비스인지 밝혀야 한다. 안 밝히면
+            //   시작하자마자 예외로 죽는다.
             startForeground(NOTE_ID, note, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            started = true;
         } else {
             startForeground(NOTE_ID, note);
+            started = true;
         }
 
         if (lock == null) {
@@ -70,6 +82,7 @@ public class KeepAwakeService extends Service {
             try { lock.release(); } catch (Exception ignore) { }
         }
         lock = null;
+        started = false;
         super.onDestroy();
     }
 
@@ -86,7 +99,7 @@ public class KeepAwakeService extends Service {
         nm.createNotificationChannel(ch);
     }
 
-    private Notification build(String text) {
+    private Notification build(String text, int percent) {
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         int flag = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -96,11 +109,14 @@ public class KeepAwakeService extends Service {
         Notification.Builder b = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 ? new Notification.Builder(this, CHANNEL)
                 : new Notification.Builder(this);
-        return b.setContentTitle("PeroPix")
+        b.setContentTitle("PeroPix")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentIntent(tap)
                 .setOngoing(true)
-                .build();
+                .setOnlyAlertOnce(true);
+        // 퍼센트를 알면 막대도 같이. 모르면 흐르는 막대로 둔다.
+        if (percent >= 0) b.setProgress(100, Math.min(100, percent), false);
+        return b.build();
     }
 }

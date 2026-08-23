@@ -98,6 +98,12 @@ check('붙잡기와 놓기가 짝을 이룬다',
   (app.match(/keepAwake\(/g) || []).length > 0
   && (app.match(/releaseAwake\(/g) || []).length > 0);
 
+// ★받는 동안 알림은 하나만 뜬다. 붙잡아 두는 알림과 진행 알림을 따로 띄웠더니 두 개가
+//   보였고, 진행 쪽은 새로 띄울 때마다 있던 것을 지우고 다시 그려 깜박였다.
+check('★진행을 알리려고 알림을 새로 띄우지 않는다 (떠 있는 것을 고쳐 쓴다)',
+  app.indexOf('Notify.progress(') === -1, '아직 Notify.progress 를 부른다');
+check('떠 있는 알림을 고쳐 쓰는 길이 있다', app.indexOf('updateAwake(') !== -1);
+
 const total = pass + fails.length;
 console.log('화면 뼈대 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

@@ -1485,6 +1485,15 @@
     try { await P.KeepAwake.start({ text: text || '작업 중입니다' }); } catch (e) { /* 무시 */ }
   }
 
+  /** 떠 있는 알림의 글자·막대만 고쳐 쓴다 (새로 띄우지 않는다). */
+  async function updateAwake(text, percent) {
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.KeepAwake || !P.KeepAwake.update) return;
+    try {
+      await P.KeepAwake.update({ text: text, percent: percent === undefined ? -1 : percent });
+    } catch (e) { /* 무시 */ }
+  }
+
   async function releaseAwake() {
     // ★겹쳐 부를 수 있다 (뽑는 중에 또 뽑기). 마지막 하나가 끝날 때만 놓는다.
     keepDepth = Math.max(0, keepDepth - 1);
@@ -1621,25 +1630,28 @@
     await keepAwake('일관성 검사 모델을 받는 중입니다');
     // ★파일마다 따로 오는 진행을 하나로 합친다. 그러지 않으면 퍼센트가 왔다 갔다 한다.
     const bag = {};
+    // ★분모는 우리가 아는 모델 크기다. 지금 앱은 CapacitorHttp 가 fetch 를 갈아 끼워
+    //   스트리밍이 안 돼서, 파일이 통째로 도착하며 「받은 양 = 총량」 으로 한 번만
+    //   보고된다. 그 값만 더하면 퍼센트가 처음부터 끝까지 붙어 버린다.
+    const want = Embed.expectedBytes(['style', 'identity']);
     let lastAt = 0;
     let lastLine = '';
     const onProgress = function (ev) {
-      const t = Embed.tally(bag, ev);
+      const t = Embed.tally(bag, ev, want);
       const line = t.percent < 0
-        // 아직 총량을 모를 때 — 퍼센트를 지어내지 않고 받은 양만 적는다.
         ? (Embed.mb(t.loaded) + ' 받는 중…')
-        : (t.percent + '% · ' + Embed.mb(t.loaded) + ' / ' + Embed.mb(t.total));
+        : (t.percent + '% · ' + Embed.mb(t.loaded) + ' / ' + Embed.mb(t.denom));
       if (t.percent >= 0) fill.style.width = t.percent + '%';
       box.textContent = '받는 중… ' + line;
 
-      // ★상태바는 **시간으로** 막는다. 예전에는 퍼센트가 바뀔 때만 고쳐 쓰게 했는데,
-      //   퍼센트가 한 값에 붙어 버리면 그 조건이 매번 참이 되어 알림이 조각마다 떴다.
-      //   1.5초에 한 번, 글이 달라졌을 때만 고쳐 쓴다.
+      // ★알림은 **하나만** 띄운다. 예전에는 붙잡아 두는 알림과 진행 알림이 따로 떠서
+      //   두 개가 보였고, 진행 쪽은 새로 띄울 때마다 있던 것을 지우고 다시 그려 깜박였다.
+      //   이제 떠 있는 그 알림의 글자만 고쳐 쓴다.
       const now = Date.now();
       if (now - lastAt < 1500 || line === lastLine) return;
       lastAt = now;
       lastLine = line;
-      Notify.progress('일관성 검사 모델 받는 중', line, true);
+      updateAwake('모델 받는 중 · ' + line, t.percent);
     };
 
     try {
@@ -1655,13 +1667,11 @@
       await Store.setConsistencyReady(true);
       fill.style.width = '100%';
       box.textContent = '다 받았습니다. 이제 인터넷 없이도 됩니다.';
-      await Notify.clearProgress();
       Notify.done('일관성 검사 준비 끝', '모델을 다 받았습니다. 이제 인터넷 없이도 잽니다.');
       renderConsistency();
     } catch (e) {
       consReady = false;
       await Store.setConsistencyReady(false);
-      await Notify.clearProgress();
       bar.hidden = true;
       box.textContent = '못 받았습니다: ' + (e.message || e)
         + ' — 대신 「수신함에서」 를 쓰실 수 있습니다.';
