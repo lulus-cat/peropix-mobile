@@ -1724,3 +1724,13 @@ textarea.expandable { cursor: pointer; }
 
 /* 모델 받는 진행 막대 — 단추 줄 바로 아래 */
 .cons-bar { margin: 8px 0 4px; }
+
+/* 확대해서 볼 때 그 자리에서 할 수 있는 것들 */
+.viewer-acts {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.viewer-acts .btn { min-height: 40px; }

@@ -4076,6 +4076,13 @@
     const out = [];
     stWait = {};
     stRun = { shots: shots, out: out, box: box, hooks: hooks, seed: seed };
+    // ★새로 뽑기 시작하면 일관성 줄도 다시 판단한다. 최종에서 검사한 뒤 1차로 돌아와
+    //   다시 뽑으면, 그 줄이 지난 번 것을 가리킨 채로 남는다.
+    renderFinalCons();
+    // ★뽑는 중에도 별점을 누를 수 있게, 채워지는 중인 목록을 부르는 쪽에 미리 넘긴다.
+    //   예전에는 다 끝난 뒤에야 결과를 돌려줘서, 뽑는 동안 뷰어에서 별을 눌러도
+    //   그 장이 어느 조합인지 못 찾아 아무 일도 안 일어났다.
+    if (hooks && hooks.onList) hooks.onList(out);
     try {
       for (let i = 0; i < shots.length; i++) {
         renderStyleShots(box, out, shots, i, hooks);
@@ -4174,7 +4181,7 @@
           openViewerFor(item, done.filter(Boolean), function (r) {
             const k = done.indexOf(r);
             return k === -1 ? '' : (shots[k].note || shots[k].label);
-          }, hooks && hooks.rate, hooks && hooks.scoreOf);
+          }, hooks && hooks.rate, hooks && hooks.scoreOf, hooks && hooks.actions);
         });
         cell.appendChild(img);
       } else {
@@ -4254,15 +4261,43 @@
    * @param {function} meta (item) => 아래에 적을 글 (어떤 조합인지)
    * @param {function} [rate] (item, score) 별점을 매기면 부른다. 없으면 별점 줄이 안 뜬다
    * @param {function} [scoreOf] (item) => 지금 점수
+   * @param {Array}  [actions] 확대한 자리에 띄울 버튼들 [{label, primary, when, run}]
    */
-  function openViewerFor(item, all, meta, rate, scoreOf) {
+  /** 확대한 자리에 띄울 조합용 버튼들. 목록에서 열든 뽑는 중에 열든 같은 것이 뜬다. */
+  function comboActions() {
+    return [
+      {
+        label: '이 그림체 선택', primary: true,
+        when: function (r) { return !!comboOfShot(r); },
+        run: async function (r) {
+          const c = comboOfShot(r);
+          if (!c) return;
+          closeViewer();
+          artMix = c.mix.map(function (x) {
+            return { tag: x.tag, weight: x.weight, on: x.on };
+          });
+          await Store.setArtistMix(artMix);
+          renderMix();
+          renderDrawer();
+          openFinal(c);
+        }
+      },
+      {
+        label: '작가 태그 복사',
+        when: function (r) { return !!comboOfShot(r); },
+        run: function (r) { return copyCombo(comboOfShot(r)); }
+      }
+    ];
+  }
+
+  function openViewerFor(item, all, meta, rate, scoreOf, actions) {
     const list = (all || [item]).filter(function (x) { return x && x.bytes; });
     const fresh = list.filter(function (x) { return results.indexOf(x) === -1; });
     if (fresh.length) {
       results = results.concat(fresh);
       renderResults();
     }
-    styleView = { items: list, meta: meta, rate: rate, scoreOf: scoreOf };
+    styleView = { items: list, meta: meta, rate: rate, scoreOf: scoreOf, actions: actions };
 
     // ★공용 묶음(결과 화면의 필터를 거친 것)을 쓰지 않는다. 필터에 걸려 몇 장만 남으면
     //   좌우로 밀어도 그 세트 안을 못 오간다. 이번 것만 담은 그룹을 그대로 쓴다.
@@ -4282,26 +4317,50 @@
     if (!on) return;
 
     $('viewer-combo').textContent = styleView.meta ? styleView.meta(r) : '';
+
     const box = $('viewer-stars');
     box.innerHTML = '';
-    if (!styleView.rate) { box.hidden = true; return; }
-    box.hidden = false;
-    const now = styleView.scoreOf ? (styleView.scoreOf(r) || 0) : 0;
-    for (let k = 1; k <= 5; k++) {
-      const b = document.createElement('button');
-      b.textContent = k <= now ? '★' : '☆';
-      if (k <= now) b.className = 'on';
-      b.title = k + '점';
-      b.addEventListener('click', function () {
-        styleView.rate(r, (now === k) ? 0 : k);
-        paintStyleViewer(r);
-      });
-      box.appendChild(b);
+    box.hidden = !styleView.rate;
+    if (styleView.rate) {
+      const now = styleView.scoreOf ? (styleView.scoreOf(r) || 0) : 0;
+      for (let k = 1; k <= 5; k++) {
+        const b = document.createElement('button');
+        b.textContent = k <= now ? '★' : '☆';
+        if (k <= now) b.className = 'on';
+        b.title = k + '점';
+        b.addEventListener('click', function () {
+          styleView.rate(r, (now === k) ? 0 : k);
+          paintStyleViewer(r);
+        });
+        box.appendChild(b);
+      }
     }
+
+    // ★크게 본 자리에서 바로 고르고 복사할 수 있게 한다. 예전에는 확대를 닫고 목록으로
+    //   내려가야 「그림체 선택」 을 누를 수 있었다.
+    const acts = $('viewer-acts');
+    acts.innerHTML = '';
+    const list = (styleView.actions || []).filter(function (a) {
+      return !a.when || a.when(r);
+    });
+    acts.hidden = !list.length;
+    list.forEach(function (a) {
+      const b = document.createElement('button');
+      b.className = 'btn small' + (a.primary ? ' primary' : '');
+      b.textContent = a.label;
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try { await a.run(r); } finally { b.disabled = false; }
+      });
+      acts.appendChild(b);
+    });
   }
 
   function setStyleMode(m) {
     styleMode = m;
+    // ★화면을 옮길 때마다 일관성 줄을 다시 판단한다. 최종에서 검사한 뒤 조합으로
+    //   돌아가면 그 줄이 켜진 채로 남아, 다음에 최종을 열면 아직 안 뽑은 것을 잰다.
+    renderFinalCons();
     $('mode-combo').classList.toggle('on', m === 'combo');
     $('mode-bisect').classList.toggle('on', m === 'bisect');
     $('sub-combo').hidden = (m !== 'combo');
@@ -4417,6 +4476,9 @@
     });
 
     cmbShots = (await styleGenerate(jobs, fix ? seeds[0] : undefined, 'cmb-shots', {
+      // ★채워지는 중인 목록을 바로 받는다. 이게 없으면 뽑는 동안 뷰어에서 별을 눌러도
+      //   그 장이 어느 조합인지 못 찾아 아무 일도 안 일어난다.
+      onList: function (live) { cmbShots = live; },
       // 실패한 장을 다시 뽑고 나면 아래 조합 줄도 같이 새로 그린다.
       after: renderComboResult,
       rate: function (r, score) {
@@ -4426,7 +4488,9 @@
       scoreOf: function (r) {
         const c = comboOfShot(r);
         return c ? c.score : 0;
-      }
+      },
+      // 크게 본 자리에서 바로 할 수 있는 것들.
+      actions: comboActions()
     })) || [];
     renderComboResult();
   }
@@ -4466,7 +4530,8 @@
             function (r) {
               const cc = comboOfShot(r);
               return cc ? cc.score : 0;
-            });
+            },
+            comboActions());
         });
         row.appendChild(img);
       });
@@ -4483,13 +4548,6 @@
       main.appendChild(nm);
       main.appendChild(ws);
 
-      // 그림체가 얼마나 고른지 — 재고 나서만 붙는다.
-      if (c.cons) {
-        const cs = document.createElement('div');
-        cs.className = 'cons' + (c.cons.rank === 1 ? ' best' : '');
-        cs.textContent = (c.cons.rank === 1 ? '가장 고름 · ' : '') + c.cons.text;
-        main.appendChild(cs);
-      }
 
       // 별점 — 뽑고 나서만 뜬다. 뽑기 전에는 매길 것이 없다.
       if (cmbShots.length) {
@@ -4526,11 +4584,6 @@
       box.appendChild(row);
     });
 
-    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 그래도 단추는 띄우고
-    //   무엇을 하면 되는지 적는다 — 숨기면 이런 기능이 있다는 것을 알 길이 없다.
-    renderConsRow('cmb-cons-row', 'cmb-cons', 'cmb-cons-msg', !!cmbShots.length,
-      (cmbShots.length && cmbPerUsed < 2)
-        ? '「조합마다 장수」 를 2장 이상으로 두고 뽑으면 잽니다.' : '');
 
     const rated = cmbLast.filter(function (c) { return c.score > 0; }).length;
     $('cmb-refine').textContent = rated
@@ -4545,55 +4598,41 @@
    *   그 조합으로 계속 뽑아도 같은 그림이 나오겠는가에 대한 답이다. 둘은 다른 이야기라
    *   따로 보여 준다 — 예쁜데 들쭉날쭉한 조합이 흔하다.
    */
+  /**
+   * 최종 테스트로 뽑은 구도들이 서로 같은 화풍인지 잰다.
+   * ★상반신에서 멀쩡하던 그림체가 전신이나 복잡한 배경에서 무너지는 일이 잦다.
+   *   그것이 여기서 숫자로 나온다 — 「들쭉날쭉」 이면 구도를 타는 그림체다.
+   */
   async function cmbConsistency() {
     if (consBusy) return;
     const box = $('cmb-cons-msg');
     const how = consPick();
     if (how.how === 'off') { box.textContent = how.why; return; }
 
+    const shots = (stRun && stRun.box === 'fin-shots')
+      ? stRun.out.filter(function (x) { return x && x.bytes; }) : [];
+    if (shots.length < 2) {
+      box.textContent = '견줄 그림이 두 장이 안 됩니다.';
+      return;
+    }
+
     consBusy = true;
     $('cmb-cons').disabled = true;
     try {
-      // 조합마다 그 조합으로 뽑은 것만 모은다.
-      const groups = cmbLast.map(function (c, i) {
-        return {
-          combo: c,
-          shots: cmbShots.slice(i * cmbPerUsed, (i + 1) * cmbPerUsed)
-            .filter(function (sh) { return sh && sh.bytes; })
-        };
-      }).filter(function (g) { return g.shots.length >= 2; });
-
-      if (!groups.length) {
-        box.textContent = '한 조합에 두 장 이상 있어야 잽니다. 「조합마다 장수」 를 늘려 보세요.';
-        return;
-      }
-
-      // ★한 번에 전부 보내고 나서 나눈다. 조합마다 따로 부르면 요청이 수십 번이 된다.
-      const flat = [];
-      groups.forEach(function (g) {
-        g.shots.forEach(function (sh) { flat.push({ bytes: sh.bytes }); });
-      });
-      box.textContent = '재는 중… (' + flat.length + '장)';
-      const vecs = await consVectors('style', flat, function (done, all) {
+      box.textContent = '재는 중… (' + shots.length + '장)';
+      const vecs = await consVectors('style', shots.map(function (sh) {
+        return { bytes: sh.bytes };
+      }), function (done, all) {
         box.textContent = '재는 중… ' + done + '/' + all;
       });
-
-      const parts = Consistency.split(vecs, groups.map(function (g) { return g.shots.length; }));
-      const scored = groups.map(function (g, i) {
-        return { name: g.combo.name, combo: g.combo, vectors: parts[i] };
-      });
-      const ranked = Consistency.compare(scored);
-
-      cmbLast.forEach(function (c) { c.cons = null; });
-      ranked.forEach(function (r, i) {
-        const target = scored.find(function (x) { return x.name === r.name; });
-        if (!target) return;
-        target.combo.cons = { rank: i + 1, text: Consistency.summary(r.report), sd: r.sd };
-      });
-      renderComboResult();
-      box.textContent = ranked.length
-        ? ('가장 고른 조합: ' + ranked[0].name + ' (' + ranked[0].label + ')')
-        : '';
+      const rep = Consistency.report(vecs);
+      const bad = rep.items.filter(function (x) { return x.out; })
+        .map(function (x) {
+          const sh = stRun.shots[stRun.out.indexOf(shots[x.index])];
+          return sh ? sh.label : ('' + (x.index + 1));
+        });
+      box.textContent = Consistency.summary(rep)
+        + (bad.length ? (' · 튀는 구도: ' + bad.join(', ')) : '');
     } catch (e) {
       box.textContent = '못 쟀습니다: ' + (e.message || e);
     } finally {
@@ -4642,8 +4681,38 @@
     const jobs = shots.map(function (p) {
       return { label: p.label, prompt: prompt, note: p.label, preset: p.key, seed: seed };
     });
-    await styleGenerate(jobs, seed, 'fin-shots', { after: function () { $('fin-after').hidden = false; } });
+    renderFinalCons();
+    await styleGenerate(jobs, seed, 'fin-shots', {
+      after: function () { $('fin-after').hidden = false; renderFinalCons(); },
+      meta: function () { return $('fin-mix').textContent; },
+      actions: [{ label: '작가 태그 복사', run: function () { return copyCombo(finCombo); } }]
+    });
     $('fin-after').hidden = false;
+    renderFinalCons();
+  }
+
+  /**
+   * 최종 테스트에서만 일관성 검사를 띄운다.
+   * ★1차(조합)에서는 안 띄운다. 거기는 「어느 조합이 마음에 드나」 를 눈으로 고르는
+   *   자리고, 조합마다 한 장씩만 뽑으면 잴 것도 없다. 고른 뒤 구도를 훑는 이 자리가
+   *   「이 그림체가 구도마다 버티나」 를 보는 곳이라 검사가 여기 붙는 게 맞다.
+   */
+  function renderFinalCons() {
+    const shots = (stRun && stRun.box === 'fin-shots')
+      ? stRun.out.filter(function (x) { return x && x.bytes; }).length : 0;
+    renderConsRow('cmb-cons-row', 'cmb-cons', 'cmb-cons-msg', shots >= 2, '');
+  }
+
+  /** 그 조합의 작가 태그를 클립보드로. NAI 웹이나 다른 앱에 그대로 붙여넣는다. */
+  async function copyCombo(c) {
+    if (!c || !c.mix) { toast('복사할 조합을 못 찾았습니다.', 2400); return; }
+    const text = Artists.bake(c.mix, { cfg: wRange });
+    const t = $('editor-text');
+    const keep = t.value;
+    t.value = text;
+    const ok = await copyFromEditor();
+    t.value = keep;
+    toast(ok ? ('복사했습니다: ' + text) : '복사하지 못했습니다.', ok ? 3200 : 2400);
   }
 
   /** 고른 그림체를 저장된 작가태그로. 대량생성에서 그대로 불러 쓴다. */

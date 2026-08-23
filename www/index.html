@@ -968,6 +968,8 @@
 
   <div id="viewer-rate" class="viewer-rate" hidden>
     <div id="viewer-stars" class="stars big"></div>
+    <!-- 이 그림으로 바로 할 수 있는 것들 (그림체 선택 · 작가 태그 복사). -->
+    <div id="viewer-acts" class="viewer-acts"></div>
     <div id="viewer-combo" class="viewer-combo"></div>
   </div>
 
@@ -1803,10 +1805,6 @@
         <p class="shot-note" id="cmb-shots-note" hidden></p>
         <button id="cmb-shots-retry" class="btn small" hidden>실패한 것만 다시 뽑기</button>
         <div id="cmb-list"></div>
-        <div class="toolrow" id="cmb-cons-row" hidden>
-          <button id="cmb-cons" class="btn small">그림체 일관성 검사</button>
-          <span class="hint" id="cmb-cons-msg"></span>
-        </div>
         <button id="cmb-refine" class="btn primary block" hidden>점수 반영해서 다시 뽑기</button>
       </div>
     </div>
@@ -1917,6 +1915,11 @@
       <div id="fin-shots" class="shots"></div>
       <p class="shot-note" id="fin-shots-note" hidden></p>
       <button id="fin-shots-retry" class="btn small" hidden>실패한 것만 다시 뽑기</button>
+
+      <div class="toolrow" id="cmb-cons-row" hidden>
+        <button id="cmb-cons" class="btn small">그림체 일관성 검사</button>
+        <span class="hint" id="cmb-cons-msg"></span>
+      </div>
 
       <div id="fin-after" hidden>
         <div class="row-head"><span class="label">이 그림체 어떠세요?</span></div>
