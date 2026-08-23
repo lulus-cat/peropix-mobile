@@ -138,6 +138,22 @@ const Danbooru = (function () {
     });
   }
 
+  /**
+   * 이름 목록으로 태그를 한 번에 조회한다 (작가인지 · 몇 장인지 · 버려졌는지).
+   * ★tagCountsUrl 과 달리 **category 를 함께 받는다.** 대량생성 프롬프트에는 작가 말고
+   *   퀄리티 태그도 섞여 있어서, 무엇이 작가인지 가려내려면 갈래를 알아야 한다.
+   * ★한 번에 다 묻는다. 태그마다 부르면 스무 개짜리 모음 하나에 스무 번이 나간다.
+   */
+  function tagsByNameUrl(names) {
+    const list = (names || []).map(normalize).filter(Boolean).slice(0, 40);
+    if (!list.length) return '';
+    return API + '/tags.json?' + qs({
+      'search[name_comma]': list.join(','),
+      limit: list.length,
+      only: 'name,post_count,category,is_deprecated'
+    });
+  }
+
   /** Danbooru 전체 장수 — 특징 태그의 분모다. */
   function totalUrl() {
     return API + '/counts/posts.json';
@@ -463,6 +479,7 @@ const Danbooru = (function () {
     artistUrl: artistUrl,
     postsUrl: postsUrl,
     tagCountsUrl: tagCountsUrl,
+    tagsByNameUrl: tagsByNameUrl,
     totalUrl: totalUrl,
     parseTotal: parseTotal,
     countMap: countMap,

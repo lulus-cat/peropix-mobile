@@ -465,7 +465,19 @@
     </div>
     <p class="hint">
       PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다.
+      <b>비밀번호는 만들 필요가 없습니다</b> — <code>python3 receiver.py --root ./images</code>
+      만 하면 알아서 만들어 기억합니다.
     </p>
+
+    <!-- ★파일을 받으려고 저장소를 뒤지게 하지 않는다. 앱 안에 든 것이 지금 앱과 짝이
+         맞는 판이라, 여기서 꺼내 쓰는 것이 제일 확실하다. -->
+    <div class="toolrow">
+      <button id="rx-copy" class="btn small">receiver.py 복사</button>
+      <button id="rx-save" class="btn small">파일로 저장</button>
+    </div>
+    <p class="hint" id="rx-msg">SSH 로 붙어서
+      <code>cat &gt; receiver.py</code> 하고 붙여넣은 뒤 Ctrl+D 를 누르면 끝입니다.
+      이 앱에 든 것과 같은 판입니다.</p>
 
     <label class="field">
       <span class="label">한 줄로 붙여넣기</span>
@@ -1195,6 +1207,15 @@
 
     <!-- ★라벨은 한 번 고르고 나서 작가를 넣고 뺀다. 작가마다 이름을 다시 적게 하면
          스무 명한테 붙이려고 스무 번을 타이핑해야 한다. -->
+    <!-- ★대량생성에서 이미 모아 둔 작가 태그가 있는데, 서랍에 담으려면 손으로 다시
+         찾아 넣어야 했다. 그 모음을 그대로 가져온다. -->
+    <div class="toolrow">
+      <select id="drw-import-pick" class="tool-select"></select>
+      <button id="drw-import" class="btn small">서랍에 담기</button>
+    </div>
+    <p class="hint" id="drw-import-msg">대량생성에서 저장해 둔 작가 태그 모음을 가져옵니다.
+      작가가 아닌 태그(퀄리티 등)는 알아서 빠집니다.</p>
+
     <div class="toolrow">
       <button id="drw-label-mode" class="btn small">라벨 붙이기</button>
       <span id="drw-label-now" class="hint"></span>
@@ -1344,6 +1365,14 @@
           <input id="st-height" type="number" inputmode="numeric" step="64" placeholder="대량생성 값">
         </label>
         <label class="field">
+          <span class="label">UC 프리셋</span>
+          <select id="st-uc"></select>
+        </label>
+        <label class="field">
+          <span class="label">퀄리티</span>
+          <select id="st-quality"></select>
+        </label>
+        <label class="field">
           <span class="label">스텝</span>
           <input id="st-steps" type="number" inputmode="numeric" placeholder="대량생성 값">
         </label>
@@ -1351,10 +1380,24 @@
           <span class="label">가이던스</span>
           <input id="st-cfg" type="number" inputmode="decimal" step="0.1" placeholder="대량생성 값">
         </label>
+        <label class="field">
+          <span class="label">가이던스 리스케일</span>
+          <input id="st-cfg-rescale" type="number" inputmode="decimal" step="0.05" min="0" max="1"
+                 placeholder="대량생성 값">
+        </label>
       </div>
       <label class="check">
         <input id="st-variety" type="checkbox"> Variety+
       </label>
+      <label class="check" id="st-transparent-row">
+        <input id="st-transparent" type="checkbox"> 투명 배경
+      </label>
+      <label class="check" id="st-straight-alpha-row" hidden>
+        <input id="st-straight-alpha" type="checkbox"> Straight Alpha
+      </label>
+      <p class="hint">저장 설정(형식·품질·생성 정보 지우기·자동 저장)과 인핸스 설정은
+        여기 없습니다. 그림이 달라지는 값이 아니라 뽑은 뒤를 다루는 값입니다.
+        배수도 없습니다. 테스트는 조합마다 한 장씩 뽑는 게 전제입니다.</p>
       <p class="hint" id="st-opt-echo"></p>
       <div class="toolrow">
         <button id="st-opt-same" class="btn small">대량생성 설정 그대로</button>

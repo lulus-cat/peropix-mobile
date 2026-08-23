@@ -242,6 +242,38 @@ check('한글 이름이 붙는다', D.genres(mk(10, '1girl'))[0].label === '인�
 check('빈 표본이면 빈 목록', D.genres([]).length === 0 && D.genres(null).length === 0);
 
 
+// ── 이름 목록으로 한 번에 조회 ────────────────────────────────────────────
+// ★대량생성 프롬프트에는 작가와 퀄리티 태그가 섞여 있다. 무엇이 작가인지 가리려면
+//   갈래(category)를 함께 받아야 한다 — 장수만 받는 tagCountsUrl 로는 못 가린다.
+let u = D.tagsByNameUrl(['wlop', 'masterpiece']);
+check('쉼표 목록으로 묻는다', /name_comma%5D=wlop%2Cmasterpiece/.test(u), u);
+check('★갈래를 함께 받는다 (작가인지 가려야 한다)', /category/.test(u), u);
+check('버려진 태그인지도 받는다', /is_deprecated/.test(u), u);
+check('빈 목록이면 부르지 않는다', D.tagsByNameUrl([]) === '' && D.tagsByNameUrl(null) === '');
+check('언더스코어로 맞춰 보낸다', /wlop%2Cas109/.test(D.tagsByNameUrl(['WLOP', ' as109 '])),
+  D.tagsByNameUrl(['WLOP', ' as109 ']));
+// ★only= 에도 쉼표가 들어 있어 주소 전체의 쉼표를 세면 안 된다. 이름 목록만 꺼내 센다.
+const nameList = function (url) {
+  const m = /name_comma%5D=([^&]*)/.exec(url);
+  return m ? decodeURIComponent(m[1]).split(',') : [];
+};
+check('★한 번에 40개까지만 (주소가 끝없이 길어지면 거절당한다)',
+  nameList(D.tagsByNameUrl(Array.from({ length: 60 }, function (_, i) { return 'a' + i; })))
+    .length === 40);
+
+// 응답에서 작가만 남는가
+const mixedRows = JSON.stringify([
+  { name: 'wlop', post_count: 5000, category: 1, is_deprecated: false },
+  { name: 'masterpiece', post_count: 900000, category: 0, is_deprecated: false },
+  { name: 'as109', post_count: 3000, category: 1, is_deprecated: true }
+]);
+const onlyArtists = D.parseTags(mixedRows);
+check('★퀄리티 태그(갈래 0)는 빠진다', onlyArtists.length === 2 && onlyArtists.every(function (r) {
+  return r.name !== 'masterpiece';
+}), JSON.stringify(onlyArtists));
+check('버려진 것은 표시가 붙는다',
+  onlyArtists.find(function (r) { return r.name === 'as109'; }).deprecated === true);
+
 const total = pass + fails.length;
 console.log('Danbooru 조회 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

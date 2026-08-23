@@ -322,6 +322,17 @@ check("★남이 못 읽게 둔다 (0600)", oct(made.stat().st_mode)[-3:] == "60
 check("다시 켜면 그대로 읽어 쓴다", made.read_text(encoding="utf-8").strip() == tok)
 shutil.rmtree(auto, ignore_errors=True)
 
+# ── 앱에 넣어 둔 사본 ───────────────────────────────────────────────────
+# ★앱 안에서 receiver.py 를 꺼내 쓸 수 있게 www/ 에 사본을 둔다. 그런데 사본은 조용히
+#   낡는다 — 여기를 고쳐도 앱이 옛 파일을 내주면, 「비밀번호 안 만들어도 된다더니 왜
+#   토큰을 달라고 하냐」 가 된다. 그래서 두 파일이 같은지 검사로 못 박는다.
+copy = Path(__file__).resolve().parent.parent / "www" / "receiver.py.txt"
+real = Path(__file__).resolve().parent / "receiver.py"
+check("앱에 넣어 둔 사본이 있다", copy.exists())
+if copy.exists():
+    check("★사본이 지금 receiver.py 와 같다 (다르면 앱이 옛 파일을 내준다)",
+          copy.read_bytes() == real.read_bytes())
+
 httpd.shutdown()
 shutil.rmtree(ROOT, ignore_errors=True)
 

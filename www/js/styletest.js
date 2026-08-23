@@ -66,8 +66,17 @@ const StyleTest = (function () {
   //   바뀌어 있는」 일이 생긴다. 그래서 **시험은 자기 값을 따로 들고 돈다.**
   // ★비워 두면 대량생성 값을 그대로 쓴다. 전부 채우게 하면 모델이 새로 나올 때마다
   //   시험 쪽이 옛 모델에 묶인다.
-  const OPT_KEYS = ['nai_model', 'sampler', 'width', 'height', 'steps', 'cfg', 'variety_plus'];
+  // ★저장 설정(형식·품질·생성 정보 지우기·자동 저장)과 인핸스 설정은 뺐다. 그림이
+  //   달라지는 값이 아니라 뽑은 뒤를 다루는 값이라, 시험에서 따로 들 이유가 없다.
+  // ★배수도 뺐다. 시험은 조합마다 한 장씩 뽑는 것이 전제다 — 한 조합에 여러 장이 나오면
+  //   어느 그림에 매긴 별점인지가 어긋난다.
+  const OPT_KEYS = ['nai_model', 'sampler', 'uc_preset', 'quality_preset',
+    'width', 'height', 'steps', 'cfg', 'cfg_rescale',
+    'variety_plus', 'transparent_bg', 'straight_alpha'];
   const OPT_NUM = { width: 0, height: 0, steps: 0, cfg: 0 };
+  // ★cfg_rescale 은 0 이 성한 값이다. 위의 「0 이면 없는 것으로 본다」 에 걸리면 안 된다.
+  const OPT_ZERO_OK = { cfg_rescale: 0 };
+  const OPT_BOOL = { variety_plus: 0, transparent_bg: 0, straight_alpha: 0 };
 
   /** 저장해 둔 시험 설정을 성한 값으로. 모르는 열쇠는 버린다. */
   function opts(raw) {
@@ -76,7 +85,13 @@ const StyleTest = (function () {
     OPT_KEYS.forEach(function (k) {
       const v = o[k];
       if (v === undefined || v === null || v === '') return;
-      if (k === 'variety_plus') { out[k] = !!v; return; }
+      if (k in OPT_BOOL) { out[k] = !!v; return; }
+      if (k in OPT_ZERO_OK) {
+        const z = Number(v);
+        if (!isFinite(z) || z < 0) return;
+        out[k] = z;
+        return;
+      }
       if (k in OPT_NUM) {
         const n = Number(v);
         // ★0 이나 음수, 글자가 들어오면 없는 것으로 본다. 그대로 내보내면 생성이 터진다.

@@ -894,6 +894,50 @@
     };
   }
 
+  /**
+   * 앱 안에 든 receiver.py 를 꺼낸다.
+   * ★저장소를 뒤져 내려받게 하지 않는다. 앱 안의 것이 **지금 이 앱과 짝이 맞는 판**이라,
+   *   여기서 꺼내 쓰는 것이 제일 확실하다 (저장소 기본 가지에는 옛 판이 있을 수 있다).
+   */
+  async function receiverSource() {
+    const r = await fetch('receiver.py.txt', { cache: 'no-store' });
+    if (!r.ok) throw new Error('앱 안에서 파일을 못 찾았습니다 (' + r.status + ')');
+    const text = await r.text();
+    if (text.indexOf('PeroPix') === -1) throw new Error('파일이 온전하지 않습니다.');
+    return text;
+  }
+
+  async function copyReceiver() {
+    const box = $('rx-msg');
+    box.textContent = '꺼내는 중…';
+    try {
+      const text = await receiverSource();
+      // 편집기 칸을 빌려 복사한다 — 보이는 칸을 선택해서 복사하는 길이 성공률이 높다.
+      const t = $('editor-text');
+      const keep = t.value;
+      t.value = text;
+      const ok = await copyFromEditor();
+      t.value = keep;
+      box.textContent = ok
+        ? 'receiver.py 를 복사했습니다. SSH 에서 「cat > receiver.py」 하고 붙여넣은 뒤 Ctrl+D.'
+        : '복사하지 못했습니다. 「파일로 저장」 을 쓰세요.';
+    } catch (e) {
+      box.textContent = '꺼내지 못했습니다: ' + (e.message || e);
+    }
+  }
+
+  async function saveReceiver() {
+    const box = $('rx-msg');
+    box.textContent = '저장하는 중…';
+    try {
+      const bytes = new TextEncoder().encode(await receiverSource());
+      const where = await NaiClient.saveImage(bytes, 'receiver.py', 'text/x-python');
+      box.textContent = where + ' 에 저장했습니다.';
+    } catch (e) {
+      box.textContent = '저장하지 못했습니다: ' + (e.message || e);
+    }
+  }
+
   async function applyPairString() {
     const box = $('dest-paste-msg');
     const r = parsePairString($('dest-paste').value);
@@ -2210,6 +2254,7 @@
       renderDrawer();
     });
     $('drw-fav').classList.toggle('on', drwF.fav);
+    renderDrawerImport();
     renderLabelBar();
 
     const list = $('drw-list');
@@ -2287,6 +2332,70 @@
       row.appendChild(del);
       list.appendChild(row);
     });
+  }
+
+  /** 대량생성에서 저장해 둔 작가 태그 모음 목록. */
+  function renderDrawerImport() {
+    const sel = $('drw-import-pick');
+    const keep = sel.value;
+    sel.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = tagsets.length
+      ? '대량생성에 저장된 작가 태그…' : '대량생성에 저장된 것 없음';
+    sel.appendChild(first);
+    tagsets.forEach(function (t) {
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      sel.appendChild(o);
+    });
+    if (keep && tagsets.some(function (t) { return t.id === keep; })) sel.value = keep;
+    $('drw-import').disabled = !tagsets.length;
+  }
+
+  /**
+   * 고른 모음을 서랍에 담는다.
+   *
+   * ★모음에는 퀄리티 태그도 섞여 있다 (「artist:wlop, masterpiece, best quality」).
+   *   그래서 Danbooru 에 갈래를 물어 **작가인 것만** 담는다. 안 거르면 서랍이
+   *   masterpiece 로 채워져 쓸 수가 없다.
+   * ★한 번에 다 묻는다. 태그마다 부르면 스무 개짜리 모음 하나에 스무 번이 나간다.
+   */
+  async function importTagsetToDrawer() {
+    const t = tagsets.find(function (x) { return x.id === $('drw-import-pick').value; });
+    if (!t) { toast('가져올 모음을 먼저 고르세요.', 2200); return; }
+
+    const names = tagsFromText(t.text);
+    if (!names.length) { toast('그 모음에 태그가 없습니다.', 2200); return; }
+
+    const msg = $('drw-import-msg');
+    msg.textContent = '알아보는 중…';
+    $('drw-import').disabled = true;
+    try {
+      const rows = Danbooru.parseTags(await dbGet(Danbooru.tagsByNameUrl(names)));
+      const artists = rows.filter(function (r) { return !r.deprecated; });
+      let added = 0;
+      artists.forEach(function (r) {
+        if (Artists.has(artDrawer, r.name)) return;
+        artDrawer = Artists.add(artDrawer, { tag: r.name, count: r.count }, Date.now());
+        added++;
+      });
+      if (added) await Store.setArtists(artDrawer);
+      renderDrawer();
+      // ★무엇이 빠졌는지 적어 준다. 「스무 개 넣었는데 세 명만 담겼다」 를 말없이
+      //   두면 고장으로 보인다.
+      const skipped = names.length - artists.length;
+      msg.textContent = added + '명을 담았습니다.'
+        + (artists.length - added ? ' 이미 있던 ' + (artists.length - added) + '명은 건너뛰었습니다.' : '')
+        + (skipped > 0 ? ' 작가가 아니거나 버려진 태그 ' + skipped + '개는 뺐습니다.' : '');
+      if (names.length > 40) {
+        msg.textContent += ' (한 번에 40개까지만 봅니다)';
+      }
+    } catch (e) {
+      msg.textContent = '가져오지 못했습니다: ' + (e.message || e);
+    }
+    $('drw-import').disabled = false;
   }
 
   /** 지금 라벨을 붙이고 있는 중인가 (모드가 켜져 있고 라벨도 골라 뒀는가). */
@@ -2635,7 +2744,12 @@
   /** 글에서 작가 태그를 뽑아낸다. 세기 문법(1.2::이름::)은 벗긴다. */
   function tagsFromText(text) {
     return String(text || '').split(/[,\n]/).map(function (t) {
-      return Danbooru.normalize(t.replace(/^\s*[\d.]+\s*::/, '').replace(/::\s*$/, ''));
+      return Danbooru.normalize(t
+        .replace(/^\s*[\d.]+\s*::/, '')      // 1.2::태그:: 의 세기
+        .replace(/::\s*$/, '')
+        // ★artist: 는 Danbooru 의 **검색 문법**이지 태그 이름이 아니다. NAI 프롬프트에는
+        //   artist:wlop 처럼 쓰는 사람이 많은데, 그대로 물어보면 그런 태그는 없다고 나온다.
+        .replace(/^\s*artist:\s*/i, ''));
     }).filter(Boolean);
   }
 
@@ -2893,46 +3007,68 @@
     $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
   }
 
+  // 시험 쪽 숫자 칸과 대량생성 쪽 설정 열쇠의 짝. 한 곳에 두어 그리기와 읽기가 안 갈리게.
+  const ST_NUMS = [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'],
+    ['st-cfg', 'cfg'], ['st-cfg-rescale', 'cfg_rescale']];
+  const ST_BOOLS = [['st-variety', 'variety_plus'], ['st-transparent', 'transparent_bg'],
+    ['st-straight-alpha', 'straight_alpha']];
+
   /** 시험용 이미지 설정. 비어 있는 칸은 대량생성 값을 자리표시로 보여 준다. */
   function renderStyleOpts() {
     const o = stCfg.opts || {};
-    // 고르는 목록은 대량생성 쪽과 같은 것을 쓴다. 두 벌로 두면 모델이 늘 때 한쪽만 는다.
-    const models = Array.from($('opt-model').options).map(function (x) {
-      return { value: x.value, text: x.text };
-    });
-    fillSelect($('st-model'), [{ value: '', text: '대량생성 값 그대로' }].concat(models),
-      o.nai_model || '');
-    const samplers = Array.from($('opt-sampler').options).map(function (x) {
-      return { value: x.value, text: x.text };
-    });
-    fillSelect($('st-sampler'), [{ value: '', text: '대량생성 값 그대로' }].concat(samplers),
-      o.sampler || '');
-
-    [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'], ['st-cfg', 'cfg']]
+    const same = { value: '', text: '대량생성 값 그대로' };
+    // ★고르는 목록은 대량생성 쪽 select 를 그대로 베낀다. 두 벌로 두면 모델이 늘 때
+    //   한쪽만 늘고, 모델마다 달라지는 UC·퀄리티 목록도 어긋난다.
+    [['st-model', 'opt-model', o.nai_model], ['st-sampler', 'opt-sampler', o.sampler],
+     ['st-uc', 'opt-uc', o.uc_preset], ['st-quality', 'opt-quality', o.quality_preset]]
       .forEach(function (p) {
-        $(p[0]).value = (o[p[1]] === undefined) ? '' : String(o[p[1]]);
-        $(p[0]).placeholder = '대량생성 값 (' + options[p[1]] + ')';
+        fillSelect($(p[0]), [same].concat(Array.from($(p[1]).options).map(function (x) {
+          return { value: x.value, text: x.text };
+        })), p[2] || '');
       });
-    $('st-variety').checked = (o.variety_plus === undefined)
-      ? !!options.variety_plus : !!o.variety_plus;
+
+    ST_NUMS.forEach(function (p) {
+      $(p[0]).value = (o[p[1]] === undefined) ? '' : String(o[p[1]]);
+      $(p[0]).placeholder = '대량생성 값 (' + options[p[1]] + ')';
+    });
+    ST_BOOLS.forEach(function (p) {
+      $(p[0]).checked = (o[p[1]] === undefined) ? !!options[p[1]] : !!o[p[1]];
+    });
+
+    // ★모델이 못 하는 것은 여기서도 잠근다. 켜 봐야 무시되거나 돈만 나간다.
+    //   기준은 대량생성 값이 아니라 **시험에서 실제로 쓸 모델**이다.
+    const use = StyleTest.withOpts(options, o);
+    const cap = NAI_TABLES.MODEL_CAPS[baseModelOf(use.nai_model)] || NAI_TABLES.CAPS_FALLBACK;
+    $('st-variety').disabled = !cap.cfg_delay;
+    if (!cap.cfg_delay) $('st-variety').checked = false;
+    $('st-transparent').disabled = !cap.transparency;
+    if (!cap.transparency) $('st-transparent').checked = false;
+    $('st-transparent-row').title = cap.transparency ? '' : '이 모델은 투명 배경을 지원하지 않습니다';
+    // Straight Alpha 는 투명 배경을 켰을 때만 의미가 있다.
+    $('st-straight-alpha-row').hidden = !($('st-transparent').checked && cap.transparency);
 
     // 실제로 나갈 값을 한 줄로 적어 준다 — 어느 쪽 값이 쓰이는지 헷갈리는 자리다.
-    const use = StyleTest.withOpts(options, o);
     $('st-opt-echo').textContent = '테스트에 쓰일 값: ' + (MODEL_LABELS[use.nai_model] || use.nai_model)
       + ' · ' + use.width + '×' + use.height + ' · ' + use.steps + '스텝 · 가이던스 ' + use.cfg
-      + ' · ' + use.sampler + (use.variety_plus ? ' · Variety+' : '');
+      + (use.cfg_rescale ? ' (리스케일 ' + use.cfg_rescale + ')' : '')
+      + ' · ' + use.sampler + ' · UC ' + use.uc_preset
+      + (use.variety_plus ? ' · Variety+' : '')
+      + (use.transparent_bg ? ' · 투명 배경' : '');
   }
 
   async function readStyleOpts() {
     const o = {};
-    if ($('st-model').value) o.nai_model = $('st-model').value;
-    if ($('st-sampler').value) o.sampler = $('st-sampler').value;
-    [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'], ['st-cfg', 'cfg']]
-      .forEach(function (p) {
-        if (String($(p[0]).value).trim() !== '') o[p[1]] = Number($(p[0]).value);
-      });
-    // ★Variety+ 는 켜고 끄는 것이라 「안 정했다」 가 없다. 대량생성 값과 같으면 안 담는다.
-    if ($('st-variety').checked !== !!options.variety_plus) o.variety_plus = $('st-variety').checked;
+    [['st-model', 'nai_model'], ['st-sampler', 'sampler'],
+     ['st-uc', 'uc_preset'], ['st-quality', 'quality_preset']]
+      .forEach(function (p) { if ($(p[0]).value) o[p[1]] = $(p[0]).value; });
+    ST_NUMS.forEach(function (p) {
+      if (String($(p[0]).value).trim() !== '') o[p[1]] = Number($(p[0]).value);
+    });
+    // ★켜고 끄는 것에는 「안 정했다」 가 없다. 대량생성 값과 같으면 안 담는다 —
+    //   담아 두면 나중에 대량생성 쪽을 바꿔도 시험은 옛 상태에 묶인다.
+    ST_BOOLS.forEach(function (p) {
+      if ($(p[0]).checked !== !!options[p[1]]) o[p[1]] = $(p[0]).checked;
+    });
     stCfg = StyleTest.settings(Object.assign({}, stCfg, { opts: o }));
     await Store.setStyleTest(stCfg);
     renderStyleUI();
@@ -6075,6 +6211,7 @@
       renderDrawer();
     });
     bindLabelBar();
+    $('drw-import').addEventListener('click', importTagsetToDrawer);
     $('mix-norm').addEventListener('change', renderMix);
     $('mix-apply').addEventListener('click', applyMix);
     $('mix-copy').addEventListener('click', async function () {
@@ -6133,7 +6270,8 @@
         makeExpandable($(p[0]), p[1]);
         $(p[0]).addEventListener('input', readStyleUI);
       });
-    ['st-model', 'st-sampler', 'st-width', 'st-height', 'st-steps', 'st-cfg', 'st-variety']
+    ['st-model', 'st-sampler', 'st-uc', 'st-quality', 'st-width', 'st-height', 'st-steps',
+     'st-cfg', 'st-cfg-rescale', 'st-variety', 'st-transparent', 'st-straight-alpha']
       .forEach(function (id) { $(id).addEventListener('change', readStyleOpts); });
     $('st-opt-same').addEventListener('click', async function () {
       stCfg = StyleTest.settings(Object.assign({}, stCfg, { opts: {} }));
@@ -6358,6 +6496,9 @@
       $('naming-preset').value = known ? namingTemplate : '__custom__';
       renderNamingPreview();
     });
+
+    $('rx-copy').addEventListener('click', copyReceiver);
+    $('rx-save').addEventListener('click', saveReceiver);
 
     // ★붙여넣는 순간 바로 등록한다 (버튼을 또 누르게 하지 않는다).
     $('dest-paste').addEventListener('input', function () {

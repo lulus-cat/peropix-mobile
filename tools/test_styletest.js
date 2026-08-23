@@ -120,6 +120,26 @@ check('★거짓으로 정한 것도 덮어쓴다 (「끄기」 가 「안 정�
 check('저장했다 되읽어도 남는다',
   S.settings({ opts: { steps: 40, nai_model: 'B' } }).opts.steps === 40);
 
+// 남은 생성 옵션까지 (저장 설정·인핸스·배수는 일부러 뺐다)
+['nai_model', 'sampler', 'uc_preset', 'quality_preset', 'width', 'height', 'steps',
+ 'cfg', 'cfg_rescale', 'variety_plus', 'transparent_bg', 'straight_alpha']
+  .forEach(function (k) {
+    check(k + ' 을 시험에서 정할 수 있다', S.OPT_KEYS.indexOf(k) !== -1);
+  });
+['save_format', 'jpg_quality', 'strip_metadata', 'auto_save', 'enhance_replace_original',
+ 'count_per_slot']
+  .forEach(function (k) {
+    check('★' + k + ' 는 안 든다 (그림이 달라지는 값이 아니다)', S.OPT_KEYS.indexOf(k) === -1);
+  });
+check('★가이던스 리스케일은 0 이 성한 값이다 (0 을 버리면 0 으로 못 돌린다)',
+  S.opts({ cfg_rescale: 0 }).cfg_rescale === 0);
+check('음수 리스케일은 버린다', S.opts({ cfg_rescale: -0.5 }).cfg_rescale === undefined);
+check('투명 배경은 참·거짓으로', S.opts({ transparent_bg: 'yes' }).transparent_bg === true);
+check('★끔으로 정한 것도 살아남는다 (「끄기」 가 「안 정했다」 가 되면 못 끈다)',
+  S.opts({ transparent_bg: false }).transparent_bg === false);
+check('UC·퀄리티는 글로 담는다',
+  S.opts({ uc_preset: 'Heavy', quality_preset: 'light' }).uc_preset === 'Heavy');
+
 const total = pass + fails.length;
 console.log('그림체 시험 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

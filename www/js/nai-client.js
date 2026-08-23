@@ -252,11 +252,12 @@ const NaiClient = (function () {
 
   // ── 저장 ─────────────────────────────────────────────────────────────────
   /**
-   * PNG 를 기기에 저장한다. 안드로이드는 문서 폴더의 PeroPix 아래.
+   * 파일을 기기에 저장한다. 안드로이드는 문서 폴더의 PeroPix 아래.
    * PC 미리보기에서는 브라우저 다운로드로 떨어진다.
+   * @param {string} [mime] 브라우저 다운로드일 때의 형식 (기본 image/png)
    * @returns {Promise<string>} 저장 위치 설명
    */
-  async function saveImage(bytes, filename) {
+  async function saveImage(bytes, filename, mime) {
     const P = plugins();
     if (isNative() && P && P.Filesystem) {
       await P.Filesystem.writeFile({
@@ -267,7 +268,7 @@ const NaiClient = (function () {
       });
       return '문서/PeroPix/' + filename;
     }
-    const blob = new Blob([bytes], { type: 'image/png' });
+    const blob = new Blob([bytes], { type: mime || 'image/png' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
