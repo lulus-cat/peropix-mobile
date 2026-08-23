@@ -336,6 +336,95 @@ check('★모든 태그가 한 번씩은 나온다 (묶다가 흘리면 고를 �
     return g.some(function (x) { return x.tags.indexOf(t) !== -1; });
   }));
 
+// ── 이름 끝이 숫자인 작가 ────────────────────────────────────────────────
+// ★NAI 의 `숫자::` 는 여는 괄호가 아니라 "여기서부터 뒤로 이 가중치" 라는 뜻이고,
+//   맨 뒤의 `::` 가 되돌린다. 그래서 `::` 바로 앞에 숫자가 오면 그 숫자가 새 가중치로
+//   읽힌다. 1.2::artist:119:: 는 "artist: 뒤로 119배" 가 되어 그림이 깨진다.
+//   이걸 놓치면 사람은 왜 깨졌는지 알 방법이 없다.
+const mk = function (t, w) { return { tag: t, weight: w, on: true }; };
+
+// 굽은 글에 「숫자 바로 뒤에 ::」 가 있으면 안 된다. 이 검사가 이 절의 핵심이다.
+// ★맨 앞이나 쉼표 뒤에 오는 「숫자::」 는 정상적인 가중치 시작이다. 그것만 지운 뒤에도
+//   숫자+:: 가 남아 있으면, NAI 가 그 숫자를 새 가중치로 읽는다는 뜻이다.
+const anyDigitBeforeColons = function (out) {
+  return /[0-9]::/.test(out.replace(/(^|,\s)[0-9.]+::/g, '$1'));
+};
+
+let out = A.bake([mk('artist:119', 1.2), mk('artist:meola', 1.2)]);
+check('★숫자로 끝나는 작가를 무리 앞에 두고 안전한 작가를 뒤에 세운다',
+  out === '1.2::artist:119, artist:meola::', out);
+check('★그 결과에 「숫자 바로 뒤 ::」 가 없다', !anyDigitBeforeColons(out), out);
+
+out = A.bake([mk('artist:meola', 1.2), mk('artist:119', 1.2)]);
+check('★넣은 차례가 반대여도 숫자로 끝나는 쪽이 앞으로 간다',
+  out === '1.2::artist:119, artist:meola::', out);
+
+out = A.bake([mk('artist:119', 1.2)]);
+check('★혼자면 괄호로 간다 (숫자:: 를 쓸 수가 없다)', /^\{+artist:119\}+$/.test(out), out);
+check('1.2 는 괄호 네 겹 (1.05^4 = 1.2155)', out === '{{{{artist:119}}}}', out);
+check('★괄호 쪽에도 숫자 뒤 :: 가 없다', out.indexOf('::') === -1, out);
+
+out = A.bake([mk('as109', 0.8)]);
+check('내리는 쪽은 대괄호', /^\[+as109\]+$/.test(out), out);
+check('0.8 은 다섯 겹 (1.05^-5 = 0.7835)', out === '[[[[[as109]]]]]', out);
+
+check('1.0 이면 괄호도 문법도 안 붙는다', A.bake([mk('artist:119', 1)]) === 'artist:119');
+
+// 여러 무리
+out = A.bake([mk('wlop', 1.2), mk('as109', 1.2), mk('sakimichan', 0.9)]);
+check('같은 가중치는 한 무리로 묶는다',
+  out === '1.2::as109, wlop::, 0.9::sakimichan::', out);
+check('★묶어도 숫자 뒤 :: 가 안 생긴다', !anyDigitBeforeColons(out), out);
+
+out = A.bake([mk('a1', 1.2), mk('b2', 1.2), mk('safe', 1.2)]);
+check('숫자로 끝나는 것이 여럿이어도 안전한 하나만 뒤에 있으면 된다',
+  out === '1.2::a1, b2, safe::', out);
+check('그때도 숫자 뒤 :: 없음', !anyDigitBeforeColons(out), out);
+
+out = A.bake([mk('a1', 1.2), mk('b2', 1.2)]);
+check('★전부 숫자로 끝나면 통째로 괄호',
+  out === '{{{{a1}}}}, {{{{b2}}}}', out);
+
+// 무리 차례는 처음 나온 순서를 지킨다
+out = A.bake([mk('zzz', 0.9), mk('aaa', 1.2), mk('yyy', 0.9)]);
+check('무리가 나온 차례대로 온다', out === '0.9::zzz, yyy::, 1.2::aaa::', out);
+
+check('꺼 둔 작가는 안 나온다',
+  A.bake([mk('wlop', 1.2), { tag: 'as109', weight: 1.2, on: false }]) === '1.2::wlop::');
+
+// 끝이 숫자인지 가리기
+check('끝이 숫자면 참', A.endsWithDigit('artist:119') && A.endsWithDigit('as109'));
+check('끝이 글자면 거짓', !A.endsWithDigit('wlop') && !A.endsWithDigit('artist:meola'));
+check('가운데 숫자는 상관없다', !A.endsWithDigit('as109b'));
+
+// 괄호로 갔을 때 실제 값
+check('괄호 값을 알려 준다', A.braceWeight(1.2) === 1.22, String(A.braceWeight(1.2)));
+check('1.0 은 그대로', A.braceWeight(1) === 1);
+
+const off = A.approximated([mk('artist:119', 1.2), mk('wlop', 0.9)]);
+check('괄호로 나가는 작가만 짚어 준다', off.length === 1 && off[0].tag === 'artist:119',
+  JSON.stringify(off));
+check('원한 값과 실제 값을 같이 준다', off[0].want === 1.2 && off[0].got === 1.22,
+  JSON.stringify(off[0]));
+check('★같은 가중치 짝이 있으면 어긋나지 않는다 (정확한 값으로 나간다)',
+  A.approximated([mk('artist:119', 1.2), mk('wlop', 1.2)]).length === 0);
+
+// 어떤 조합을 넣어도 「숫자 바로 뒤 ::」 가 안 나오는가 — 이 절의 안전망.
+// ★한 건으로 묶어 첫 사고만 알려 준다. 120 줄이 똑같은 말로 지나가면 정작 다른 검사가 묻힌다.
+const bad = [];
+['artist:119', 'as109', 'wlop', 'meola2', '3', 'x'].forEach(function (t1) {
+  ['artist:meola', 'as109', 'wlop', '7'].forEach(function (t2) {
+    [0.6, 0.85, 1, 1.2, 1.4, 2].forEach(function (w) {
+      [true, false].forEach(function (two) {
+        const o = two ? A.bake([mk(t1, w), mk(t2, w)]) : A.bake([mk(t1, w)]);
+        if (anyDigitBeforeColons(o)) bad.push(t1 + (two ? ' + ' + t2 : '') + ' @' + w + ' → ' + o);
+      });
+    });
+  });
+});
+check('★어떤 조합에도 「숫자 바로 뒤 ::」 가 안 나온다 (' + (6 * 4 * 6 * 2) + '가지)',
+  bad.length === 0, bad.slice(0, 5).join('\n     '));
+
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

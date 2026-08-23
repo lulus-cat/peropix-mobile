@@ -453,14 +453,112 @@ const Artists = (function () {
    * @param {Array} m mix()
    * @param {object} o {normalize:boolean}
    */
+  // ── 가중치를 글로 굽기 ───────────────────────────────────────────────────
+  // ★NAI 의 `숫자::` 는 여는 괄호가 아니라 **거기서부터 뒤로 쭉** 그 가중치를 먹인다는
+  //   뜻이고, 맨 뒤의 `::` 가 그것을 되돌린다. 그래서 `::` 바로 앞에 숫자가 오면
+  //   그 숫자가 **새 가중치**로 읽힌다.
+  //     1.2::artist:119::  →  "artist:" 뒤에서 119 배가 걸린다. 그림이 깨진다.
+  //     1.2::artist:119, artist:meola::  →  119 뒤가 쉼표라 안전하다.
+  //   이름 끝이 숫자인 작가(artist:119, as109 …)를 무리의 **맨 뒤에 두면 안 된다.**
+  const BRACE = 1.05;          // { } 한 겹이 곱하는 값 (NAI 공식 문서 기준)
+  const BRACE_MAX = 40;        // 터무니없이 긴 괄호를 막는 안전핀
+
+  /** 이름 끝이 숫자인가. 그러면 뒤에 `::` 를 바로 붙일 수 없다. */
+  function endsWithDigit(name) {
+    return /[0-9]$/.test(String(name || '').trim());
+  }
+
+  /**
+   * 괄호로 가중치를 준다. `숫자::` 를 쓸 수 없을 때의 길.
+   * ★한 겹이 1.05 배라 눈금에 딱 안 떨어진다. 가장 가까운 겹수로 맞춘다.
+   */
+  function braces(name, w) {
+    if (!(w > 0) || w === 1) return name;
+    let n = Math.round(Math.log(w) / Math.log(BRACE));
+    if (n > BRACE_MAX) n = BRACE_MAX;
+    if (n < -BRACE_MAX) n = -BRACE_MAX;
+    if (n === 0) return name;
+    return n > 0
+      ? repeat('{', n) + name + repeat('}', n)
+      : repeat('[', -n) + name + repeat(']', -n);
+  }
+
+  function repeat(ch, n) {
+    let out = '';
+    for (let i = 0; i < n; i++) out += ch;
+    return out;
+  }
+
+  /** 괄호로 갔을 때 실제로 걸리는 값 (화면에 「실제로는 1.2155」 라고 적어 주려고). */
+  function braceWeight(w) {
+    if (!(w > 0) || w === 1) return 1;
+    let n = Math.round(Math.log(w) / Math.log(BRACE));
+    if (n > BRACE_MAX) n = BRACE_MAX;
+    if (n < -BRACE_MAX) n = -BRACE_MAX;
+    return round2(Math.pow(BRACE, n));
+  }
+
+  /**
+   * 작가 태그 칸에 넣을 글로 굽는다.
+   *
+   * ★같은 가중치끼리 한 무리로 묶는다. 짧아지기도 하지만, 무엇보다 이름 끝이 숫자인
+   *   작가를 무리 앞쪽에 두고 안전한 작가를 맨 뒤에 세울 수 있다.
+   * ★무리가 통째로 숫자로 끝나는 이름뿐이면 `숫자::` 를 못 쓴다. 그때만 괄호로 간다.
+   */
   function bake(m, o) {
     const opts = o || {};
     const list = opts.normalize ? normalize(m, opts.cfg) : (m || []);
-    return list.filter(function (x) { return x.on; }).map(function (x) {
-      const name = String(x.tag).replace(/_/g, ' ').trim();
+    const on = list.filter(function (x) { return x.on; });
+
+    // 가중치별로 묶되, 처음 나온 차례를 지킨다 (갑자기 순서가 뒤집히면 헷갈린다).
+    const order = [];
+    const byWeight = Object.create(null);
+    on.forEach(function (x) {
       const w = round2(x.weight);
-      return (w === 1) ? name : (w + '::' + name + '::');
-    }).join(', ');
+      const key = String(w);
+      if (!byWeight[key]) { byWeight[key] = { w: w, names: [] }; order.push(key); }
+      byWeight[key].names.push(String(x.tag).replace(/_/g, ' ').trim());
+    });
+
+    return order.map(function (key) {
+      const g = byWeight[key];
+      if (g.w === 1) return g.names.join(', ');
+
+      // 끝이 숫자인 이름을 앞으로, 안전한 이름을 뒤로 (차례는 그대로 지킨다).
+      const risky = g.names.filter(endsWithDigit);
+      const safe = g.names.filter(function (n) { return !endsWithDigit(n); });
+      if (!safe.length) {
+        // 전부 숫자로 끝난다. `숫자::` 를 쓰면 그 숫자가 새 가중치로 읽힌다.
+        return g.names.map(function (n) { return braces(n, g.w); }).join(', ');
+      }
+      return g.w + '::' + risky.concat(safe).join(', ') + '::';
+    }).filter(Boolean).join(', ');
+  }
+
+  /**
+   * 지금 굽기가 괄호로 넘어간 작가들 (화면에 알려 주려고).
+   * ★괄호는 1.05 의 거듭제곱이라 정한 값에 딱 안 맞는다. 말없이 어긋나면 안 된다.
+   */
+  function approximated(m, o) {
+    const opts = o || {};
+    const list = opts.normalize ? normalize(m, opts.cfg) : (m || []);
+    const on = list.filter(function (x) { return x.on; });
+    const byWeight = Object.create(null);
+    on.forEach(function (x) {
+      const key = String(round2(x.weight));
+      if (!byWeight[key]) byWeight[key] = [];
+      byWeight[key].push(String(x.tag).replace(/_/g, ' ').trim());
+    });
+    const out = [];
+    Object.keys(byWeight).forEach(function (key) {
+      const w = Number(key);
+      if (w === 1) return;
+      if (byWeight[key].some(function (n) { return !endsWithDigit(n); })) return;
+      byWeight[key].forEach(function (n) {
+        out.push({ tag: n, want: w, got: braceWeight(w) });
+      });
+    });
+    return out;
   }
 
   /** 켜져 있는 작가 수 — 화면에 「3명 섞는 중」 을 적으려고. */
@@ -519,6 +617,9 @@ const Artists = (function () {
     combos: combos,
     refine: refine,
     bake: bake,
+    approximated: approximated,
+    endsWithDigit: endsWithDigit,
+    braceWeight: braceWeight,
     activeCount: activeCount,
     scan: scan
   };

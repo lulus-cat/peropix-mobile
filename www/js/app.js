@@ -2733,6 +2733,26 @@
     return Artists.bake(artMix, { normalize: $('mix-norm').checked, cfg: wRange });
   }
 
+  /**
+   * 굽고 나서 화면에 적어 줄 말.
+   * ★이름 끝이 숫자인 작가는 `숫자::` 뒤에 바로 붙일 수 없어 괄호로 나간다. 괄호는
+   *   1.05 의 거듭제곱이라 정한 값에 딱 안 맞는데, 말없이 어긋나면 안 된다.
+   */
+  function renderMixNote() {
+    const off = Artists.approximated(artMix, {
+      normalize: $('mix-norm').checked, cfg: wRange
+    });
+    const note = $('mix-note');
+    note.hidden = !off.length;
+    if (!off.length) return;
+    note.textContent = off.map(function (x) {
+      return x.tag + ' ' + x.want + '→' + x.got;
+    }).join(', ') + ' — 이름이 숫자로 끝나는 작가는 괄호로 나갑니다. '
+      + '숫자:: 바로 앞에 숫자가 오면 그 숫자가 새 가중치로 읽혀 그림이 깨집니다. '
+      + '괄호는 한 겹에 1.05배라 값이 조금 어긋납니다. 같은 가중치인 다른 작가를 '
+      + '같이 켜면 정확한 값으로 나갑니다.';
+  }
+
   /** 지금 정해진 가중치 범위 (성한 값으로 다듬은 것). */
   function wr() {
     return Artists.range(wRange);
@@ -2920,6 +2940,7 @@
     });
 
     $('mix-out').value = mixBaked();
+    renderMixNote();
   }
 
   /**
