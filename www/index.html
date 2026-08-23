@@ -12,13 +12,121 @@
 
 <!-- ── 인트로 (로딩) ──────────────────────────────────────────────────── -->
 <!-- ★설정을 다 읽기 전 화면은 값이 비어 있어 잠깐 어색하게 깜빡인다. 그 사이를 덮는다. -->
+<!-- ★인트로. 아이콘을 가운데 두고 아래에 꿀팁을 돌린다. 배경 그림은 옅게 깔아 글씨를
+     가리지 않게 한다. 아무 데나 누르면 바로 넘어간다 — 매번 5초를 기다리게 하면
+     자주 쓰는 사람에게는 그냥 방해다. -->
 <div id="intro" class="intro">
-  <div class="intro-mark">P</div>
-  <div class="intro-title">Peropix</div>
-  <div class="intro-sub">Lkit mobile ver.</div>
-  <div class="intro-bar"><div class="intro-fill"></div></div>
-  <div id="intro-msg" class="intro-msg">준비하는 중…</div>
+  <img class="intro-bg" src="img/intro.webp" alt="" aria-hidden="true">
+  <div class="intro-body">
+    <img class="intro-mark" src="img/icon.png" alt="" width="88" height="88">
+    <div class="intro-title">Peropix</div>
+    <div class="intro-sub">Lkit mobile ver.</div>
+    <div class="intro-tip">
+      <div id="intro-tip-label" class="intro-tip-label">꿀팁</div>
+      <div id="intro-tip-text" class="intro-tip-text"></div>
+    </div>
+    <div class="intro-bar"><div id="intro-fill" class="intro-fill"></div></div>
+    <div id="intro-msg" class="intro-msg">준비하는 중…</div>
+    <div class="intro-skip">아무 데나 누르면 넘어갑니다</div>
+  </div>
 </div>
+
+<!-- ── 홈 ─────────────────────────────────────────────────────────────────
+     ★작은 글자를 상단에 늘어놓는 대신 큰 카드로 깔았다. 폰에서는 엄지가 닿는 넓이가
+     곧 쓰기 쉬움이다. 무엇을 하는 곳인지 한 줄씩 붙여 두어, 처음 여는 사람도 어디로
+     가야 할지 읽고 고를 수 있게 했다. -->
+<section id="screen-home" class="screen" hidden>
+  <div class="home">
+    <div class="home-head">
+      <img class="home-icon" src="img/icon.png" alt="" width="52" height="52">
+      <div>
+        <div class="home-title">Peropix</div>
+        <div class="home-sub" id="home-sub">Lkit mobile ver.</div>
+      </div>
+      <button id="home-anlas" class="anlas-bal" hidden></button>
+    </div>
+
+    <div class="home-grid">
+      <button class="home-card wide" id="home-bulk">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>이미지 대량생성</b>
+          <i>슬롯마다 다른 프롬프트로 한 번에 뽑기</i>
+        </span>
+        <span class="home-card-badge" id="home-bulk-badge" hidden></span>
+      </button>
+
+      <button class="home-card wide" id="home-artists">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.3-9-7.3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="9" r="1.2"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>작가 태그 테스트</b>
+          <i>작가 찾기 · 서랍 · 추천 · 조합과 깎기</i>
+        </span>
+      </button>
+
+      <button class="home-card" id="home-jobs">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg>
+        </span>
+        <span class="home-card-txt"><b>원격 작업</b><i>받아서 뽑기</i></span>
+        <span class="home-card-badge" id="home-jobs-badge" hidden></span>
+      </button>
+
+      <button class="home-card" id="home-folders">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </span>
+        <span class="home-card-txt"><b>폴더 관리</b><i>생성한 이미지 정리</i></span>
+      </button>
+
+      <button class="home-card" id="home-results">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M4 15l4-4 3 3 4-5 5 6"/></svg>
+        </span>
+        <span class="home-card-txt"><b>결과 보기</b><i>이번에 뽑은 것</i></span>
+        <span class="home-card-badge" id="home-results-badge" hidden></span>
+      </button>
+
+      <button class="home-card" id="home-settings">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg>
+        </span>
+        <span class="home-card-txt"><b>설정</b><i>키 · 저장 위치</i></span>
+      </button>
+
+      <button class="home-card wide" id="home-guide">
+        <span class="home-card-ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>
+        </span>
+        <span class="home-card-txt">
+          <b>가이드</b>
+          <i>어디에 뭐가 있는지 · 자주 막히는 곳</i>
+        </span>
+      </button>
+    </div>
+
+    <!-- ★새 버전이 나오면 여기에 뜬다. 시작 화면은 어차피 지나가는 곳이라, 알림을 따로
+         띄워 하려던 일을 가로막지 않아도 된다. -->
+    <div class="upd" id="home-upd" hidden>
+      <div class="upd-top">
+        <b id="upd-title"></b>
+        <span id="upd-ver" class="upd-ver"></span>
+      </div>
+      <ul class="upd-list" id="upd-list"></ul>
+      <div class="toolrow">
+        <button id="upd-get" class="btn small primary">받아서 설치</button>
+        <button id="upd-skip" class="btn small">이 버전 건너뛰기</button>
+        <button id="upd-later" class="btn small">나중에</button>
+      </div>
+    </div>
+
+    <p class="home-tip" id="home-tip"></p>
+  </div>
+</section>
 
 <!-- ── 첫 실행: API 키 입력 ───────────────────────────────────────────── -->
 <section id="screen-setup" class="screen">
@@ -80,9 +188,15 @@
 <!-- ── 메인: 슬롯 + 생성 ──────────────────────────────────────────────── -->
 <section id="screen-main" class="screen" hidden>
   <header class="topbar">
-    <h1 class="brand sm">Peropix Lkit mobile ver.</h1>
+    <button id="main-home" class="btn icon" aria-label="홈">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <h1 class="brand sm">이미지 대량생성</h1>
     <button id="go-results" class="btn icon badge-host" aria-label="결과 보기">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5-6 6-3-3-4 4"/></svg><span id="results-badge" class="badge" hidden></span>
+    </button>
+    <button id="go-jobs" class="btn icon badge-host" aria-label="원격 작업">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11H4z"/><path d="M2 19h20"/><path d="M9 8l3 3 3-3"/><path d="M12 4v7"/></svg><span id="jobs-badge" class="badge" hidden></span>
     </button>
     <button id="go-folders" class="btn icon" aria-label="폴더 관리"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     <button id="go-settings" class="btn icon" aria-label="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/></svg></button>
@@ -99,7 +213,7 @@
     <label class="field">
       <span class="label">폴더 이름</span>
       <input id="persona" type="text" placeholder="예: 미아">
-      <span class="hint">뽑은 그림이 이 이름의 폴더에 들어갑니다.</span>
+      <span class="hint">생성한 이미지이 이 이름의 폴더에 들어갑니다.</span>
     </label>
 
     <div class="row-head">
@@ -136,6 +250,10 @@
       </span>
     </div>
     <p class="hint warn" id="char-limit-hint" hidden></p>
+    <label class="check">
+      <input id="opt-one-char" type="checkbox"> 한 명씩 돌리기
+    </label>
+    <p class="hint" id="one-char-hint"></p>
     <button id="open-chars" class="btn block drawer-open">
       <span id="chars-summary">인물 없음</span>
       <span class="drawer-open-cue">▶ 밀어서 열기</span>
@@ -248,7 +366,7 @@
       </div>
 
       <label class="field" id="opt-quality-field" hidden>
-        <span class="label">JPG · WebP 품질 <span id="opt-quality-val"></span></span>
+        <span class="label">JPG · WebP 화질 <span id="opt-quality-val"></span></span>
         <input id="opt-jpg-quality" type="range" min="50" max="100" step="1">
       </label>
       <label class="check">
@@ -286,7 +404,7 @@
 
   <div class="bottombar">
     <div id="cost-row" class="cost-row">
-      <span id="cost-est" class="cost-est">—</span>
+      <span id="cost-est" class="cost-est">, </span>
       <span id="anlas-bal" class="anlas-bal"></span>
     </div>
     <button id="generate" class="btn primary block">생성</button>
@@ -305,14 +423,29 @@
   <div class="pad scroll">
     <div id="results-summary" class="msg"></div>
 
+    <!-- ★인터넷이 끊기면 남은 장이 줄줄이 깨진다. 처음부터 다시 돌리면 이미 나온 장까지
+         또 뽑아 Anlas 를 두 번 쓰므로, 못 만든 것만 집어 이어 뽑는다. -->
+    <div id="retry-row" class="toolrow" hidden>
+      <button id="retry-failed" class="btn primary small block">못 만든 것 다시 생성</button>
+    </div>
+    <p class="hint" id="retry-hint"></p>
+
     <div id="result-filters" class="chips"></div>
 
     <div class="toolrow" id="batch-row">
       <button id="batch-enhance" class="btn small">인핸스</button>
-      <button id="batch-upscale" class="btn small">×4 확대</button>
+      <button id="batch-upscale" class="btn small">×4 업스케일</button>
+      <button id="batch-compose" class="btn small">배경 합성</button>
     </div>
     <p class="hint" id="batch-hint"></p>
     <div id="batch-msg" class="msg" hidden></div>
+
+    <!-- ★인물이 도중에 다른 사람으로 바뀌는 것은 눈으로 훑어서는 잘 안 보인다.
+         스무 장 중 두 장만 얼굴이 다르면 저장까지 하고 나서야 알아챈다. -->
+    <div class="toolrow" id="res-cons-row" hidden>
+      <button id="res-cons" class="btn small">인물 일관성 검사</button>
+      <span class="hint" id="res-cons-msg"></span>
+    </div>
 
     <div id="results"></div>
   </div>
@@ -336,6 +469,61 @@
 
     <div id="settings-msg" class="msg" hidden></div>
 
+    <div class="row-head"><span class="label">일관성 검사</span></div>
+    <p class="hint">
+      뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 테스트 모드에서는 <b>그림체</b>가
+      고른 조합을, 대량생성에서는 <b>인물</b>이 튄 장을 짚어 줍니다.
+    </p>
+    <label class="field">
+      <span class="label">어디서 잴까</span>
+      <select id="cons-mode" class="tool-select">
+        <option value="off">안 함</option>
+        <option value="device">이 폰에서 (모델 다운로드 필요)</option>
+        <option value="server">수신함에서 (PC · VPS 가 대신)</option>
+      </select>
+      <span class="hint" id="cons-hint">기본은 안 함입니다.</span>
+    </label>
+    <div class="toolrow" id="cons-device-row" hidden>
+      <button id="cons-get" class="btn small">모델 받기</button>
+      <span class="hint" id="cons-get-msg"></span>
+    </div>
+    <div id="cons-server-row" hidden>
+      <p class="hint" id="cons-server-msg"></p>
+      <div class="toolrow">
+        <button id="cons-score-copy" class="btn small">score.py 복사</button>
+        <button id="cons-score-save" class="btn small">파일로 저장</button>
+      </div>
+      <p class="hint">수신함 폴더에 <code>score.py</code> 를 같이 두고
+        <code>pip install torch transformers pillow</code> 를 한 뒤
+        <code>receiver.py</code> 를 다시 켜면 됩니다.</p>
+    </div>
+
+    <div class="row-head"><span class="label">버전</span></div>
+    <div class="toolrow">
+      <span class="hint" id="ver-now">확인 중…</span>
+      <span class="spacer"></span>
+      <button id="ver-check" class="btn small">업데이트 확인</button>
+    </div>
+    <p class="hint" id="ver-msg">GitHub 릴리스를 봅니다. 토큰은 필요 없습니다.</p>
+    <label class="field">
+      <span class="label">어느 저장소를 볼까</span>
+      <select id="ver-repo" class="tool-select">
+        <option value="lulus-cat/peropix-mobile">peropix-mobile</option>
+        <option value="lulus-cat/peropix-Lkit-mobile">peropix-Lkit-mobile</option>
+        <option value="__custom__">직접 적기</option>
+      </select>
+      <span class="hint">두 저장소가 같은 코드를 쓰기 때문에 어느 APK 를 깔았는지 앱이
+        알 수 없습니다. 받으신 쪽을 골라 주세요.</span>
+    </label>
+    <label class="field" id="ver-repo-row" hidden>
+      <span class="label">저장소 (owner/repo)</span>
+      <input id="ver-repo-text" type="text" placeholder="lulus-cat/peropix-mobile"
+             autocapitalize="off" autocorrect="off" spellcheck="false">
+    </label>
+    <label class="check">
+      <input id="ver-auto" type="checkbox" checked> 켤 때 업데이트 확인
+    </label>
+
     <button id="settings-save" class="btn primary block">키 확인하고 저장</button>
     <button id="settings-test" class="btn block">현재 키 상태 확인</button>
     <button id="settings-clear" class="btn danger block">키 삭제</button>
@@ -354,7 +542,19 @@
     </div>
     <p class="hint">
       PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다.
+      <b>비밀번호는 만들 필요가 없습니다.</b> <code>python3 receiver.py --root ./images</code>
+      만 하면 알아서 만들어 기억합니다.
     </p>
+
+    <!-- ★파일을 받으려고 저장소를 뒤지게 하지 않는다. 앱 안에 든 것이 지금 앱과 짝이
+         맞는 버전이라, 여기서 꺼내 쓰는 것이 제일 확실하다. -->
+    <div class="toolrow">
+      <button id="rx-copy" class="btn small">receiver.py 복사</button>
+      <button id="rx-save" class="btn small">파일로 저장</button>
+    </div>
+    <p class="hint" id="rx-msg">SSH 로 붙어서
+      <code>cat &gt; receiver.py</code> 하고 붙여넣은 뒤 Ctrl+D 를 누르면 끝입니다.
+      이 앱에 든 것과 같은 버전입니다.</p>
 
     <label class="field">
       <span class="label">한 줄로 붙여넣기</span>
@@ -362,7 +562,7 @@
              autocapitalize="off" autocorrect="off" spellcheck="false">
       <span class="hint">
         수신함을 켜면 화면에 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
-        이름·주소·토큰이 한 번에 채워집니다.
+        이름·주소·비밀번호가 한 번에 채워집니다. <b>비밀번호는 만들 필요가 없습니다.</b> <code>python receiver.py --root ./images</code> 만 하면 알아서 만들어 기억합니다.
       </span>
     </label>
     <div id="dest-paste-msg" class="msg" hidden></div>
@@ -458,6 +658,10 @@
     <button class="btn small" data-bulk="chars-invert">반전</button>
   </div>
   <p class="hint drawer-tip">동그라미를 <b>누른 채 위아래로 쓸면</b> 지나간 것이 한꺼번에 바뀝니다.</p>
+  <label class="check drawer-check">
+    <input id="drawer-one-char" type="checkbox"> 한 명씩 돌리기
+  </label>
+  <p class="hint" id="drawer-one-char-hint"></p>
   <p class="hint warn" id="drawer-chars-warn" hidden></p>
   <div id="drawer-chars-list" class="drawer-list"></div>
   <div class="drawer-foot">
@@ -535,16 +739,36 @@
     <button id="viewer-prev" class="viewer-nav prev" aria-label="이전">‹</button>
     <img id="viewer-img" alt="">
     <button id="viewer-next" class="viewer-nav next" aria-label="다음">›</button>
+
+    <!-- ★밀 때 무엇이 일어날지 화면 한가운데에 크게 띄운다. 아래쪽 작은 글씨는
+         손가락에 가려 안 보인다. -->
+    <div id="viewer-flash" class="viewer-flash" hidden></div>
+
+    <!-- 손가락 두 개로 벌려도 되고, 두 번 눌러도 되고, 이 단추로도 된다. -->
+    <div class="viewer-zoom">
+      <button id="zoom-out" class="btn icon" aria-label="축소">−</button>
+      <button id="zoom-reset" class="btn small" aria-label="원래 크기">1.0×</button>
+      <button id="zoom-in" class="btn icon" aria-label="확대">＋</button>
+    </div>
   </div>
 
   <div id="viewer-hint" class="viewer-hint"></div>
 
-  <div class="viewer-actions">
+  <!-- ★조합·깎기에서 열면 이 줄 대신 아래의 별점 줄이 뜬다. 그 자리에서 할 일은
+       「이 조합이 좋은가」 를 매기는 것뿐이라, 인핸스·업스케일·슬롯 이동은 방해다. -->
+  <div id="viewer-actions" class="viewer-actions">
     <button id="viewer-prev-slot" class="btn small">‹ 이전 슬롯</button>
     <button id="viewer-enhance" class="btn small">인핸스</button>
-    <button id="viewer-upscale" class="btn small">×4 확대</button>
+    <button id="viewer-upscale" class="btn small">×4 업스케일</button>
+    <button id="viewer-compose" class="btn small">배경</button>
     <button id="viewer-next-slot" class="btn small">다음 슬롯 ›</button>
   </div>
+
+  <div id="viewer-rate" class="viewer-rate" hidden>
+    <div id="viewer-stars" class="stars big"></div>
+    <div id="viewer-combo" class="viewer-combo"></div>
+  </div>
+
   <div id="viewer-cap" class="viewer-cap"></div>
 </div>
 
@@ -559,7 +783,7 @@
   <div class="pad scroll">
     <p class="hint">
       <code>#이름</code> 을 한 줄에 홀로 쓰면 풀 정의, 프롬프트 안에 쓰면 그 풀에서 하나를 뽑습니다.
-      <b>슬롯마다 따로 뽑습니다</b> — 한 배치 안에서도 장마다 다른 조합이 나옵니다.
+      <b>슬롯마다 따로 뽑습니다</b> 한 번 돌릴 때도 장마다 다른 조합이 나옵니다.
       <code>{a|b}</code> 와 <code>||a|b||</code> 도 씁니다.
     </p>
 
@@ -572,7 +796,7 @@
     <div id="wc-info" class="msg"></div>
 
     <label class="field">
-      <span class="label">시험해 보기</span>
+      <span class="label">테스트해 보기</span>
       <input id="wc-try" type="text" placeholder="예: 1girl, #hair, #outfit">
     </label>
     <button id="wc-roll" class="btn block">뽑아 보기</button>
@@ -618,15 +842,900 @@
   </div>
 </section>
 
+<!-- ── 원격 작업 ──────────────────────────────────────────────────────────
+     PC·VPS 수신함에 누군가(예: Claude Code) 올려 둔 「이거 뽑으세요」 를 받아 온다.
+     ★키도 Anlas 도 이 폰 것이다. 그래서 **누를지 말지는 언제나 여기서 정한다** —
+       「받으면 바로 실행」 을 켜야만 자동으로 돈다. -->
+<!-- ── 가이드 ─────────────────────────────────────────────────────────
+     ★기능이 늘면서 어디에 뭐가 있는지 찾기 어려워졌다. 인트로 팁은 한 번에 하나씩만
+       보여 주므로, 찾아볼 곳이 따로 있어야 한다. -->
+<section id="screen-guide" class="screen" hidden>
+  <header class="topbar">
+    <button id="guide-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">가이드</h1>
+  </header>
+
+  <div class="pad scroll">
+    <div class="chips" id="guide-nav"></div>
+
+    <details class="panel" open data-guide="start">
+      <summary>처음 켰다면</summary>
+      <ol class="guide-ol">
+        <li><b>설정 → API 키</b>에 NovelAI 키를 넣습니다. 키는 <b>이 폰에만</b> 저장됩니다.
+          APK 를 남에게 줘도 키는 따라가지 않습니다.</li>
+        <li><b>설정 → 저장 위치</b>에서 폰에 저장할지, PC·VPS 수신함으로 보낼지 고릅니다.</li>
+        <li><b>이미지 대량생성</b>에서 슬롯에 프롬프트를 넣고 "생성".</li>
+      </ol>
+      <p class="hint">Anlas 잔량은 홈 오른쪽 위에 뜹니다. 뽑기 전에 몇 장이 나오고
+        Anlas 가 얼마나 드는지 화면에 먼저 적어 줍니다.</p>
+    </details>
+
+    <details class="panel" data-guide="bulk">
+      <summary>이미지 대량생성</summary>
+      <ul class="guide-ul">
+        <li><b>슬롯</b> 하나가 프롬프트 한 세트입니다. 슬롯을 여러 개 켜 두면 차례로 다 뽑습니다.
+          왼쪽으로 밀면 슬롯 서랍이 열립니다.</li>
+        <li><b>인물</b>은 오른쪽으로 밀면 나옵니다. 켠 인물만 나갑니다.</li>
+        <li><b>한 명씩 돌리기</b>: 인물이 많고 슬롯이 적을 때 켜세요. 인물 수만큼 자동으로
+          돌고, 저장 경로에 인물 폴더가 한 겹 끼어듭니다.</li>
+        <li>서랍 목록에서 <b>동그라미를 누른 채 쓸면</b> 지나간 줄이 한꺼번에 켜지고 꺼집니다.</li>
+        <li>인터넷이 끊겨 몇 장이 깨졌으면 결과 화면 맨 위의
+          <b>"못 만든 N장 다시 생성"</b> 이 그것만 다시 뽑습니다. 이미 나온 장은 다시 안 뽑습니다.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="viewer">
+      <summary>결과 보기 · 뷰어</summary>
+      <ul class="guide-ul">
+        <li>그림을 누르면 전체화면입니다. <b>위로 밀면 버리기, 아래로 밀면 저장</b>,
+          좌우로 밀면 다음 장.</li>
+        <li>손가락 두 개로 벌리거나 두 번 누르면 확대됩니다. 확대해 둔 동안에는 밀기가 꺼지고
+          끌기가 이동이 됩니다.</li>
+        <li>투명 배경으로 뽑았다면 <b>배경 합성</b>으로 배경 그림 위에 얹을 수 있습니다.
+          통신도 Anlas 도 안 듭니다.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="artists">
+      <summary>작가 태그 테스트</summary>
+      <ul class="guide-ul">
+        <li><b>찾기</b>: 이름을 넣으면 Danbooru 에 그때그때 물어봅니다. 이미지가 몇 장인지,
+          NAI 가 알아볼 만한지, 어떤 걸 주로 그리는지가 나옵니다.</li>
+        <li><b>이름이 숫자로 끝나는 작가</b>(artist:119, as109 …)는 가중치 문법이 다릅니다.
+          <code>1.2::artist:119::</code> 라고 쓰면 NAI 가 <b>119를 새 가중치로 읽어</b>
+          그림이 깨집니다. 앱이 알아서 피해 가니 신경 안 쓰셔도 됩니다.
+          같은 가중치인 다른 작가와 묶거나, 혼자면 괄호로 내보냅니다.</li>
+        <li><b>서랍</b>: 마음에 든 작가를 담아 둡니다. 눌러서 <b>섞기</b>에 넣고 가중치를 정합니다.
+          한 조합에 20명까지입니다.</li>
+        <li><b>라벨</b>: "라벨 붙이기" 를 누르고 라벨을 하나 고르면, 그 뒤로는
+          <b>작가 줄을 누르기만</b> 하면 붙었다 떨어집니다. 이름을 다시 적지 않아도 됩니다.</li>
+        <li><b>추천</b>: 그림 100장 이상인 작가 중에서 골라 줍니다. 이름을 누르면
+          "찾기"로 넘어가 그 작가가 펼쳐집니다.</li>
+        <li><b>테스트 → 조합</b>: 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 견줍니다.
+          딱 맞는 게 없으면 <b>별점을 매기고</b> "점수 반영해서 다시 뽑기".</li>
+        <li><b>테스트 → 깎기</b>: 작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모를 때.
+          5라운드면 범인을 찾습니다.</li>
+      </ul>
+      <p class="hint">테스트는 <b>자기 프롬프트와 자기 이미지 설정</b>을 따로 씁니다.
+        평소 슬롯·설정은 건드리지 않고, 다 뽑으면 그대로 돌아옵니다.</p>
+    </details>
+
+    <details class="panel" data-guide="remote">
+      <summary>원격 작업 · 저장 위치</summary>
+      <ul class="guide-ul">
+        <li><b>폰에 저장</b>: 아무것도 준비할 게 없습니다. 갤러리에 바로 들어갑니다.</li>
+        <li><b>PC · VPS 수신함</b>: <code>receiver.py</code> 를 띄우면 화면에
+          <code>peropix://…</code> 한 줄이 나옵니다. 그걸 설정 칸에 붙여넣으면 끝입니다.
+          주소·비밀번호를 따로 옮겨 적지 않습니다.</li>
+        <li><b>GitHub 지시함</b>: 저장소에 JSON 을 올려 두면 폰이 받아 뽑습니다.
+          앱은 저장소에 <b>쓰지 않습니다</b>.</li>
+      </ul>
+      <p class="hint">키는 언제나 폰에만 있습니다. 수신함으로 올라가는 것은 프롬프트와
+        설정뿐이고, NovelAI 를 부르는 것도 Anlas 를 쓰는 것도 폰입니다.</p>
+    </details>
+
+    <details class="panel" data-guide="consistency">
+      <summary>일관성 검사</summary>
+      <p class="hint">뽑은 그림들이 서로 얼마나 같은지 재 줍니다. 눈으로 스무 장을 훑어서는
+        두 장만 다른 것을 잘 못 잡아냅니다.</p>
+      <ul class="guide-ul">
+        <li><b>그림체</b> — 테스트 → 조합. 조합마다 두 장 이상 뽑으면
+          <b>그림체 일관성 검사</b> 단추가 생깁니다. 어느 조합으로 계속 뽑아도 같은 화풍이
+          나오는지 알려 줍니다. 별점이 "마음에 든 정도"라면 이쪽은 "믿을 만한 정도"입니다.
+          예쁜데 들쭉날쭉한 조합이 흔합니다.</li>
+        <li><b>인물</b> — 대량생성 결과 화면. 같은 사람끼리 묶어서 재고, 덜 닮은 장에
+          <b>인물 다름?</b> 표시를 붙입니다. 지우거나 버릴 것으로 찍지는 않습니다 —
+          최종 판단은 눈으로 하세요.</li>
+      </ul>
+      <p class="hint">쓰려면 설정 → <b>일관성 검사</b> 에서 어디서 잴지 먼저 고릅니다.</p>
+      <ul class="guide-ul">
+        <li><b>이 폰에서</b>: 모델을 한 번 받아 두면(수십 MB) 다음부터는 인터넷 없이도
+          됩니다. 오래된 폰에서는 느립니다. Wi-Fi 에서 받으세요.</li>
+        <li><b>수신함에서</b>: PC · VPS 가 대신 잽니다. 폰은 아무것도 안 받습니다.
+          그 서버에 <code>score.py</code> 를 <code>receiver.py</code> 옆에 두고
+          <code>pip install torch transformers pillow</code> 를 한 번 하면 됩니다.
+          <code>score.py</code> 는 설정 화면에서 바로 꺼낼 수 있습니다.</li>
+      </ul>
+      <p class="hint">장수가 적으면 판정을 그대로 믿지 마세요. 넉 장으로 "고르다" 가
+        나와도 우연일 수 있어서, 그럴 때는 "참고만 하세요" 라고 같이 적어 둡니다.</p>
+    </details>
+
+    <details class="panel" data-guide="stuck">
+      <summary>자주 막히는 곳</summary>
+      <ul class="guide-ul">
+        <li><b>뽑히다 말았다</b>: 안드로이드가 백그라운드를 재웁니다. 뽑는 동안에는
+          앱을 켜 두세요.</li>
+        <li><b>APK 가 안 깔린다</b>: 예전에 다른 서명으로 깔았던 것이 남아 있으면
+          지우고 다시 깔아야 합니다. 지금 버전끼리는 덮어 설치되고 키·슬롯도 남습니다.</li>
+        <li><b>인핸스하면 투명 배경이 풀린다</b>: 이제 원본 알파를 다시 씌워 지킵니다.</li>
+        <li><b>＋ 를 눌러도 가중치 숫자가 안 움직인다</b>: 합 고정이 켜져 있으면 한 명을
+          올릴 때 나머지가 내려갑니다. 큰 숫자가 정한 값, 옆의 작은 <code>→1.10</code> 이
+          실제로 나가는 값입니다.</li>
+        <li><b>작가 태그를 넣었는데 그림에 안 나온다</b>: 이미지 수가 적은 작가는 NAI 가
+          배운 게 없습니다. "찾기"에서 반영율을 먼저 보세요.</li>
+      </ul>
+    </details>
+
+    <details class="panel" data-guide="tips">
+      <summary>꿀팁 모아 보기</summary>
+      <ul class="guide-ul" id="guide-tips"></ul>
+    </details>
+  </div>
+</section>
+
+<section id="screen-jobs" class="screen" hidden>
+  <header class="topbar">
+    <button id="jobs-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">원격 작업</h1>
+    <button id="jobs-reload" class="btn icon" aria-label="새로고침"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/></svg></button>
+  </header>
+
+  <div class="pad scroll">
+    <label class="field">
+      <span class="label">어디서 지시를 받을까</span>
+      <select id="jobs-source">
+        <option value="dest">PC · VPS 수신함</option>
+        <option value="github">GitHub 지시함</option>
+      </select>
+    </label>
+
+    <label class="field" id="jobs-dest-row">
+      <span class="label">어느 수신함에서 받을까</span>
+      <select id="jobs-dest"></select>
+      <span class="hint" id="jobs-dest-hint"></span>
+    </label>
+
+    <!-- ★서버가 없어도 된다. AI 가 저장소에 JSON 을 커밋해 두면 폰이 읽어 뽑는다.
+         앱은 저장소에 **쓰지 않는다** — 무엇을 이미 했는지는 폰이 기억한다. -->
+    <div id="jobs-gh-rows" hidden>
+      <label class="field">
+        <span class="label">저장소</span>
+        <input id="gh-repo" type="text" placeholder="lulus-cat/peropix-mobile" autocapitalize="off"
+               autocorrect="off" spellcheck="false">
+        <span class="hint">주소를 통째로 붙여넣어도 됩니다.</span>
+      </label>
+      <label class="field">
+        <span class="label">브랜치</span>
+        <input id="gh-branch" type="text" placeholder="main" autocapitalize="off"
+               autocorrect="off" spellcheck="false">
+      </label>
+      <label class="field">
+        <span class="label">토큰 (비공개 저장소일 때만)</span>
+        <input id="gh-token" type="password" placeholder="github_pat_... (공개 저장소면 비워 두세요)"
+               autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span class="hint"><b>읽기 전용</b> 토큰을 쓰세요. 앱은 저장소에 쓰지 않습니다.</span>
+      </label>
+      <div class="toolrow">
+        <button id="gh-save" class="btn small primary">저장하고 확인</button>
+        <button id="gh-open" class="btn small">저장소 열기</button>
+        <button id="gh-forget" class="btn small danger">한 것 기억 지우기</button>
+      </div>
+      <p class="hint" id="gh-hint"></p>
+
+      <!-- ★지시함은 **사용자의 저장소**여야 한다. 프롬프트가 남는 곳이라 공개 저장소에
+           두면 안 된다 — 만들기부터 안내한다. 앱은 저장소를 만들지도, 쓰지도 못한다
+           (그럴 권한을 폰에 주지 않는다). 파일은 AI 에게 시켜 넣는다. -->
+      <details class="panel" id="gh-setup">
+        <summary>처음이라면: 지시함 저장소 만들기</summary>
+        <ol class="steps">
+          <li><b>새 저장소를 만듭니다.</b> 이름은 아무거나, 공개 여부는 <b>Private 을 권합니다</b>.
+            프롬프트가 그대로 남는 곳이니까요.
+            <button id="gh-new" class="btn small block">GitHub 에서 새 저장소 만들기</button>
+          </li>
+          <li><b>AI 에게 세팅을 시킵니다.</b> 아래 문구를 복사해 Claude Code·Codex 에 그대로
+            붙여넣으면 규약 파일(AGENTS.md · CLAUDE.md)과 폴더를 만들어 줍니다.
+            <button id="gh-copy-setup" class="btn small block">AI 에게 시킬 말 복사</button>
+          </li>
+          <li><b>비공개로 만들었다면</b> 읽기 전용 토큰을 위 칸에 넣습니다
+            (Settings → Developer settings → Fine-grained tokens → 그 저장소에 Contents: Read).</li>
+          <li>위 <b>저장소</b> 칸에 <code>내이름/저장소이름</code> 을 적고 <b>저장하고 확인</b>.</li>
+        </ol>
+        <p class="hint">폴더는 이렇게 만듭니다. 작품마다 하나씩, 그 안에 인물과 슬롯:</p>
+        <pre class="code-block">미아/
+  characters/미아.json     ← 인물 (그 작품 안에서 공용)
+  slots/일상.json          ← 슬롯 묶음 = 작업 하나
+  slots/H.json
+리사/
+  characters/리사.json
+  slots/교복.json</pre>
+        <p class="hint"><b>슬롯 파일이 새로 생기거나 내용이 바뀌면</b> 그것이 새 작업이 됩니다.
+          인물 파일을 고치는 건 작업이 되지 않습니다. 다음에 그 작품을 돌릴 때 최신 인물이 쓰입니다.</p>
+      </details>
+    </div>
+
+    <label class="check">
+      <input id="jobs-auto" type="checkbox"> 받으면 바로 실행
+    </label>
+    <p class="hint">꺼 두면 목록만 받아 오고, 실행은 아래에서 눌러 정합니다.
+      켜 두면 <b>물어보지 않고 Anlas 를 씁니다.</b></p>
+
+    <div id="jobs-msg" class="msg" hidden></div>
+    <div id="jobs-list"></div>
+
+    <details class="panel">
+      <summary>지시 파일 모양</summary>
+      <p class="hint"><b>슬롯 파일</b>, <code>미아/slots/일상.json</code></p>
+      <pre class="code-block">{
+  "name": "미아 · 일상",
+  "prefix": "1girl, silver hair, masterpiece",
+  "slots": [
+    { "name": "1-1", "content": "smile, bedroom" },
+    { "name": "1-2", "content": "angry, classroom" }
+  ],
+  "options": { "count_per_slot": 1 }
+}</pre>
+      <p class="hint"><b>인물 파일</b>, <code>미아/characters/미아.json</code></p>
+      <pre class="code-block">{ "name": "미아", "content": "1girl, silver hair, blue eyes" }</pre>
+      <p class="hint">저장 폴더는 <b>작품 폴더 이름</b>을 씁니다. 슬롯 파일에 <code>folder</code> 를
+        적으면 그것이 이깁니다. <code>options</code> 는 아는 값만 받습니다. 모델, 크기, steps, cfg, 
+        샘플러·UC·퀄리티·네거티브·배수·한 명 모드·투명 배경·저장 형식·Variety+·시드.</p>
+    </details>
+
+    <details class="panel">
+      <summary>PC 에서 올리는 법</summary>
+      <p class="hint">수신함이 떠 있는 PC·VPS 에서:</p>
+      <pre class="code-block">python tools/job.py --url 192.168.0.5:8770 --token 토큰 \
+       push --file 작업.json</pre>
+      <p class="hint">작업 JSON 은 PeroFix 가져오기와 같은 모양입니다 (prefix · slots · characters).
+        <code>options</code> 로 배수·투명 배경 같은 것도 함께 정할 수 있습니다.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ── 배경 합성 ──────────────────────────────────────────────────────────
+     투명 배경으로 뽑은 인물을 배경 그림 위에 얹는다. 통신이 없어 Anlas 가 들지 않는다.
+     ★자리는 **알파 경계**로 자동 계산한다 — 슬롯마다 인물이 잡힌 크기가 달라도
+       같은 자리에 서게 하려는 것이다. 손으로 맞추려면 「직접 맞추기」. -->
+<section id="screen-compose" class="screen" hidden>
+  <header class="topbar">
+    <button id="cmp-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm" id="cmp-title">배경 합성</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="pad scroll">
+    <p class="hint" id="cmp-help"></p>
+
+    <button id="cmp-pick" class="btn block">폰에서 배경 그림 고르기</button>
+    <input id="cmp-file" type="file" accept="image/*" hidden>
+    <p class="hint" id="cmp-bg-name">아직 배경을 고르지 않았습니다.</p>
+
+    <canvas id="cmp-preview" class="cmp-preview" hidden></canvas>
+    <p class="hint" id="cmp-preview-hint"></p>
+
+    <label class="field">
+      <span class="label">배치</span>
+      <select id="cmp-mode">
+        <option value="auto">고정 (모든 장이 같은 자리)</option>
+        <option value="random">무작위 (잘리지 않는 선에서 장마다 다른 자리)</option>
+        <option value="as-is">그대로 얹기 (원본 크기)</option>
+        <option value="manual">직접 맞추기</option>
+      </select>
+      <span class="hint" id="cmp-mode-hint"></span>
+    </label>
+
+    <div id="cmp-auto-rows">
+      <label class="field">
+        <span class="label">인물 높이 <span id="cmp-fill-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-fill" type="range" min="30" max="130" step="1" value="92">
+        </div>
+        <span class="hint">화면 높이에서 인물이 차지할 비율입니다.</span>
+      </label>
+    </div>
+
+    <div id="cmp-rand-rows" hidden>
+      <label class="field">
+        <span class="label">인물 높이 범위 <span id="cmp-rand-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-rand-min" type="range" min="20" max="130" step="1" value="70">
+        </div>
+        <div class="range-row">
+          <input id="cmp-rand-max" type="range" min="20" max="130" step="1" value="95">
+        </div>
+        <span class="hint">이 사이에서 장마다 크기를 뽑습니다.</span>
+      </label>
+      <label class="check">
+        <input id="cmp-rand-y" type="checkbox"> 위아래로도 무작위
+      </label>
+      <p class="hint">꺼 두면 가로로만 움직이고 발은 바닥에 붙습니다.</p>
+      <button id="cmp-reroll" class="btn small block">다시 굴려 보기</button>
+    </div>
+
+    <div id="cmp-bottom-row">
+      <label class="field">
+        <span class="label">바닥 여백 <span id="cmp-bottom-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-bottom" type="range" min="-10" max="40" step="1" value="2">
+        </div>
+      </label>
+    </div>
+
+    <div id="cmp-manual-rows" hidden>
+      <label class="field">
+        <span class="label">크기 <span id="cmp-scale-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-scale" type="range" min="20" max="200" step="1" value="100">
+        </div>
+      </label>
+      <label class="field">
+        <span class="label">가로 위치 <span id="cmp-x-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-x" type="range" min="0" max="100" step="1" value="50">
+        </div>
+      </label>
+      <label class="field">
+        <span class="label">세로 위치 <span id="cmp-y-val" class="range-val"></span></span>
+        <div class="range-row">
+          <input id="cmp-y" type="range" min="0" max="100" step="1" value="100">
+        </div>
+      </label>
+    </div>
+
+    <details class="panel">
+      <summary>세부 설정</summary>
+      <div class="grid2">
+        <label class="field">
+          <span class="label">결과 크기</span>
+          <select id="cmp-out">
+            <option value="fg">인물 크기</option>
+            <option value="bg">배경 크기</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">배경 맞춤</span>
+          <select id="cmp-fit">
+            <option value="cover">채우기 (넘치는 쪽 자름)</option>
+            <option value="stretch">늘이기 (비율 무시)</option>
+          </select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="label">알파 처리</span>
+        <select id="cmp-alpha">
+          <option value="auto">자동 판별</option>
+          <option value="premultiplied">미리 곱해짐 (NAI 기본)</option>
+          <option value="straight">Straight Alpha</option>
+        </select>
+        <span class="hint" id="cmp-alpha-hint"></span>
+      </label>
+    </details>
+
+    <div id="cmp-msg" class="msg" hidden></div>
+    <button id="cmp-run" class="btn primary block">합치기</button>
+  </div>
+</section>
+
+<!-- ★작가 태그를 다루는 곳. 네 가지 일을 한 화면에서 한다.
+       찾기: Danbooru 에 실시간으로 물어 반영율(이미지 수)과 그림체를 확인한다
+       서랍: 골라 둔 작가를 갈래로 나누고 섞는다 (가중치 배분 포함)
+       추천: 그림 100장 이상인 작가 중에서 무작위로 권한다
+       그림체: 조합(무작위 가중치)과 깎기(범인 찾기) -->
+<section id="screen-artists" class="screen" hidden>
+  <header class="topbar">
+    <button id="artists-back" class="btn icon" aria-label="뒤로">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1 class="brand sm">작가 태그</h1>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-find" class="tab on" role="tab">찾기</button>
+    <button id="tab-drawer" class="tab" role="tab">서랍 <span id="tab-drawer-n" class="tab-n"></span></button>
+    <button id="tab-reco" class="tab" role="tab">추천</button>
+    <button id="tab-style" class="tab" role="tab">테스트</button>
+  </div>
+
+  <!-- ── 찾기 ───────────────────────────────────────────────────────── -->
+  <div class="pad scroll" id="pane-find">
+    <label class="field">
+      <span class="label">작가 이름</span>
+      <input id="art-q" type="text" placeholder="예: wlop · 별명으로도 찾습니다"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span class="hint">찾을 때마다 Danbooru 에 물어보기 때문에 항상 최신 정보입니다.</span>
+    </label>
+    <div id="art-ac" class="art-ac" hidden></div>
+
+    <div class="toolrow">
+      <select id="art-rating" class="tool-select">
+        <option value="g">전체 이용가만</option>
+        <option value="s" selected>가벼운 것까지</option>
+        <option value="q">아슬한 것까지</option>
+        <option value="">가리지 않음</option>
+      </select>
+      <button id="art-open" class="btn small">Danbooru</button>
+    </div>
+    <p class="hint">미리보기는 Danbooru 의 실제 그림입니다. 어디까지 볼지 여기서 고르세요.</p>
+
+    <div id="art-msg" class="msg" hidden></div>
+    <div id="art-detail" hidden>
+      <div class="art-head">
+        <div>
+          <div id="art-name" class="art-name"></div>
+          <div id="art-alias" class="art-alias"></div>
+        </div>
+        <div class="art-head-btns">
+          <button id="art-keep" class="btn small">서랍에 담기</button>
+        </div>
+      </div>
+
+      <div class="art-reach">
+        <div class="art-reach-bar"><span id="art-reach-fill"></span></div>
+        <div><b id="art-reach-label"></b> <span id="art-reach-note" class="hint"></span></div>
+      </div>
+
+      <div id="art-stats" class="art-stats"></div>
+      <div id="art-tags" class="chips"></div>
+      <div id="art-grid" class="art-grid"></div>
+    </div>
+
+    <details class="panel">
+      <summary>반영율이란</summary>
+      <p class="hint">솔직히 말하면 <b>짐작</b>입니다. NAI 가 뭘 얼마나 배웠는지는 공개된 적이
+        없습니다. 다만 NAI 는 Danbooru 로 학습했으니 <b>그림이 많은 작가일수록 많이 배웠다</b>고
+        볼 수 있고, 실제로 그림이 적은 작가는 태그를 넣어도 잘 안 나옵니다. 그래서 이미지 수를
+        그대로 기준으로 쓰되, 몇 장이라서 이 등급인지 같이 적어 뒀습니다. 판단은 직접 하세요.</p>
+      <p class="hint">그림이 많아도 <b>최근 것만 잔뜩</b>이면 NAI 가 배운 뒤에 올라온 그림이라
+        안 먹힐 수 있습니다. 그래서 몇 년 이전 그림이 몇 %인지도 같이 보여 줍니다.</p>
+    </details>
+  </div>
+
+  <!-- ── 서랍 ───────────────────────────────────────────────────────── -->
+  <div class="pad scroll" id="pane-drawer" hidden>
+    <div class="toolrow">
+      <input id="drw-q" type="text" class="tool-select" placeholder="서랍에서 찾기">
+      <button id="drw-fav" class="btn small">즐겨찾기</button>
+    </div>
+    <!-- ★장르는 앱이 그림 표본에서 자동으로 매긴다. 사람이 붙이는 갈래와 다른 축이라
+         따로 둔다 — 한 작가가 「배경」이면서 「19금」일 수 있다. -->
+    <div id="drw-genres" class="chips"></div>
+    <div id="drw-cats" class="chips"></div>
+
+    <!-- ★라벨은 한 번 고르고 나서 작가를 넣고 뺀다. 작가마다 이름을 다시 적게 하면
+         스무 명한테 붙이려고 스무 번을 타이핑해야 한다. -->
+    <!-- ★대량생성에서 이미 모아 둔 작가 태그가 있는데, 서랍에 담으려면 손으로 다시
+         찾아 넣어야 했다. 그 모음을 그대로 가져온다. -->
+    <div class="toolrow">
+      <select id="drw-import-pick" class="tool-select"></select>
+      <button id="drw-import" class="btn small">서랍에 담기</button>
+    </div>
+    <p class="hint" id="drw-import-msg">대량생성에서 저장해 둔 작가 태그 모음을 가져옵니다.
+      작가가 아닌 태그(퀄리티 등)는 알아서 빠집니다.</p>
+
+    <div class="toolrow">
+      <button id="drw-label-mode" class="btn small">라벨 붙이기</button>
+      <span id="drw-label-now" class="hint"></span>
+    </div>
+    <div id="drw-label-bar" class="label-bar" hidden>
+      <div id="drw-label-pick" class="chips"></div>
+      <div class="toolrow">
+        <button id="drw-label-new" class="btn small">＋ 새 라벨</button>
+        <button id="drw-label-all" class="btn small" disabled>보이는 작가 전부</button>
+        <button id="drw-label-rename" class="btn small" disabled>이름 바꾸기</button>
+        <button id="drw-label-del" class="btn small danger-text" disabled>라벨 지우기</button>
+      </div>
+      <p class="hint" id="drw-label-hint">라벨을 고른 다음 작가 줄을 누르면 붙었다 떨어집니다.</p>
+    </div>
+
+    <div id="drw-list" class="drw-list"></div>
+
+    <div class="row-head"><span class="label">섞기</span></div>
+    <div id="mix-list" class="mix-list"></div>
+    <p id="mix-empty" class="hint">위에서 작가를 누르면 여기에 담깁니다.</p>
+
+    <!-- ★숫자 칸을 폰에서 톡톡 치는 것은 성가시다. 자주 쓰는 폭을 단추로 두고,
+         꼭 필요할 때만 숫자를 편다. -->
+    <details class="panel">
+      <summary>가중치 범위 정하기</summary>
+      <p class="hint">작가 가중치를 어디까지 올리고 내릴 수 있는지 정합니다. 넓힐수록 차이가
+        커지지만, <b>1.5 를 넘으면 그 작가가 그림을 다 덮어버리고 0.5 아래면 넣으나 마나입니다.</b></p>
+      <div class="row-head"><span class="label">폭</span></div>
+      <div id="w-presets" class="chips"></div>
+      <div class="row-head"><span class="label">간격</span></div>
+      <div id="w-steps" class="chips"></div>
+      <p class="hint" id="w-hint"></p>
+      <details>
+        <summary class="hint">숫자로 직접 적기</summary>
+        <div class="grid3">
+          <label class="field"><span class="label">최소</span>
+            <input id="w-min" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">최대</span>
+            <input id="w-max" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">간격</span>
+            <input id="w-step" type="number" step="0.01" min="0.01" max="1" inputmode="decimal"></label>
+        </div>
+      </details>
+      <div class="toolrow">
+        <button id="w-reset" class="btn small">기본으로</button>
+        <button id="mix-rand" class="btn small">가중치 무작위로</button>
+      </div>
+    </details>
+
+    <label class="check">
+      <input id="mix-norm" type="checkbox" checked> 가중치 합을 작가 수로 고정
+    </label>
+    <p class="hint">다섯 명한테 전부 1.2 를 주면 프롬프트가 작가 쪽으로 쏠려서 구도, 표정,
+      옷 태그가 밀립니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩 내려가니까, 가중치를
+      올려도 다른 게 망가지지 않습니다. 끄면 적은 값이 그대로 나갑니다.</p>
+
+    <label class="field">
+      <span class="label">이렇게 들어갑니다</span>
+      <textarea id="mix-out" rows="2" readonly></textarea>
+      <span class="hint" id="mix-note" hidden></span>
+    </label>
+    <div class="toolrow">
+      <button id="mix-apply" class="btn primary">작가 태그 칸에 넣기</button>
+      <button id="mix-copy" class="btn small">복사</button>
+      <button id="mix-clear" class="btn small">비우기</button>
+    </div>
+    <p class="hint">가중치는 <code>숫자::태그::</code> 모양으로 나갑니다. 1.0 인 작가는 그냥
+      이름만 씁니다. 어차피 같은 뜻인데 프롬프트만 지저분해지니까요.</p>
+  </div>
+
+  <!-- ── 추천 ───────────────────────────────────────────────────────── -->
+  <!-- ★앱을 켤 때 뜨는 시트와 **같은 코드**로 그린다. 두 벌로 두면 한쪽만 고쳐져
+       팝업과 메뉴가 다른 것을 보여 주게 된다. -->
+  <div class="pad scroll" id="pane-reco" hidden>
+    <p class="hint">그림이 <b>많은</b> 작가일수록 NAI 가 잘 알아봅니다. 최소 몇 장 이상으로
+      할지 정해 두면 그중에서 아무나 골라 보여 줍니다. 누를 때마다 다른 작가가 나옵니다.</p>
+    <div class="toolrow">
+      <select id="reco-tab-min" class="tool-select">
+        <option value="100">100장 이상</option>
+        <option value="300">300장 이상</option>
+        <option value="1000">1000장 이상</option>
+        <option value="5000">5000장 이상</option>
+      </select>
+      <button id="reco-tab-go" class="btn primary">다시 뽑기</button>
+    </div>
+    <div id="reco-tab-list" class="reco-list"></div>
+    <p class="hint">서랍에 이미 있는 작가는 빼고 보여 줍니다. 담으면 장르도 같이 저장됩니다.</p>
+  </div>
+
+  <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
+  <!-- ── 그림체 조작 ─────────────────────────────────────────────────── -->
+  <!-- ★조합과 깎기는 같은 화면에서 돈다. 테스트 설정(구도·캐릭터·퀄리티·네거티브)을 위에 한 번만
+       두고 두 모드가 나눠 쓴다 — 설정이 다르면 두 모드의 결과를 서로 견줄 수 없다. -->
+  <div class="pad scroll" id="pane-style" hidden>
+
+    <details class="panel" id="st-panel" open>
+      <summary>테스트 설정 (작가만 빼고 전부 고정)</summary>
+      <p class="hint">그림체를 비교하려면 <b>작가 말고는 아무것도 달라지면 안 됩니다.</b>
+        평소 쓰던 슬롯으로 돌리면 베이스, 네거티브, 캐릭터 프롬프트가 전부 같이 딸려 와서,
+        그림이 달라진 게 작가 때문인지 원래 프롬프트 때문인지 알 수가 없습니다. 그래서 여기서는
+        <b>테스트용 프롬프트를 따로</b> 씁니다. 평소 쓰던 건 건드리지 않고, 다 뽑고 나면
+        그대로 돌아옵니다.</p>
+
+      <label class="field">
+        <span class="label">구도</span>
+        <select id="st-preset" class="tool-select"></select>
+        <span class="hint">같은 작가라도 상반신이냐 전신이냐에 따라 느낌이 꽤 다릅니다.
+          구도를 고정해야 작가끼리의 차이만 남습니다.</span>
+      </label>
+      <label class="field" id="st-comp-row" hidden>
+        <span class="label">구도 태그</span>
+        <textarea id="st-comp" rows="2" placeholder="예: 2girls, kiss, upper body"></textarea>
+      </label>
+      <label class="field">
+        <span class="label">테스트용 캐릭터</span>
+        <textarea id="st-char" rows="2"></textarea>
+      </label>
+      <label class="field">
+        <span class="label">퀄리티</span>
+        <textarea id="st-base" rows="2"></textarea>
+        <span class="hint">수채화, 러프처럼 그림체를 바꾸는 말은 넣지 마세요. 작가 차이가 묻힙니다.</span>
+      </label>
+      <label class="field">
+        <span class="label">네거티브</span>
+        <textarea id="st-neg" rows="2"></textarea>
+      </label>
+      <!-- ★모델·크기·스텝을 바꾸면 그림체 인상이 통째로 달라진다. 여기서 고를 수 있어야
+           한다. 다만 대량생성 값을 직접 고치면 테스트 좀 해 봤다가 평소 설정이 바뀌어
+           있게 되므로, 테스트은 자기 값을 따로 들고 돈다. -->
+      <div class="row-head"><span class="label">이미지 설정</span></div>
+      <p class="hint">여기서 정한 값은 <b>테스트할 때만</b> 쓰입니다. 대량생성 설정은
+        그대로 있습니다. 비워 두면 대량생성에서 쓰던 값을 씁니다.</p>
+      <div class="grid2">
+        <label class="field">
+          <span class="label">모델</span>
+          <select id="st-model"></select>
+        </label>
+        <label class="field">
+          <span class="label">샘플러</span>
+          <select id="st-sampler"></select>
+        </label>
+        <label class="field">
+          <span class="label">가로</span>
+          <input id="st-width" type="number" inputmode="numeric" step="64" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">세로</span>
+          <input id="st-height" type="number" inputmode="numeric" step="64" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">UC 프리셋</span>
+          <select id="st-uc"></select>
+        </label>
+        <label class="field">
+          <span class="label">퀄리티</span>
+          <select id="st-quality"></select>
+        </label>
+        <label class="field">
+          <span class="label">스텝</span>
+          <input id="st-steps" type="number" inputmode="numeric" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">가이던스</span>
+          <input id="st-cfg" type="number" inputmode="decimal" step="0.1" placeholder="대량생성 값">
+        </label>
+        <label class="field">
+          <span class="label">가이던스 리스케일</span>
+          <input id="st-cfg-rescale" type="number" inputmode="decimal" step="0.05" min="0" max="1"
+                 placeholder="대량생성 값">
+        </label>
+      </div>
+      <label class="check">
+        <input id="st-variety" type="checkbox"> Variety+
+      </label>
+      <label class="check" id="st-transparent-row">
+        <input id="st-transparent" type="checkbox"> 투명 배경
+      </label>
+      <label class="check" id="st-straight-alpha-row" hidden>
+        <input id="st-straight-alpha" type="checkbox"> Straight Alpha
+      </label>
+      <p class="hint">저장 설정(형식·화질·생성 정보 지우기·자동 저장)과 인핸스 설정은
+        여기 없습니다. 그림이 달라지는 값이 아니라 뽑은 뒤를 다루는 값입니다.
+        배수도 없습니다. 테스트는 조합마다 한 장씩 뽑는 게 전제입니다.</p>
+      <p class="hint" id="st-opt-echo"></p>
+      <div class="toolrow">
+        <button id="st-opt-same" class="btn small">대량생성 설정 그대로</button>
+        <button id="st-reset" class="btn small">기본으로</button>
+      </div>
+      <p class="hint" id="st-preview"></p>
+    </details>
+
+    <div class="tabs sub" role="tablist">
+      <button id="mode-combo" class="tab on" role="tab">조합</button>
+      <button id="mode-bisect" class="tab" role="tab">깎기</button>
+    </div>
+
+    <!-- ── 조합 ─────────────────────────────────────────────────────── -->
+    <div id="sub-combo">
+      <p class="hint">고른 작가들에게 <b>가중치를 아무렇게나</b> 매긴 조합을 여러 개 만들어
+        한 번에 뽑습니다. 어떤 조합이 좋은지는 결국 눈으로 봐야 아니까, 슬라이더를 하나씩
+        옮기는 것보다 여러 개 뽑아서 고르는 게 빠릅니다.</p>
+
+      <div class="row-head">
+        <span class="label">섞을 작가</span>
+        <span id="cmb-count" class="hint"></span>
+      </div>
+      <div class="toolrow">
+        <button id="cmb-from-drawer" class="btn small">서랍</button>
+        <button id="cmb-from-mix" class="btn small">섞기</button>
+        <button id="cmb-none" class="btn small">모두 끄기</button>
+      </div>
+      <div id="cmb-pick" class="bis-pick"></div>
+
+      <div class="row-head"><span class="label">가중치 폭</span></div>
+      <div id="cmb-presets" class="chips"></div>
+      <div class="row-head"><span class="label">간격</span></div>
+      <div id="cmb-steps" class="chips"></div>
+      <details>
+        <summary class="hint">숫자로 직접 적기</summary>
+        <div class="grid3">
+          <label class="field"><span class="label">최소</span>
+            <input id="cw-min" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">최대</span>
+            <input id="cw-max" type="number" step="0.05" min="0.05" max="5" inputmode="decimal"></label>
+          <label class="field"><span class="label">간격</span>
+            <input id="cw-step" type="number" step="0.01" min="0.01" max="1" inputmode="decimal"></label>
+        </div>
+      </details>
+      <p class="hint" id="cmb-range"></p>
+
+      <label class="field">
+        <span class="label">조합을 몇 개 만들까</span>
+        <div class="range-row">
+          <input id="cmb-n" type="range" min="2" max="12" step="1" value="6">
+          <span id="cmb-n-val" class="range-val"></span>
+        </div>
+      </label>
+
+      <label class="field">
+        <span class="label">조합마다 몇 장 뽑을까</span>
+        <div class="range-row">
+          <input id="cmb-per" type="range" min="1" max="4" step="1" value="1">
+          <span id="cmb-per-val" class="range-val"></span>
+        </div>
+        <span class="hint">한 장만 보고 정하면 그 시드가 운이 좋았던 것인지 알 수 없습니다.
+          여러 장 뽑으면 확실해지지만 그만큼 Anlas 를 더 씁니다.
+          별점은 <b>조합 하나에 하나</b>입니다. 그 조합의 어느 장에 매기든 같은 점수입니다.</span>
+      </label>
+
+      <label class="check">
+        <input id="cmb-seed-fix" type="checkbox" checked> 시드 고정
+      </label>
+      <p class="hint">켜 두면 가중치만 다르고 나머지는 똑같은 그림이 나옵니다. 끄면 가중치와
+        시드가 같이 바뀌어서, 뭐 때문에 달라졌는지 알 수 없게 됩니다.</p>
+
+      <div id="cmb-est" class="cost-est"></div>
+      <button id="cmb-run" class="btn primary block">조합 뽑기</button>
+
+      <div id="cmb-result" hidden>
+        <div class="row-head"><span class="label">뽑은 조합</span></div>
+        <p class="hint">마음에 드는 게 있으면 <b>이걸로</b> 를 누르세요. 딱 맞는 게 없으면
+          별점을 매기고 <b>점수 반영해서 다시 뽑기</b>. 높은 점수를 준 조합 쪽으로
+          가중치가 당겨집니다.</p>
+        <div id="cmb-shots" class="shots"></div>
+        <p class="shot-note" id="cmb-shots-note" hidden></p>
+        <button id="cmb-shots-retry" class="btn small" hidden>실패한 것만 다시 뽑기</button>
+        <div id="cmb-list"></div>
+        <div class="toolrow" id="cmb-cons-row" hidden>
+          <button id="cmb-cons" class="btn small">그림체 일관성 검사</button>
+          <span class="hint" id="cmb-cons-msg"></span>
+        </div>
+        <button id="cmb-refine" class="btn primary block" hidden>점수 반영해서 다시 뽑기</button>
+      </div>
+    </div>
+
+    <!-- ── 깎기 ─────────────────────────────────────────────────────── -->
+    <div id="sub-bisect" hidden>
+
+    <div id="bis-setup">
+      <p class="hint">작가 태그를 잔뜩 넣고 뽑았는데 그림의 어떤 부분이 <b>누구 때문인지</b>
+        모를 때 씁니다. 20명을 한 명씩 빼 보면 20장이 들지만, 절반씩 빼면서 좁히면
+        <b>5번</b>이면 끝납니다.</p>
+
+      <div class="row-head">
+        <span class="label">후보 고르기</span>
+        <span id="bis-count" class="hint"></span>
+      </div>
+      <div class="toolrow">
+        <button id="bis-from-drawer" class="btn small">서랍</button>
+        <button id="bis-from-mix" class="btn small">섞기</button>
+        <button id="bis-from-prompt" class="btn small">작가 태그 칸</button>
+        <button id="bis-none" class="btn small">모두 끄기</button>
+      </div>
+      <div id="bis-pick" class="bis-pick"></div>
+      <p class="hint">한 번에 <b>20명까지</b> 고를 수 있습니다. 더 넣으면 찾는 횟수도 늘고,
+        무엇보다 한 그림에 작가가 스무 명 넘게 들어가면 그림체가 뭉개져서 뭐가 뭔지
+        구분이 안 됩니다.</p>
+
+      <details class="panel">
+        <summary>직접 적기</summary>
+        <textarea id="bis-tags" rows="3" placeholder="쉼표로 구분해 적으면 위 목록에 더해집니다."></textarea>
+        <button id="bis-add-typed" class="btn small">목록에 더하기</button>
+      </details>
+
+      <label class="field">
+        <span class="label">무엇을 찾나</span>
+        <select id="bis-goal" class="tool-select">
+          <option value="keep">마음에 드는 부분, 누구 덕인지 찾기</option>
+          <option value="drop">거슬리는 부분, 누구 탓인지 찾기</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">시드</span>
+        <input id="bis-seed" type="number" inputmode="numeric" placeholder="비우면 무작위로 하나 정합니다">
+        <span class="hint">깎기에서는 시드를 반드시 고정합니다. 시드가 바뀌면 그림이 달라진 게
+          태그 때문인지 시드 때문인지 구분할 수 없습니다.</span>
+      </label>
+
+      <label class="check">
+        <input id="bis-cross" type="checkbox" checked> 양쪽을 다 빼 본다 (교차 확인)
+      </label>
+      <p class="hint">뽑는 이미지 수가 두 배가 되는 대신, <b>한 명이 만든 게 아닌 경우</b>를 잡아냅니다.
+        왼쪽을 빼도 남아 있고 오른쪽을 빼도 남아 있으면, 여러 명이 같이 만들어낸 겁니다.</p>
+
+      <div id="bis-est" class="cost-est"></div>
+      <button id="bis-start" class="btn primary block">깎기 시작</button>
+    </div>
+
+    <div id="bis-run" hidden>
+      <div id="bis-sum" class="bis-sum"></div>
+      <div id="bis-step" class="bis-step"></div>
+      <div id="bis-msg" class="msg" hidden></div>
+      <div class="toolrow">
+        <button id="bis-shoot" class="btn primary">이번 라운드 뽑기</button>
+        <button id="bis-undo" class="btn small">되돌리기</button>
+        <button id="bis-stop" class="btn small">그만</button>
+      </div>
+      <div id="bis-shots" class="shots"></div>
+        <p class="shot-note" id="bis-shots-note" hidden></p>
+        <button id="bis-shots-retry" class="btn small" hidden>실패한 것만 다시 뽑기</button>
+      <div id="bis-ask" hidden>
+        <p class="hint" id="bis-ask-q"></p>
+        <div id="bis-ask-btns" class="bis-ask-btns"></div>
+      </div>
+      <div id="bis-done" hidden>
+        <div class="row-head"><span class="label">가중치 맞추기</span></div>
+        <p class="hint">범인을 찾았으니 이제 <b>얼마나 세게</b> 쓸지 정합니다. 한 명만 가중치를
+          바꿔가며 뽑으니까 이미지 수가 확 늘지 않습니다.</p>
+        <button id="bis-scan" class="btn primary block">가중치 바꿔가며 뽑아 보기</button>
+      </div>
+    </div>
+
+    <details class="panel">
+      <summary>왜 절반씩 빼는가</summary>
+      <p class="hint"><b>넣는 게 아니라 빼야</b> 합니다. 절반만 넣고 뽑으면 그림이 통째로 달라져서
+        뭐 때문에 달라졌는지 알 수 없습니다. 전부 넣은 채로 절반만 빼야, 나머지 그림체는
+        그대로인 상태에서 그 부분만 사라졌는지 보입니다.</p>
+      <p class="hint"><b>누구인지</b>와 <b>얼마나 세게</b>를 같이 찾으면 안 됩니다. 켜고 끄는
+        것만 해도 20명이면 100만 가지가 넘는데, 여기에 가중치 5단계를 곱하면 손댈 수 없는
+        숫자가 됩니다. 그래서 범인은 가중치를 전부 1.0 으로 묶고 켜고 끄기만으로 찾고,
+        가중치는 범인을 찾은 다음에 그 한 명만 바꿔 봅니다. 다 합쳐서 10장쯤이면 끝납니다.</p>
+    </details>
+    </div>
+  </div>
+</section>
+
+<!-- ★「이런 작태는 어떠세요」 — 앱을 켤 때 띄운다. 다 뽑고 나면 그 세션은 이미 끝났고,
+     새 작가는 세트를 짜기 전에 알아야 쓸모가 있다. 고르는 기준은 「그림 100장 이상」 이며,
+     그 아래는 NAI 가 배운 것이 없어 태그를 넣어도 안 나온다. 끌 수 있다. -->
+<div id="reco" class="reco" hidden>
+  <div class="reco-sheet">
+    <div class="reco-top">
+      <div>
+        <div class="reco-title">이런 작태는 어떠세요?</div>
+        <div id="reco-why" class="reco-why"></div>
+      </div>
+      <button id="reco-close" class="btn icon" aria-label="닫기">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="reco-list" class="reco-list"></div>
+    <div class="reco-foot">
+      <label class="check"><input id="reco-off" type="checkbox"> 다시 보지 않기</label>
+      <select id="reco-min" class="tool-select">
+        <option value="100">100장 이상</option>
+        <option value="300">300장 이상</option>
+        <option value="1000">1000장 이상</option>
+        <option value="5000">5000장 이상</option>
+      </select>
+      <button id="reco-more" class="btn small">다른 작가</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/fflate.js"></script>
 <script src="js/nai-tables.js"></script>
 <script src="js/nai-payload.js"></script>
 <script src="js/naming.js"></script>
+<script src="js/jobs.js"></script>
 <script src="js/perofix-import.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/nai-client.js"></script>
 <script src="js/remote-store.js"></script>
+<script src="js/github.js"></script>
+<script src="js/danbooru.js"></script>
+<script src="js/artists.js"></script>
+<script src="js/bisect.js"></script>
+<script src="js/styletest.js"></script>
+<script src="js/updater.js"></script>
+<script src="js/consistency.js"></script>
+<script src="js/embed.js"></script>
 <script src="js/image-util.js"></script>
+<script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>
 <script src="js/anlas.js"></script>
 <script src="js/wildcards.js"></script>

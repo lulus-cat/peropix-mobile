@@ -100,7 +100,11 @@ const Store = (function () {
     //   같은 프롬프트라도 시드가 달라 매번 다른 그림이 나오고, 그중에서 골라 쓴다.
     count_per_slot: 1,
     // 인핸스가 성공하면 원본을 지울지. 최종본만 남기고 싶을 때 켠다.
-    enhance_replace_original: false
+    enhance_replace_original: false,
+    // ★한 명 모드 — 켠 인물을 한 명씩 보내고 인물 수만큼 바퀴를 더 돈다
+    //   (인물 × 슬롯 × 배수). 인물이 많고 슬롯이 적을 때 인물을 켰다 껐다 하며
+    //   여러 번 돌리던 왕복을 없앤다. 저장 경로에는 인물 폴더가 한 겹 끼어든다.
+    one_char_mode: false
   };
 
   async function getOptions() {
@@ -199,7 +203,7 @@ const Store = (function () {
   }
 
   /** 슬롯 프롬프트를 'base'(공통) 와 'char'(캐릭터) 중 어디에 붙일지.
-   *  ★데스크톱판 기본값이 'char' 다 — 여기서 다르면 같은 설정인데 다른 그림이 나온다. */
+   *  ★데스크톱 버전 기본값이 'char' 다 — 여기서 다르면 같은 설정인데 다른 그림이 나온다. */
   async function getSlotTarget() {
     const v = await getRaw(KEY_SLOT_TARGET);
     return (v === 'base' || v === 'char') ? v : 'char';
@@ -228,6 +232,246 @@ const Store = (function () {
 
   async function setReferences(list) {
     await setRaw(KEY_REFS, JSON.stringify(list || []));
+  }
+
+  // ── 원격 작업 ────────────────────────────────────────────────────────────
+  // 어느 수신함에서 「이거 뽑으세요」 를 받아 올지, 받으면 바로 돌릴지.
+  // ★자동 실행은 묻지 않고 Anlas 를 쓴다. 그래서 기본값은 꺼짐이다.
+  const KEY_JOBS_SOURCE = 'jobs_source';   // 'dest' | 'github'
+  const KEY_JOBS_DEST = 'jobs_dest';
+  const KEY_JOBS_AUTO = 'jobs_auto';
+
+  async function getJobsSource() {
+    return (await getRaw(KEY_JOBS_SOURCE)) === 'github' ? 'github' : 'dest';
+  }
+
+  async function setJobsSource(v) {
+    await setRaw(KEY_JOBS_SOURCE, v === 'github' ? 'github' : 'dest');
+  }
+
+  async function getJobsDest() {
+    return (await getRaw(KEY_JOBS_DEST)) || '';
+  }
+
+  async function setJobsDest(id) {
+    await setRaw(KEY_JOBS_DEST, id || '');
+  }
+
+  async function getJobsAuto() {
+    return (await getRaw(KEY_JOBS_AUTO)) === '1';
+  }
+
+  async function setJobsAuto(on) {
+    await setRaw(KEY_JOBS_AUTO, on ? '1' : '0');
+  }
+
+  // ── GitHub 지시함 ────────────────────────────────────────────────────────
+  // { repo, branch, token } · 그리고 이미 실행한 작업 id 목록 (경로@SHA).
+  // ★앱은 저장소에 쓰지 않는다. 무엇을 했는지는 폰이 기억한다 — 지시 파일을 지우지 않아도
+  //   같은 작업이 다시 돌지 않게 하려는 것이다.
+  const KEY_GH = 'github_inbox';
+  const KEY_GH_DONE = 'github_done';
+
+  async function getGithub() {
+    const raw = await getRaw(KEY_GH);
+    const base = { repo: '', branch: 'main', token: '' };
+    if (!raw) return base;
+    try {
+      return Object.assign(base, JSON.parse(raw) || {});
+    } catch (e) {
+      return base;
+    }
+  }
+
+  async function setGithub(cfg) {
+    await setRaw(KEY_GH, JSON.stringify(cfg || {}));
+  }
+
+  async function getGithubDone() {
+    const raw = await getRaw(KEY_GH_DONE);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setGithubDone(list) {
+    await setRaw(KEY_GH_DONE, JSON.stringify(list || []));
+  }
+
+  // ── 작가 서랍 ────────────────────────────────────────────────────────────
+  // 항목: { tag, count, cats:[], note, fav, at }
+  // ★엄선한 목록이라 통째로 들고 있어도 가볍다. 장수는 화면을 열 때 다시 물어본다 —
+  //   저장해 둔 숫자는 금방 낡는다.
+  const KEY_ARTISTS = 'artist_drawer';
+  const KEY_ART_MIX = 'artist_mix';
+
+  async function getArtists() {
+    const raw = await getRaw(KEY_ARTISTS);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setArtists(list) {
+    await setRaw(KEY_ARTISTS, JSON.stringify(list || []));
+  }
+
+  /** 섞던 것 — 앱을 껐다 켜도 하던 조합이 남아야 한다. */
+  async function getArtistMix() {
+    const raw = await getRaw(KEY_ART_MIX);
+    if (!raw) return [];
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function setArtistMix(m) {
+    await setRaw(KEY_ART_MIX, JSON.stringify(m || []));
+  }
+
+  // 세기 범위 · 추천 끄기
+  const KEY_W_RANGE = 'artist_weight_range';
+  const KEY_RECO_OFF = 'artist_reco_off';
+
+  async function getWeightRange() {
+    const raw = await getRaw(KEY_W_RANGE);
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw);
+      return (v && typeof v === 'object') ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function setWeightRange(r) {
+    if (!r) return removeRaw(KEY_W_RANGE);
+    await setRaw(KEY_W_RANGE, JSON.stringify(r));
+  }
+
+  const KEY_STYLE = 'style_test';
+
+  /** 그림체 테스트 설정 (구도·캐릭터·퀄리티·네거티브). */
+  async function getStyleTest() {
+    const raw = await getRaw(KEY_STYLE);
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw);
+      return (v && typeof v === 'object') ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function setStyleTest(cfg) {
+    await setRaw(KEY_STYLE, JSON.stringify(cfg || {}));
+  }
+
+  // ── 업데이트 알림 ────────────────────────────────────────────────────────
+  // ★언제 마지막으로 봤는지와, 「이 버전은 건너뛴다」 로 정한 판만 남긴다. 받아 온 내용은
+  //   안 남긴다 — 다음에 켤 때 다시 물어보면 되고, 오래된 것을 보여 주면 더 헷갈린다.
+  const KEY_UPD_AT = 'update_checked_at';
+  const KEY_UPD_SKIP = 'update_skipped';
+
+  async function getUpdateCheckedAt() {
+    return parseInt(await getRaw(KEY_UPD_AT), 10) || 0;
+  }
+
+  async function setUpdateCheckedAt(t) {
+    await setRaw(KEY_UPD_AT, String(t || 0));
+  }
+
+  async function getUpdateSkipped() {
+    return (await getRaw(KEY_UPD_SKIP)) || '';
+  }
+
+  async function setUpdateSkipped(v) {
+    await setRaw(KEY_UPD_SKIP, String(v || ''));
+  }
+
+  const KEY_UPD_REPO = 'update_repo';
+  const DEFAULT_UPDATE_REPO = 'lulus-cat/peropix-mobile';
+
+  /**
+   * 업데이트를 확인할 저장소.
+   * ★두 저장소(peropix-mobile · peropix-Lkit-mobile)가 같은 www/ 를 쓰기 때문에, 어느
+   *   APK 를 깔았는지는 앱이 알 수 없다. 그래서 사람이 고른다.
+   */
+  async function getUpdateRepo() {
+    return (await getRaw(KEY_UPD_REPO)) || DEFAULT_UPDATE_REPO;
+  }
+
+  async function setUpdateRepo(v) {
+    await setRaw(KEY_UPD_REPO, String(v || '').trim() || DEFAULT_UPDATE_REPO);
+  }
+
+  const KEY_UPD_AUTO = 'update_auto';
+
+  /** 켤 때 업데이트를 확인할지. ★기본 켜짐 — 옆에서 받아 까는 앱이라 스토어가 안 알려 준다. */
+  async function getUpdateAuto() {
+    return (await getRaw(KEY_UPD_AUTO)) !== '0';
+  }
+
+  async function setUpdateAuto(on) {
+    await setRaw(KEY_UPD_AUTO, on ? '1' : '0');
+  }
+
+  // ── 일관성 검사 ────────────────────────────────────────────────────────
+  const KEY_CONS_MODE = 'consistency_mode';
+  const KEY_CONS_READY = 'consistency_model_ready';
+
+  /**
+   * 어디서 잴지. 'off' · 'device'(폰) · 'server'(수신함).
+   * ★기본은 꺼짐이다. 폰으로 재려면 수십 MB 를 받아야 하고 수신함으로 재려면 그쪽에
+   *   따로 깔 것이 있다. 둘 다 사람이 정하고 나서 켜져야 한다.
+   */
+  async function getConsistency() {
+    const v = await getRaw(KEY_CONS_MODE);
+    return (v === 'device' || v === 'server') ? v : 'off';
+  }
+
+  async function setConsistency(v) {
+    await setRaw(KEY_CONS_MODE, (v === 'device' || v === 'server') ? v : 'off');
+  }
+
+  /** 폰에 모델을 받아 두었는가. 받기 전에는 검사를 켜도 아무것도 못 잰다. */
+  async function getConsistencyReady() {
+    return (await getRaw(KEY_CONS_READY)) === '1';
+  }
+
+  async function setConsistencyReady(on) {
+    await setRaw(KEY_CONS_READY, on ? '1' : '0');
+  }
+
+  const KEY_RECO_MIN = 'artist_reco_min';
+
+  /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
+  async function getRecoMin() {
+    const n = parseInt(await getRaw(KEY_RECO_MIN), 10);
+    return (isFinite(n) && n > 0) ? n : 100;
+  }
+
+  async function setRecoMin(n) {
+    await setRaw(KEY_RECO_MIN, String(parseInt(n, 10) || 100));
+  }
+
+  async function getRecoOff() {
+    return (await getRaw(KEY_RECO_OFF)) === '1';
+  }
+
+  async function setRecoOff(v) {
+    await setRaw(KEY_RECO_OFF, v ? '1' : '0');
   }
 
   // ── 즐겨찾기 폴더 ────────────────────────────────────────────────────────
@@ -340,6 +584,41 @@ const Store = (function () {
     setReferences: setReferences,
     getFavorites: getFavorites,
     setFavorites: setFavorites,
+    getGithub: getGithub,
+    setGithub: setGithub,
+    getWeightRange: getWeightRange,
+    setWeightRange: setWeightRange,
+    getStyleTest: getStyleTest,
+    setStyleTest: setStyleTest,
+    getUpdateCheckedAt: getUpdateCheckedAt,
+    setUpdateCheckedAt: setUpdateCheckedAt,
+    getUpdateSkipped: getUpdateSkipped,
+    setUpdateSkipped: setUpdateSkipped,
+    getUpdateAuto: getUpdateAuto,
+    setUpdateAuto: setUpdateAuto,
+    getUpdateRepo: getUpdateRepo,
+    setUpdateRepo: setUpdateRepo,
+    getConsistency: getConsistency,
+    setConsistency: setConsistency,
+    getConsistencyReady: getConsistencyReady,
+    setConsistencyReady: setConsistencyReady,
+    DEFAULT_UPDATE_REPO: DEFAULT_UPDATE_REPO,
+    getRecoMin: getRecoMin,
+    setRecoMin: setRecoMin,
+    getRecoOff: getRecoOff,
+    setRecoOff: setRecoOff,
+    getArtists: getArtists,
+    setArtists: setArtists,
+    getArtistMix: getArtistMix,
+    setArtistMix: setArtistMix,
+    getGithubDone: getGithubDone,
+    setGithubDone: setGithubDone,
+    getJobsDest: getJobsDest,
+    setJobsDest: setJobsDest,
+    getJobsAuto: getJobsAuto,
+    setJobsAuto: setJobsAuto,
+    getJobsSource: getJobsSource,
+    setJobsSource: setJobsSource,
     getCharacters: getCharacters,
     setCharacters: setCharacters,
     getSlotTarget: getSlotTarget,

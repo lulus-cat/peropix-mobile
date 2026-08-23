@@ -69,7 +69,13 @@ const RemoteStore = (function () {
     try {
       const r = await request(dest, 'GET', '/ping', null);
       if (r.status === 200 && r.body.ok) {
-        return { ok: true, message: '연결됨 · 저장 폴더: ' + (r.body.root || '?'), root: r.body.root };
+        return {
+          ok: true,
+          message: '연결됨 · 저장 폴더: ' + (r.body.root || '?'),
+          root: r.body.root,
+          // 이 수신함이 일관성 검사를 맡을 수 있는가 (score.py 를 옆에 두었는가).
+          canScore: r.body.score === true
+        };
       }
       return { ok: false, message: explain(r.status, r.body) };
     } catch (e) {
@@ -87,6 +93,26 @@ const RemoteStore = (function () {
   async function upload(dest, relPath, b64) {
     const r = await request(dest, 'POST', '/upload', { path: relPath, data: b64 });
     if (r.status === 200 && r.body.ok) return r.body.path;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /**
+   * 그림들의 특징 벡터를 받아 온다 (일관성 검사).
+   * ★고른지 아닌지 판정은 여기서 하지 않는다 — consistency.js 가 한다. 폰에서 뽑든
+   *   서버에서 뽑든 잣대가 하나여야 서버를 껐다 켰다 해도 점수가 안 흔들린다.
+   * @param {object} dest {url, token}
+   * @param {string} kind 'style'(그림체) 또는 'identity'(인물)
+   * @param {object} o {paths:[상대경로], data:[base64]} — 이미 올린 것은 paths 로
+   * @returns {Promise<Array<Array<number>>>} 못 잰 장은 빈 배열
+   */
+  async function score(dest, kind, o) {
+    const body = { kind: kind === 'identity' ? 'identity' : 'style' };
+    if (o && o.paths && o.paths.length) body.paths = o.paths;
+    if (o && o.data && o.data.length) body.data = o.data;
+    const r = await request(dest, 'POST', '/score', body);
+    if (r.status === 200 && r.body.ok) return r.body.vectors || [];
+    // 501 은 「채점기를 안 깔았다」 — 서버가 왜인지와 고치는 법까지 적어 보낸다.
+    if (r.status === 501) throw new Error(r.body.error || '이 수신함에는 검사 기능이 없습니다.');
     throw new Error(explain(r.status, r.body));
   }
 
@@ -137,9 +163,46 @@ const RemoteStore = (function () {
     throw new Error(explain(r.status, r.body));
   }
 
+  // ── 작업 큐 ─────────────────────────────────────────────────────────────
+  // ★「이거 뽑으세요」 쪽지를 받아 오고, 진행·결과를 알린다. 키는 이 폰에만 있으므로
+  //   실제로 NovelAI 를 부르고 Anlas 를 쓰는 것은 언제나 이쪽이다.
+
+  /** 기다리는 작업 목록. @returns {Promise<Array>} */
+  async function listJobs(dest, status) {
+    const q = status ? ('?status=' + encodeURIComponent(status)) : '';
+    const r = await request(dest, 'GET', '/jobs' + q, null);
+    if (r.status === 200 && r.body.ok) return r.body.jobs || [];
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /**
+   * 기다리는 것 하나를 집어 온다 (없으면 null).
+   * ★집는 순간 서버가 running 으로 바꾼다 — 폰이 둘이어도 같은 작업을 두 번 뽑지 않는다.
+   */
+  async function claimJob(dest) {
+    const r = await request(dest, 'POST', '/jobs/claim', {});
+    if (r.status === 200 && r.body.ok) return r.body.job || null;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  /** 진행·결과를 알린다. {id, status, progress:{done,total}, files, error} */
+  async function updateJob(dest, patch) {
+    const r = await request(dest, 'POST', '/jobs/update', patch || {});
+    if (r.status === 200 && r.body.ok) return r.body.job;
+    throw new Error(explain(r.status, r.body));
+  }
+
+  async function deleteJob(dest, id) {
+    const r = await request(dest, 'POST', '/jobs/delete', { id: id });
+    if (r.status === 200 && r.body.ok) return true;
+    throw new Error(explain(r.status, r.body));
+  }
+
   return {
     ping: ping, upload: upload, list: list, baseUrl: baseUrl,
-    browse: browse, mkdir: mkdir, rename: rename, remove: remove
+    browse: browse, mkdir: mkdir, rename: rename, remove: remove,
+    listJobs: listJobs, claimJob: claimJob, updateJob: updateJob, deleteJob: deleteJob,
+    score: score
   };
 })();
 

@@ -86,9 +86,40 @@ flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
 check('최종본 = 인핸스·업스케일 결과',
   names(flat) === 'happy#2_enh,happy#2_enh_x4', names(flat));
 
+// 배경을 깐 장도 최종본으로 센다 (인핸스 뒤 마지막 손질이라 여기 있어야 한다).
+const composed = RM.make({
+  slotLabel: 'sad', cycle: 1, kind: 'composed', name: 'sad#1_bg', bytes: {},
+  parentId: list.find(function (r) { return r.name === 'sad#1'; }).id
+});
+list.push(composed);
+f = RM.applyFilter(list, 'final');
+flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
+check('최종본에 배경 합성 결과도 들어간다',
+  names(flat).indexOf('sad#1_bg') !== -1, names(flat));
+f = RM.applyFilter(list, 'todo');
+flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
+check('배경을 깐 원본은 인핸스 대상에서 빠진다',
+  names(flat).indexOf('sad#1') === -1, names(flat));
+
 f = RM.applyFilter(list, 'reject');
 flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
 check('버릴 것 필터', names(flat) === 'happy#1', names(flat));
+
+// ── 실패한 장 (인터넷이 끊긴 뒤 다시 뽑을 대상) ───────────────────────
+const broken = RM.make({
+  slotLabel: 'sad', cycle: 2, name: 'sad#2_broken',
+  error: '인터넷에 닿지 못했습니다', job: { slotName: 'sad', cycle: 2 }
+});
+list.push(broken);
+f = RM.applyFilter(list, 'failed');
+flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);
+check('실패 필터는 그림이 없는 장만 집는다 (사이클 순서대로)',
+  names(flat) === 'sad#2_broken,sad#4', names(flat));
+check('실패 항목은 무엇을 뽑으려던 것인지(job)를 들고 있다', broken.job.slotName === 'sad');
+check('★그림이 있는데 저장만 실패한 장은 실패로 치지 않는다 (다시 뽑을 필요가 없다)',
+  RM.applyFilter([RM.make({ name: 'saved-fail', bytes: {}, error: '저장 실패' })], 'failed')
+    .length === 0);
+check('기본값의 job 은 비어 있다', RM.make({}).job === null);
 
 f = RM.applyFilter(list, 'unsaved');
 flat = f.reduce(function (a, g) { return a.concat(g.items); }, []);

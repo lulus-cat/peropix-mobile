@@ -94,7 +94,7 @@ const PerofixImport = (function () {
   /**
    * 캐릭터 프롬프트 JSON 을 읽는다.
    *
-   * 데스크톱판 캐릭터 프리셋 형식:
+   * 데스크톱 버전 캐릭터 프리셋 형식:
    *   { "characters": [ { "content": "...", "uc": "...", "coord": "a1",
    *                       "skipSlotPrompt": false, "name": "...", "enabled": true } ] }
    * ★프롬프트 칸 이름이 슬롯 JSON 과 다르다 (`content`). 둘 다 받아 준다.
@@ -151,7 +151,7 @@ const PerofixImport = (function () {
     return { ok: true, characters: out };
   }
 
-  /** 캐릭터를 데스크톱판 프리셋 형식으로 되돌린다. */
+  /** 캐릭터를 데스크톱 버전 프리셋 형식으로 되돌린다. */
   function buildCharacters(chars) {
     return {
       characters: (chars || []).map(function (c) {

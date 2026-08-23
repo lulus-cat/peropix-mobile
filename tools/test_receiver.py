@@ -7,6 +7,7 @@
 
 import io
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -235,6 +236,231 @@ check("루트가 살아 있는지", ROOT.exists())
 
 status, body = op("/mkdir", {"path": "x"}, token="wrong-token-xxxxxxxxxxxx")
 check(f"폴더 조작도 토큰 검사 (받은 {status})", status == 401)
+
+# ── 5. 작업 큐 ────────────────────────────────────────────────────────
+def get(endpoint):
+    return req("GET", endpoint)
+
+
+# ★여기가 뚫리면 남이 「이거 뽑으세요」 를 밀어 넣어 폰의 Anlas 를 태울 수 있다.
+status, body = op("/jobs", {"name": "미아 일상", "spec": {"prefix": "1girl", "slots": [{"name": "1-1"}]}},
+                  token="wrong-token-xxxxxxxxxxxx")
+check(f"작업 올리기도 토큰 검사 (받은 {status})", status == 401)
+
+status, body = op("/jobs", {"name": "미아 일상", "spec": {"prefix": "1girl", "slots": [{"name": "1-1"}]}})
+check(f"작업을 올릴 수 있다 (받은 {status})", status == 200 and body.get("ok"))
+job_id = (body.get("job") or {}).get("id", "")
+check(f"작업 id 를 돌려준다 ({job_id})", bool(job_id))
+check("올린 작업은 pending", (body.get("job") or {}).get("status") == "pending")
+
+status, body = op("/jobs", {"name": "spec 없음"})
+check(f"spec 이 없으면 거절 (받은 {status})", status == 400)
+
+status, body = get("/jobs")
+check(f"목록을 볼 수 있다 (받은 {status})", status == 200 and body.get("count") == 1)
+status, body = get("/jobs?status=done")
+check("상태로 걸러 볼 수 있다", status == 200 and body.get("count") == 0)
+
+# ★.jobs 는 그림 목록에 섞이면 안 된다 (매트릭스 채움 셈이 틀어진다).
+status, body = get("/list")
+check("작업 파일은 그림 목록에 안 섞인다",
+      all(".jobs" not in f["path"] for f in body.get("files", [])))
+status, body = get("/browse?path=")
+check("작업 폴더는 폴더 화면에도 안 보인다",
+      all(d["name"] != ".jobs" for d in body.get("dirs", [])))
+
+# 집어 가기 — 두 번째로 부르면 없어야 한다 (같은 작업을 두 번 뽑으면 돈이 두 배로 나간다)
+status, body = op("/jobs/claim", {})
+claimed = body.get("job") or {}
+check(f"기다리는 작업을 집어 준다 (받은 {status})", status == 200 and claimed.get("id") == job_id)
+check("집는 순간 running 이 된다", claimed.get("status") == "running")
+status, body = op("/jobs/claim", {})
+check("★같은 작업을 두 번 집어 주지 않는다", status == 200 and body.get("job") is None)
+
+# 진행·결과 알리기
+status, body = op("/jobs/update", {"id": job_id, "progress": {"done": 1, "total": 4}})
+check(f"진행을 알릴 수 있다 (받은 {status})", status == 200
+      and (body.get("job") or {}).get("progress", {}).get("done") == 1)
+status, body = op("/jobs/update", {"id": job_id, "status": "done", "files": ["미아/1-1.png"]})
+check("끝났다고 알릴 수 있다", status == 200 and (body.get("job") or {}).get("status") == "done")
+check("저장한 파일 목록이 남는다", (body.get("job") or {}).get("files") == ["미아/1-1.png"])
+
+status, body = op("/jobs/update", {"id": job_id, "status": "이상한상태"})
+check(f"모르는 상태는 거절 (받은 {status})", status == 400)
+status, body = op("/jobs/update", {"id": "../../etc/passwd", "status": "done"})
+check(f"★작업 id 로 경로 탈출을 못 한다 (받은 {status})", status == 404)
+status, body = op("/jobs/update", {"id": "없는작업", "status": "done"})
+check(f"없는 작업은 404 (받은 {status})", status == 404)
+
+status, body = op("/jobs/delete", {"id": job_id})
+check(f"작업을 지울 수 있다 (받은 {status})", status == 200)
+status, body = get("/jobs")
+check("지우면 목록에서 빠진다", body.get("count") == 0)
+
+# ── 비밀번호 ────────────────────────────────────────────────────────────
+# ★한글 비밀번호를 받아 주면 「받는 쪽은 잘 떴는데 폰에서만 안 되는」 상태가 된다.
+#   HTTP 헤더(Authorization)에는 latin-1 밖에 안 실려서 앱이 보내기도 전에 막힌다.
+check("영문·숫자 16자는 받는다", receiver.token_ok("abcdefghijklmnop"))
+check("기호도 받는다", receiver.token_ok("my-vps-password-1"))
+check("★한글 비밀번호는 막는다 (HTTP 헤더에 안 실려 폰에서만 안 되게 된다)",
+      not receiver.token_ok("우리집고양이이름은나비입니다"))
+check("★탭·줄바꿈도 막는다", not receiver.token_ok("tab\there-is-bad!!"))
+check("15자는 짧다", not receiver.token_ok("abcdefghijklmno"))
+check("빈 값은 안 된다", not receiver.token_ok(""))
+
+# 「토큰 만들기」 단계를 없앤 부분 — 만들어 둔 비밀번호가 남에게 보이면 안 된다.
+auto = ROOT / "자동비번시험"
+auto.mkdir(parents=True, exist_ok=True)
+made = auto / receiver.TOKEN_FILE
+tok = "abcdefghijklmnopqrstuvwxyz012345"
+made.write_text(tok, encoding="utf-8")
+os.chmod(made, 0o600)
+check("★만들어 둔 비밀번호는 파일 목록에 안 나온다 (점으로 시작한다)",
+      not receiver._visible(receiver.TOKEN_FILE))
+check("만들어 두는 비밀번호는 규칙을 통과한다", receiver.token_ok(tok))
+check("★남이 못 읽게 둔다 (0600)", oct(made.stat().st_mode)[-3:] == "600")
+check("다시 켜면 그대로 읽어 쓴다", made.read_text(encoding="utf-8").strip() == tok)
+shutil.rmtree(auto, ignore_errors=True)
+
+# ── 6. 일관성 채점 ────────────────────────────────────────────────────
+# ★채점기는 **선택 설치**다. 안 깔린 채로 이 창구를 부르면 반드시 「없다」 고 분명히
+#   말해야 한다. 조용히 빈 결과를 주면 앱은 「전부 고르다」 로 그려 버린다 — 재지도
+#   않고 합격 도장을 찍는 셈이라 제일 나쁜 고장이다.
+def score_req(payload, token=TOKEN):
+    return req("POST", "/score", data=json.dumps(payload).encode("utf-8"), token=token)
+
+
+# 앞의 검사들이 지웠을 수 있으니 잴 그림을 하나 새로 올려 둔다.
+SCORE_PIC = "채점/한장.png"
+req("POST", "/upload", data=PNG, xpath=SCORE_PIC)
+
+
+have = receiver.score_ok()
+status, body = req("GET", "/ping")
+check("ping 이 채점 가능 여부를 알려 준다", "score" in body)
+check("ping 의 답이 실제 상태와 같다", body.get("score") is have)
+
+status, _ = score_req({"kind": "style", "paths": [SCORE_PIC]},
+                      token="wrong-token-xxxxxxxxxxxx")
+check(f"★채점도 토큰 검사 (받은 {status})", status == 401)
+
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+if have:
+    check(f"채점기가 있으면 벡터를 준다 (받은 {status})",
+          status == 200 and body.get("ok") and len(body.get("vectors") or []) == 1)
+    check("무엇으로 쟀는지 알려 준다", body.get("kind") == "style")
+else:
+    check(f"★채점기가 없으면 501 로 분명히 거절 (받은 {status})", status == 501)
+    check("★왜 안 되는지, 어떻게 고치는지 말해 준다",
+          "pip install" in (body.get("error") or "") or "score.py" in (body.get("error") or ""))
+    check("빈 결과를 주지 않는다 (그러면 앱이 「다 고르다」 로 읽는다)",
+          not body.get("ok") and not body.get("vectors"))
+
+status, body = score_req({"kind": "style", "paths": []})
+check(f"볼 그림이 없으면 거절 (받은 {status})", status in (400, 501))
+
+# ★경로 탈출은 여기서도 막혀야 한다. 채점하겠다며 /etc/passwd 를 읽어 오면 안 된다.
+status, body = score_req({"kind": "style", "paths": ["../../etc/passwd"]})
+if have:
+    check("★채점 창구로 서버 밖 파일을 못 읽는다",
+          status == 200 and (body.get("vectors") or [[]])[0] == [])
+else:
+    check("★채점 창구로 서버 밖 파일을 못 읽는다 (채점기 없음)", status == 501)
+
+check("장수 상한이 있다 (한 번에 서버를 재우지 못하게)", receiver.SCORE_MAX_IMAGES <= 64)
+
+# ★여기부터는 채점기를 가짜로 끼워 넣고 본다. torch 를 깔아야만 검사되는 코드로 두면
+#   정작 앱이 쓰는 길(경로 찾기·base64·상한·응답 모양)은 아무도 안 보게 된다.
+class _FakeScore:
+    """진짜 모델 대신. 바이트 길이만 보고 아무 벡터나 만든다."""
+    last_kind = ""
+
+    @staticmethod
+    def available():
+        return True
+
+    @staticmethod
+    def why():
+        return ""
+
+    @staticmethod
+    def embed(raws, kind="style", batch=8):
+        _FakeScore.last_kind = kind
+        return [[len(r) % 7 + 1.0, 2.0] if r else [] for r in raws]
+
+
+receiver._mods["score"] = _FakeScore
+receiver._score_ok = None
+
+status, body = req("GET", "/ping")
+check("채점기를 끼우면 ping 이 켜졌다고 말한다", body.get("score") is True)
+
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+check(f"★올려 둔 그림은 경로만 주면 된다 (다시 올릴 이유가 없다) — 받은 {status}",
+      status == 200 and len(body.get("vectors") or []) == 1 and body["vectors"][0])
+
+status, body = score_req({"kind": "identity", "paths": [SCORE_PIC]})
+check("무엇을 재라고 했는지 그대로 넘어간다", _FakeScore.last_kind == "identity"
+      and body.get("kind") == "identity")
+
+status, body = score_req({"kind": "엉뚱한것", "paths": [SCORE_PIC]})
+check("모르는 종류는 그림체로 본다", body.get("kind") == "style")
+
+status, body = score_req({"kind": "style", "paths": ["../../etc/passwd"]})
+check("★채점 창구로 서버 밖 파일을 못 읽는다",
+      status == 200 and body["vectors"][0] == [])
+
+status, body = score_req({"kind": "style", "paths": ["없는폴더/없는그림.png"]})
+check("★없는 장은 그 자리만 비운다 (한 장 없다고 전부 물리지 않는다)",
+      status == 200 and body["vectors"] == [[]])
+
+status, body = score_req({"kind": "style",
+                          "data": [base64.b64encode(PNG).decode("ascii")]})
+check(f"★아직 안 올린 그림은 본문으로 보낼 수 있다 (테스트 모드) — 받은 {status}",
+      status == 200 and len(body.get("vectors") or []) == 1 and body["vectors"][0])
+
+status, body = score_req({"kind": "style", "data": ["이건base64가아님!!"]})
+check("망가진 본문 한 장도 그 자리만 비운다", status == 200 and body["vectors"] == [[]])
+
+status, body = score_req({"kind": "style",
+                          "paths": [SCORE_PIC] * (receiver.SCORE_MAX_IMAGES + 10)})
+check("★상한을 넘겨 보내면 잘라서 받는다",
+      status == 200 and len(body["vectors"]) == receiver.SCORE_MAX_IMAGES)
+
+status, body = score_req({"kind": "style", "paths": []})
+check(f"볼 그림이 하나도 없으면 거절 (받은 {status})", status == 400)
+
+
+class _BrokenScore(_FakeScore):
+    @staticmethod
+    def embed(raws, kind="style", batch=8):
+        raise RuntimeError("모델이 터졌다")
+
+
+receiver._mods["score"] = _BrokenScore
+status, body = score_req({"kind": "style", "paths": [SCORE_PIC]})
+check(f"★채점 중에 터져도 서버는 안 죽고 500 을 말한다 (받은 {status})",
+      status == 500 and not body.get("ok"))
+
+receiver._mods["score"] = None
+receiver._score_ok = None
+
+# ── 앱에 넣어 둔 사본 ───────────────────────────────────────────────────
+# ★앱 안에서 receiver.py 를 꺼내 쓸 수 있게 www/ 에 사본을 둔다. 그런데 사본은 조용히
+#   낡는다 — 여기를 고쳐도 앱이 옛 파일을 내주면, 「비밀번호 안 만들어도 된다더니 왜
+#   토큰을 달라고 하냐」 가 된다. 그래서 두 파일이 같은지 검사로 못 박는다.
+copy = Path(__file__).resolve().parent.parent / "www" / "receiver.py.txt"
+real = Path(__file__).resolve().parent / "receiver.py"
+check("앱에 넣어 둔 사본이 있다", copy.exists())
+if copy.exists():
+    check("★사본이 지금 receiver.py 와 같다 (다르면 앱이 옛 파일을 내준다)",
+          copy.read_bytes() == real.read_bytes())
+
+sc_copy = Path(__file__).resolve().parent.parent / "www" / "score.py.txt"
+sc_real = Path(__file__).resolve().parent / "score.py"
+check("채점기 사본도 앱에 들어 있다", sc_copy.exists())
+if sc_copy.exists():
+    check("★채점기 사본이 지금 score.py 와 같다", sc_copy.read_bytes() == sc_real.read_bytes())
 
 httpd.shutdown()
 shutil.rmtree(ROOT, ignore_errors=True)

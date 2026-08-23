@@ -4,7 +4,7 @@
 //   Generation time 을 **보존**하고 우리 것(Comment)을 더한다. 원본 청크가 사라지면
 //   공홈이 그 그림을 NAI 산출물로 알아보지 못한다.
 // ★리샘플은 lanczos3 를 직접 구현한다. 캔버스 기본 축소는 필터가 달라 초기 latent 가
-//   바뀌고, 그러면 Enhance 결과가 데스크톱판과 갈린다.
+//   바뀌고, 그러면 Enhance 결과가 데스크톱 버전과 갈린다.
 'use strict';
 
 const ImageUtil = (function () {
@@ -295,8 +295,10 @@ const ImageUtil = (function () {
   }
 
   // ── 브라우저 전용 (캔버스) ───────────────────────────────────────────────
-  async function toImageData(bytes) {
-    const blob = new Blob([bytes], { type: 'image/png' });
+  async function toImageData(bytes, mime) {
+    // ★형식을 알려 주어야 한다. 폰에서 고른 배경은 JPEG·WebP 일 수 있는데,
+    //   전부 image/png 라고 우기면 기기에 따라 디코드가 통째로 실패한다.
+    const blob = new Blob([bytes], { type: mime || 'image/png' });
     const bmp = await createImageBitmap(blob);
     const cv = document.createElement('canvas');
     cv.width = bmp.width; cv.height = bmp.height;
@@ -420,6 +422,9 @@ const ImageUtil = (function () {
 
   return {
     isPng: isPng,
+    toImageData: toImageData,
+    fromImageData: fromImageData,
+    canvasToBytes: canvasToBytes,
     readChunks: readChunks,
     getTexts: getTexts,
     setTexts: setTexts,

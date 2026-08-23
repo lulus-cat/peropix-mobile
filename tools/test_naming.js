@@ -132,6 +132,46 @@ if (JSON.stringify(dedupeGot) === JSON.stringify(dedupeWant)) pass++;
 else fails.push('같은 이름은 _2, _3 으로 비켜야 한다\n     기대=' + JSON.stringify(dedupeWant) +
                 '\n     실제=' + JSON.stringify(dedupeGot));
 
+// ── {char} 와 한 명 모드 ──────────────────────────────────────────────
+const charCases = [
+  ['{char} 토큰이 채워진다',
+    Naming.render('{folder}/{char}/{label}.png', { persona: '작품', char: '미아', label: '1-1' }),
+    '작품/미아/1-1.png'],
+  ['{char} 가 비면 그 조각이 사라진다 (한 명 모드가 아닐 때)',
+    Naming.render('{folder}/{char}/{label}.png', { persona: '작품', label: '1-1' }),
+    '작품/1-1.png'],
+  ['인물 이름에 섞인 못 쓸 글자는 씻는다',
+    Naming.render('{char}/{label}.png', { char: 'a/b?c', label: '1-1' }),
+    'a_b_c/1-1.png'],
+  ['withChar: 파일 앞에 인물 폴더를 끼운다',
+    Naming.render(Naming.withChar('{folder}/{label}.png'), { persona: '작품', char: '리사', label: '1-1' }),
+    '작품/리사/1-1.png'],
+  ['withChar: 폴더가 없는 규칙에도 끼운다',
+    Naming.render(Naming.withChar('{folder}_{label}_{seq}.png'), { persona: '작품', char: '유나', label: '1-1', seq: 3 }),
+    '유나/작품_1-1_003.png'],
+  ['withChar: 이미 {char} 가 있으면 그대로 둔다',
+    Naming.withChar('{char}/{folder}/{label}.png'),
+    '{char}/{folder}/{label}.png'],
+  ['폴더 이름이 비어도 인물 폴더는 남는다',
+    Naming.render(Naming.withChar('{folder}/{label}.png'), { persona: '', char: '미아', label: '1-1' }),
+    '미아/1-1.png']
+];
+charCases.forEach(function (c) {
+  if (c[1] === c[2]) pass++;
+  else fails.push(c[0] + '\n     기대=' + c[2] + '\n     실제=' + c[1]);
+});
+
+// ★인물이 다르면 경로가 갈려야 한다 — 안 갈리면 _2 가 붙어 누구 것인지 알 수 없게 된다.
+const usedChars = new Set();
+const twoChars = [
+  Naming.dedupe(Naming.render(Naming.withChar('{folder}/{label}.png'),
+    { persona: '작품', char: '미아', label: '1-1' }), usedChars),
+  Naming.dedupe(Naming.render(Naming.withChar('{folder}/{label}.png'),
+    { persona: '작품', char: '리사', label: '1-1' }), usedChars)
+];
+if (twoChars[0] === '작품/미아/1-1.png' && twoChars[1] === '작품/리사/1-1.png') pass++;
+else fails.push('인물이 다르면 경로가 갈려야 한다\n     실제=' + JSON.stringify(twoChars));
+
 // 프리셋이 전부 유효한 경로를 내는지
 Naming.PRESETS.forEach(function (p) {
   const out = Naming.render(p.template, { persona: '미아', label: 'happy', seq: 1, seed: 9, now: NOW });
@@ -140,7 +180,7 @@ Naming.PRESETS.forEach(function (p) {
   } else pass++;
 });
 
-const total = cases.length + 1 + Naming.PRESETS.length;
+const total = cases.length + 1 + charCases.length + 1 + Naming.PRESETS.length;
 console.log('이름 규칙 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });
 process.exit(fails.length ? 1 : 0);

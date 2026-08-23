@@ -4,8 +4,11 @@
 // 인핸스·업스케일을 하면 파생본이 붙는다. 그 더미를 사람이 훑으며 걸러내는 게 이 화면의 일이다.
 //
 // 항목 하나:
-//   { id, slotLabel, cycle, kind:'base'|'enhanced'|'upscaled', parentId,
-//     name, filename, bytes, url, savedTo, error, deleted, verdict }
+//   { id, slotLabel, cycle, kind:'base'|'enhanced'|'upscaled'|'composed', parentId,
+//     name, filename, bytes, url, savedTo, error, deleted, verdict, job }
+//
+//   job      실패한 장에만 있다 — 무엇을 뽑으려던 것인지(슬롯·인물·사이클).
+//            ★이게 있어야 인터넷이 끊겨 깨진 장을 **그 장만** 다시 뽑을 수 있다.
 //
 //   verdict  null      아직 안 봄
 //            'keep'    남길 것
@@ -38,7 +41,8 @@ const ResultsModel = (function () {
       savedTo: null,
       error: null,
       deleted: false,
-      verdict: null
+      verdict: null,
+      job: null
     }, fields || {});
   }
 
@@ -137,10 +141,14 @@ const ResultsModel = (function () {
     { id: 'todo', name: '인핸스 대상', test: function (r, ctx) {
       return r.kind === 'base' && !!r.bytes && r.verdict !== 'reject' && !ctx.hasChild[r.id];
     } },
+    // ★배경을 깐 것도 최종본이다 — 인핸스 뒤에 배경을 까는 것이 보통 마지막 손질이다.
     { id: 'final', name: '최종본', test: function (r) {
-      return (r.kind === 'enhanced' || r.kind === 'upscaled') && r.verdict !== 'reject';
+      return (r.kind === 'enhanced' || r.kind === 'upscaled' || r.kind === 'composed')
+        && r.verdict !== 'reject';
     } },
     { id: 'reject', name: '버릴 것', test: function (r) { return r.verdict === 'reject'; } },
+    // 그림이 없는 장 — 인터넷이 끊겨 깨진 것들. 다시 뽑을 대상이다.
+    { id: 'failed', name: '실패', test: function (r) { return !!r.error && !r.bytes; } },
     { id: 'unsaved', name: '저장 안 됨', test: function (r) { return !!r.bytes && !r.savedTo; } }
   ];
 
