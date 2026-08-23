@@ -159,6 +159,20 @@
    * ★인박스 토큰을 붙이지 않는다. 공개 저장소라 필요도 없고, 남의 토큰 한도를 쓸 일도
    *   아니다 (ghGet 은 토큰을 붙이므로 여기서 안 쓴다).
    */
+  /**
+   * GitHub 이 준 코드를 사람 말로.
+   * ★404 는 「저장소가 비공개」 인 경우가 대부분이다. 앱은 열쇠 없이 보기 때문에
+   *   비공개 저장소의 릴리스는 영영 못 본다. 숫자만 띄우면 뭘 고쳐야 할지 모른다.
+   */
+  function githubWhy(status) {
+    if (status === 404) {
+      return '그 저장소의 릴리스를 못 찾았습니다. 비공개 저장소이거나 이름이 틀렸습니다 '
+        + '(앱은 열쇠 없이 보므로 비공개는 확인할 수 없습니다).';
+    }
+    if (status === 403) return 'GitHub 한도에 걸렸습니다. 한 시간 뒤에 다시 보세요.';
+    return 'GitHub 이 ' + status + ' 로 답했습니다.';
+  }
+
   async function fetchLatest() {
     const url = Updater.latestUrl(updRepo);
     if (!url) throw new Error('저장소를 owner/repo 로 적어 주세요 (지금: ' + updRepo + ')');
@@ -169,32 +183,44 @@
       const r = await P.CapacitorHttp.request({
         method: 'GET', url: url, headers: headers, connectTimeout: 15000, readTimeout: 25000
       });
-      if (r.status >= 400) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+      if (r.status >= 400) throw new Error(githubWhy(r.status));
       return Updater.parseLatest(typeof r.data === 'string' ? r.data : JSON.stringify(r.data));
     }
     const r = await fetch(url, { headers: headers, cache: 'no-store' });
-    if (!r.ok) throw new Error('GitHub 이 ' + r.status + ' 로 답했습니다.');
+    if (!r.ok) throw new Error(githubWhy(r.status));
     return Updater.parseLatest(await r.text());
   }
 
   /** 시작 화면의 알림 줄. */
+  // ★같은 알림을 시작 화면과 설정 두 곳에 띄운다. 업데이트하려고 설정에서 확인을
+  //   눌렀는데 「시작 화면에서 받으세요」 만 나오면, 받으러 다시 나가야 했다.
+  const UPD_SPOTS = [
+    { box: 'home-upd', title: 'upd-title', ver: 'upd-ver', list: 'upd-list', get: 'upd-get' },
+    { box: 'ver-upd', title: 'ver-upd-title', ver: 'ver-upd-ver', list: 'ver-upd-list',
+      get: 'ver-upd-get' }
+  ];
+
   function renderUpdate(d) {
-    const box = $('home-upd');
-    if (!d || !d.show || !updLatest) { box.hidden = true; return; }
-    box.hidden = false;
-    $('upd-title').textContent = '업데이트가 있습니다';
-    $('upd-ver').textContent = Updater.summary(appVersion, updLatest);
-    const list = $('upd-list');
-    list.innerHTML = '';
-    Updater.highlights(updLatest.notes, 4).forEach(function (line) {
-      const li = document.createElement('li');
-      li.textContent = line;
-      list.appendChild(li);
+    const show = !!(d && d.show && updLatest);
+    UPD_SPOTS.forEach(function (spot) {
+      const box = $(spot.box);
+      if (!box) return;
+      box.hidden = !show;
+      if (!show) return;
+      $(spot.title).textContent = '업데이트가 있습니다';
+      $(spot.ver).textContent = Updater.summary(appVersion, updLatest);
+      const list = $(spot.list);
+      list.innerHTML = '';
+      Updater.highlights(updLatest.notes, 4).forEach(function (line) {
+        const li = document.createElement('li');
+        li.textContent = line;
+        list.appendChild(li);
+      });
+      // 크기를 적어 준다 — 데이터를 아끼는 사람에게는 이게 판단 근거다.
+      $(spot.get).textContent = updLatest.apkSize
+        ? ('받아서 설치 (' + Math.round(updLatest.apkSize / 1048576) + 'MB)')
+        : '받아서 설치';
     });
-    // 크기를 적어 준다 — 데이터를 아끼는 사람에게는 이게 판단 근거다.
-    $('upd-get').textContent = updLatest.apkSize
-      ? ('받아서 설치 (' + Math.round(updLatest.apkSize / 1048576) + 'MB)')
-      : '받아서 설치';
   }
 
   /**
@@ -222,7 +248,7 @@
       renderUpdate(d);
       if (!manual) return;
       // ★눌러서 본 것은 결과를 반드시 적어 준다. 아무 일도 안 일어나면 고장으로 보인다.
-      if (d.show) msg.textContent = '새 버전 ' + d.version + ' 이 있습니다. 아래 시작 화면에서 받으세요.';
+      if (d.show) msg.textContent = '새 버전 ' + d.version + ' 이 있습니다. 아래에서 바로 받으세요.';
       else if (d.reason === 'current') msg.textContent = '최신입니다 (' + d.version + ').';
       else if (d.reason === 'skipped') msg.textContent = d.version + ' 은 건너뛰기로 해 두셨습니다.';
       else if (d.reason === 'unknown') {
@@ -269,8 +295,11 @@
    * ★네이티브 플러그인이 없으면(PC 미리보기 등) 그냥 링크를 연다. 브라우저에서도
    *   똑같이 굴러가야 검사를 할 수 있다.
    */
-  async function downloadAndInstall() {
+  async function downloadAndInstall(btnId) {
     if (!updLatest) return;
+    // ★어느 자리에서 눌렀는지에 따라 그 단추에 진행을 적는다. 한 곳에 박아 두면
+    //   설정에서 눌렀을 때 시작 화면의 단추만 바뀌어 아무 반응이 없어 보인다.
+    const btn = $(btnId || 'upd-get');
     const P = window.Capacitor && window.Capacitor.Plugins;
     // ponytail: Filesystem.downloadFile 은 7.1 부터 deprecated 다 (아직 돌아간다).
     //   빠지면 @capacitor/file-transfer 로 옮긴다. 그때까지 의존성을 하나 더 들이지 않는다.
@@ -281,7 +310,6 @@
       return;
     }
 
-    const btn = $('upd-get');
     const label = btn.textContent;
     btn.disabled = true;
     try {
@@ -315,14 +343,21 @@
   }
 
   function bindUpdate() {
-    $('upd-get').addEventListener('click', downloadAndInstall);
-    $('upd-skip').addEventListener('click', async function () {
+    // 시작 화면과 설정, 어느 쪽 단추를 눌러도 같게 돈다.
+    $('upd-get').addEventListener('click', function () { downloadAndInstall('upd-get'); });
+    $('ver-upd-get').addEventListener('click', function () { downloadAndInstall('ver-upd-get'); });
+
+    const skip = async function () {
       if (!updLatest) return;
       await Store.setUpdateSkipped(updLatest.version);
-      $('home-upd').hidden = true;
+      UPD_SPOTS.forEach(function (spot) { $(spot.box).hidden = true; });
       toast(updLatest.version + ' 은 다시 안 알립니다. 그 다음 버전부터 알려 드립니다.', 3000);
-    });
-    // "나중에" 는 이번에만 접는다 (다음에 켜면 또 알려 준다).
+    };
+    $('upd-skip').addEventListener('click', skip);
+    $('ver-upd-skip').addEventListener('click', skip);
+
+    // "나중에" 는 이번에만 접는다 (다음에 켜면 또 알려 준다). 설정 쪽은 안 접는다 —
+    // 거기는 일부러 찾아 들어온 자리라 접어 버리면 다시 확인을 눌러야 한다.
     $('upd-later').addEventListener('click', function () { $('home-upd').hidden = true; });
 
     $('ver-check').addEventListener('click', function () { checkUpdate(true); });
@@ -1542,21 +1577,47 @@
       + 'Wi-Fi 에서 받는 것을 권합니다. 받을까요?')) {
       return;
     }
+    const bar = $('cons-get-bar');
+    const fill = $('cons-get-fill');
+    bar.hidden = false;
     box.textContent = '받는 중…';
+    // ★파일마다 따로 오는 진행을 하나로 합친다. 그러지 않으면 퍼센트가 왔다 갔다 한다.
+    const bag = {};
+    let lastShown = -1;
+    const onProgress = function (ev) {
+      const t = Embed.tally(bag, ev);
+      if (t.percent < 0) return;
+      fill.style.width = t.percent + '%';
+      const line = t.percent + '% · ' + Embed.mb(t.loaded) + ' / ' + Embed.mb(t.total);
+      box.textContent = '받는 중… ' + line;
+      // ★상태바에는 5%마다만 고쳐 쓴다. 매 조각마다 부르면 알림이 깜박이고 배터리를 먹는다.
+      if (t.percent >= lastShown + 5 || t.percent === 100) {
+        lastShown = t.percent;
+        Notify.progress('일관성 검사 모델 받는 중', line, t.percent < 100);
+      }
+    };
+
     try {
       // 1×1 짜리 그림으로 한 번 돌려 본다. 받아만 두고 안 돌려 보면, 정작 결과
       // 화면에서 처음 터진다 — 그때는 사람이 뽑기까지 다 마친 뒤라 늦다.
       const dot = 'data:image/png;base64,'
         + 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-      await Embed.fromDevice('style', [{ b64: dot }]);
-      await Embed.fromDevice('identity', [{ b64: dot }]);
+      box.textContent = '그림체용 모델 받는 중…';
+      await Embed.fromDevice('style', [{ b64: dot }], null, onProgress);
+      box.textContent = '인물용 모델 받는 중…';
+      await Embed.fromDevice('identity', [{ b64: dot }], null, onProgress);
       consReady = true;
       await Store.setConsistencyReady(true);
+      fill.style.width = '100%';
       box.textContent = '다 받았습니다. 이제 인터넷 없이도 됩니다.';
+      await Notify.clearProgress();
+      Notify.done('일관성 검사 준비 끝', '모델을 다 받았습니다. 이제 인터넷 없이도 잽니다.');
       renderConsistency();
     } catch (e) {
       consReady = false;
       await Store.setConsistencyReady(false);
+      await Notify.clearProgress();
+      bar.hidden = true;
       box.textContent = '못 받았습니다: ' + (e.message || e)
         + ' — 대신 「수신함에서」 를 쓰실 수 있습니다.';
     }

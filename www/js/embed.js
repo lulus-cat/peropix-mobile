@@ -147,6 +147,38 @@ const Embed = (function () {
   // ── 폰에서 재기 ──────────────────────────────────────────────────────
   const loaded = {};
 
+  /**
+   * 받는 진행을 한 줄로 정리한다.
+   *
+   * ★transformers.js 는 파일마다 따로 알려 준다 (모델 · 토크나이저 · 설정…). 그걸
+   *   그대로 띄우면 퍼센트가 0 → 100 → 0 → 100 으로 왔다 갔다 해 사람이 못 믿는다.
+   *   받은 바이트를 다 더해서 **전체 기준 한 개의 퍼센트**로 만든다.
+   * @param {object} bag 파일별 진행을 모아 두는 곳 (호출 쪽이 들고 있는다)
+   * @param {object} ev  transformers.js 가 준 것
+   * @returns {{percent:number, loaded:number, total:number, file:string}}
+   */
+  function tally(bag, ev) {
+    const e = ev || {};
+    if (e.file && (e.total || e.loaded)) {
+      bag[e.file] = { loaded: Number(e.loaded) || 0, total: Number(e.total) || 0 };
+    }
+    let loaded = 0;
+    let total = 0;
+    Object.keys(bag).forEach(function (k) {
+      loaded += bag[k].loaded;
+      total += bag[k].total;
+    });
+    // ★총량을 모르면 퍼센트를 지어내지 않는다. -1 로 「아직 모른다」 를 알린다.
+    const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : -1;
+    return { percent: percent, loaded: loaded, total: total, file: String(e.file || '') };
+  }
+
+  /** 바이트를 사람이 읽는 크기로. */
+  function mb(bytes) {
+    const n = Number(bytes) || 0;
+    return (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + 'MB';
+  }
+
   /** 모델을 한 번만 받아 두고 재사용한다. 매번 받으면 통신비가 계속 나간다. */
   async function pipe(kind, onProgress) {
     const k = kindOf(kind);
@@ -197,6 +229,8 @@ const Embed = (function () {
     align: align,
     usable: usable,
     flatten: flatten,
+    tally: tally,
+    mb: mb,
     have: have,
     fromServer: fromServer,
     fromDevice: fromDevice

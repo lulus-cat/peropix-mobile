@@ -85,6 +85,27 @@ check('빈 것도 안 터진다', E.flatten(null).length === 0 && E.flatten({}).
 check('그림체와 인물은 꺼내는 자리가 다르다',
   E.model('style').pool !== E.model('identity').pool);
 
+// ── 4-3. 받는 진행 세기 ───────────────────────────────────────────────────
+// ★transformers.js 는 파일마다 따로 알려 준다. 그대로 띄우면 퍼센트가 0→100→0→100
+//   으로 왔다 갔다 해서 사람이 못 믿는다. 전체 기준 하나로 합쳐야 한다.
+let bag = {};
+check('한 파일만 받는 중', E.tally(bag, { file: 'a', loaded: 50, total: 100 }).percent === 50);
+check('★두 번째 파일이 시작해도 퍼센트가 뒤로 안 간다',
+  E.tally(bag, { file: 'b', loaded: 0, total: 100 }).percent === 25,
+  String(E.tally(bag, { file: 'b', loaded: 0, total: 100 }).percent));
+check('두 번째가 차면 오른다', E.tally(bag, { file: 'b', loaded: 100, total: 100 }).percent === 75);
+check('같은 파일이 또 오면 덮어쓴다 (더하지 않는다)',
+  E.tally(bag, { file: 'a', loaded: 100, total: 100 }).percent === 100);
+check('★총량을 모르면 퍼센트를 지어내지 않는다',
+  E.tally({}, { file: 'x', loaded: 10, total: 0 }).percent === -1);
+check('빈 것도 안 터진다', E.tally({}, null).percent === -1 && E.tally({}, {}).percent === -1);
+check('100 을 넘지 않는다',
+  E.tally({}, { file: 'z', loaded: 300, total: 100 }).percent === 100);
+check('받은 양도 알려 준다', E.tally({}, { file: 'q', loaded: 5, total: 10 }).loaded === 5);
+
+check('크기를 사람 말로', E.mb(1048576) === '1.0MB' && E.mb(52428800) === '50MB');
+check('0 도 된다', E.mb(0) === '0.0MB' && E.mb(null) === '0.0MB');
+
 // ── 5. 수신함으로 재기 (가짜 수신함) ──────────────────────────────────────
 function fakeApi(reply) {
   const calls = [];
