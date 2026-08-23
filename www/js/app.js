@@ -1282,6 +1282,10 @@
           say($('settings-msg'), '');
           show('settings');
           const sel = $('cons-mode');
+          // ★설정이 접이식이라 그 칸이 든 서랍을 먼저 펴야 한다. 접힌 채로 스크롤만
+          //   시키면 아무것도 안 보여, 데려다준 것이 아니라 버린 것이 된다.
+          const panel = sel.closest('details');
+          if (panel) panel.open = true;
           sel.scrollIntoView({ block: 'center', behavior: 'smooth' });
           sel.focus();
         });
@@ -3700,6 +3704,17 @@
   /** 한 장 뽑기. 처음 뽑을 때와 다시 뽑을 때가 같은 길을 타게 한다. */
   async function styleShot(token, b, i) {
     const sh = stRun.shots[i];
+    // ★컷마다 구도를 바꿔 끼울 수 있다 (최종 테스트가 쓴다). 안 주면 이번 판의 구도
+    //   하나로 전부 뽑는다 — 조합·깎기는 구도를 고정해야 견줄 수 있으니 그쪽이 기본이다.
+    let base = b.base;
+    if (sh.preset) {
+      const pb = StyleTest.build(Object.assign({}, stCfg, { preset: sh.preset }));
+      base = pb.base;
+      characters = pb.character
+        ? [{ prompt: pb.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false,
+            enabled: true }]
+        : [];
+    }
     // 컷마다 시드를 따로 줄 수 있다. 같은 조합을 여러 장 뽑을 때 쓴다.
     // 안 주면 styleApply 가 넣어 둔 시드를 그대로 쓴다.
     if (sh.seed !== undefined && sh.seed !== null) options.seed = sh.seed;
@@ -3710,7 +3725,7 @@
       name: sh.label,
       cycle: 1
     }, {
-      base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1,
+      base: base, oneChar: false, tpl: '{label}.png', seq: i + 1,
       // ★다시 시도하는 중이라는 것을 그 칸에 적는다. 아무 표시 없이 20초를 기다리면
       //   멈춘 줄 알고 앱을 끄는데, 그러면 이미 나간 요청의 Anlas 만 날아간다.
       onWait: function (msg) {
@@ -3958,6 +3973,9 @@
     $('mode-bisect').classList.toggle('on', m === 'bisect');
     $('sub-combo').hidden = (m !== 'combo');
     $('sub-bisect').hidden = (m !== 'bisect');
+    $('sub-final').hidden = (m !== 'final');
+    // ★최종 테스트는 탭으로 못 간다 — 조합에서 「그림체 선택」 을 눌러야 들어오는 자리다.
+    //   탭에 얹으면 아무 그림체도 안 고른 채로 들어와 빈 화면을 보게 된다.
   }
 
   // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
@@ -4161,15 +4179,15 @@
 
       const use = document.createElement('button');
       use.className = 'btn small';
-      use.textContent = '이걸로';
-      // ★마음에 든 조합을 섞기로 옮겨 준다. 숫자를 손으로 옮겨 적게 하면 반드시 틀린다.
+      use.textContent = '그림체 선택';
+      // ★마음에 든 조합을 섞기로 옮기고 최종 테스트로 넘어간다. 숫자를 손으로 옮겨
+      //   적게 하면 반드시 틀린다.
       use.addEventListener('click', async function () {
         artMix = c.mix.map(function (x) { return { tag: x.tag, weight: x.weight, on: x.on }; });
         await Store.setArtistMix(artMix);
         renderMix();
         renderDrawer();
-        setArtTab('drawer');
-        toast(c.name + ' 을 섞기로 가져왔습니다.', 2400);
+        openFinal(c);
       });
       row.appendChild(use);
       box.appendChild(row);
@@ -4249,6 +4267,76 @@
       consBusy = false;
       $('cmb-cons').disabled = false;
     }
+  }
+
+  // ── 최종 테스트 ──────────────────────────────────────────────────────────
+  // ★조합 화면은 구도 하나로만 견준다. 상반신에서 멀쩡하던 그림체가 전신이나 복잡한
+  //   배경에서 무너지는 일이 잦아서, 서랍에 넣기 전에 구도를 훑는 자리를 둔다.
+  let finCombo = null;
+
+  /** 최종 테스트에서 뽑을 구도들. 「직접 적기」 는 뺀다 (사람이 채워야 하는 칸이다). */
+  function finalShots() {
+    return StyleTest.PRESETS.filter(function (p) { return p.key !== 'custom'; });
+  }
+
+  function openFinal(combo) {
+    finCombo = combo;
+    setStyleMode('final');
+    $('fin-after').hidden = true;
+    $('fin-shots').innerHTML = '';
+    $('fin-shots-note').hidden = true;
+    $('fin-shots-retry').hidden = true;
+    renderFinalMix();
+    window.scrollTo(0, 0);
+  }
+
+  function renderFinalMix() {
+    if (!finCombo) return;
+    $('fin-mix').textContent = '고른 그림체: '
+      + finCombo.mix.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+  }
+
+  async function finRun() {
+    if (!finCombo) { toast('먼저 조합에서 그림체를 고르세요.', 2400); return; }
+    const shots = finalShots();
+    if (!window.confirm('구도 ' + shots.length + '가지를 한 장씩 뽑을까요?\n\n'
+      + shots.map(function (p) { return '· ' + p.label; }).join('\n'))) return;
+
+    // ★시드를 하나로 묶는다. 구도 말고 다른 것이 달라지면 무엇 때문에 무너졌는지 모른다.
+    const seed = Math.floor(Math.random() * 1e9);
+    const prompt = Artists.bake(finCombo.mix, { cfg: wRange });
+    const jobs = shots.map(function (p) {
+      return { label: p.label, prompt: prompt, note: p.label, preset: p.key, seed: seed };
+    });
+    await styleGenerate(jobs, seed, 'fin-shots', { after: function () { $('fin-after').hidden = false; } });
+    $('fin-after').hidden = false;
+  }
+
+  /** 고른 그림체를 저장된 작가태그로. 대량생성에서 그대로 불러 쓴다. */
+  async function finSave() {
+    if (!finCombo) return;
+    const text = Artists.bake(finCombo.mix, { cfg: wRange });
+    const name = (window.prompt('이 그림체를 무슨 이름으로 저장할까요?', finCombo.name) || '').trim();
+    if (!name) return;
+    // 같은 이름이면 덮어쓴다 — 이름을 다시 고르게 하면 목록만 지저분해진다.
+    const same = tagsets.find(function (t) { return t.name === name; });
+    if (same) same.text = text;
+    else tagsets.push({ id: 't' + Date.now().toString(36), name: name, text: text });
+    await Store.setTagsets(tagsets);
+    renderTagsetSelect();
+    toast('"' + name + '" 을 저장된 작가태그에 넣었습니다.', 2800);
+  }
+
+  /** 깎기로 넘긴다 — 고른 그림체의 작가들을 그대로 후보로 올린다. */
+  function finToBisect() {
+    if (!finCombo) return;
+    const tags = finCombo.mix.filter(function (x) { return x.on; })
+      .map(function (x) { return x.tag; });
+    bisAdd(tags, true);
+    setStyleMode('bisect');
+    window.scrollTo(0, 0);
+    toast('깎기에 ' + tags.length + '명을 올렸습니다. 라운드를 시작하세요.', 2800);
   }
 
   /** 매긴 점수를 반영해 한 번 더. */
@@ -7204,7 +7292,12 @@
     $('cmb-run').addEventListener('click', function () { cmbRun(); });
     $('cmb-refine').addEventListener('click', cmbRefine);
     $('cmb-cons').addEventListener('click', cmbConsistency);
-    ['cmb-shots-retry', 'bis-shots-retry'].forEach(function (id) {
+    $('fin-run').addEventListener('click', finRun);
+    $('fin-save').addEventListener('click', finSave);
+    $('fin-bisect').addEventListener('click', finToBisect);
+    $('fin-tweak').addEventListener('click', function () { setStyleMode('combo'); window.scrollTo(0, 0); });
+    $('fin-back').addEventListener('click', function () { setStyleMode('combo'); window.scrollTo(0, 0); });
+    ['cmb-shots-retry', 'bis-shots-retry', 'fin-shots-retry'].forEach(function (id) {
       $(id).addEventListener('click', styleRetryFailed);
     });
     $('res-cons').addEventListener('click', resConsistency);
