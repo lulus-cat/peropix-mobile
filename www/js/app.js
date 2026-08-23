@@ -1261,6 +1261,65 @@
       + '/main/tools/deploy/install.sh | sudo bash' + open;
   }
 
+  /**
+   * 앱이 직접 SSH 로 붙어 수신함을 깐다.
+   * ★사람이 터미널을 아예 안 보게 하려는 것이다. 파일 올리기·명령 치기·방화벽 열기가
+   *   전부 여기서 끝난다.
+   */
+  async function cwSshRun() {
+    const box = $('cw-ssh-msg');
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.Ssh) {
+      say(box, '이 기능은 앱(APK)에서만 됩니다. 브라우저 미리보기에서는 아래 「직접 터미널로 하기」 를 쓰세요.', 'err');
+      return;
+    }
+    const at = Ssh.split($('cw-ssh-host').value);
+    const user = $('cw-ssh-user').value.trim();
+    const pw = $('cw-ssh-pw').value;
+    if (!at.host) { say(box, '서버 주소를 넣어 주세요.', 'err'); return; }
+    if (!user) { say(box, '아이디를 넣어 주세요.', 'err'); return; }
+
+    const btn = $('cw-ssh-run');
+    btn.disabled = true;
+    say(box, '붙는 중… (설치까지 1~3분 걸립니다. 화면을 켜 두세요)');
+    try {
+      const cmd = Ssh.installCommand({
+        repo: Store.DEFAULT_UPDATE_REPO,
+        open: cwKind === 'vps',
+        root: user === 'root'
+      });
+      const r = await P.Ssh.exec({
+        host: at.host, port: at.port, user: user, password: pw,
+        command: cmd, timeoutMs: 240000
+      });
+
+      // ★서버 열쇠가 예전과 다르면 알린다. 서버를 다시 깔았거나 남이 끼어든 것이다.
+      const saved = await Store.getSshKey(at.host);
+      if (Ssh.keyChanged(saved, r.fingerprint)) {
+        $('cw-ssh-fp').textContent = '⚠ 이 서버의 열쇠가 예전과 다릅니다 (' + r.fingerprint
+          + '). 서버를 다시 깐 것이 아니라면 조심하세요.';
+      } else {
+        $('cw-ssh-fp').textContent = r.fingerprint ? ('서버 열쇠: ' + r.fingerprint) : '';
+        if (r.fingerprint) await Store.setSshKey(at.host, r.fingerprint);
+      }
+
+      const v = Ssh.verdict(r);
+      if (!v.ok) { say(box, v.why, 'err'); return; }
+
+      say(box, '설치했습니다. 연결을 확인하는 중…');
+      const dest = await addDestination(v.pair, box);
+      if (dest) {
+        $('cw-ssh-pw').value = '';        // 비밀번호는 안 들고 있는다
+        $('cw-step-done').hidden = false;
+        $('cw-step-done').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    } catch (e) {
+      say(box, Ssh.explain(e), 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   async function cwCopy() {
     const t = $('editor-text');
     const keep = t.value;
@@ -7653,6 +7712,7 @@
     $('dest-wizard').addEventListener('click', openWizard);
     $('cw-back').addEventListener('click', function () { show('settings'); });
     $('cw-done').addEventListener('click', function () { show('settings'); });
+    $('cw-ssh-run').addEventListener('click', cwSshRun);
     $('cw-copy').addEventListener('click', cwCopy);
     $('cw-connect').addEventListener('click', cwConnect);
     $('rx-cmd-copy').addEventListener('click', copyInstallCmd);

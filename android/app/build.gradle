@@ -1,6 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
+
+    // ★jsch 의 SftpATTRS 가 java.time 을 쓴다. 그건 안드로이드 8(API 26)부터인데
+    //   이 앱은 minSdk 24 라, 그대로 두면 안드로이드 7 폰에서 SFTP 를 건드리는 순간
+    //   죽는다. desugaring 이 그 자리를 메워 준다.
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+    }
     namespace = "com.peropix.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -58,6 +65,11 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    // ★SSH 로 서버에 붙어 수신함을 대신 깔아 준다 (사람이 터미널을 안 보게).
+    //   원본 JSch 는 관리가 끊겨 요즘 sshd 와 안 붙는다 (ssh-rsa/SHA-1 거절).
+    //   mwiede 포크가 그 자리를 잇고 있어 그쪽을 쓴다.
+    implementation 'com.github.mwiede:jsch:0.2.17'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 }
 
 apply from: 'capacitor.build.gradle'

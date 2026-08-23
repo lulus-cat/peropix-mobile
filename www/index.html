@@ -632,8 +632,40 @@
       </div>
     </div>
 
-    <div class="step" id="cw-step-term">
+    <div class="step" id="cw-step-auto">
       <div class="step-n">2</div>
+      <div class="step-body">
+        <b>앱이 대신 깔아 드릴까요?</b>
+        <p class="hint">서버 주소와 로그인 정보만 넣으면 앱이 직접 붙어서 설치까지
+          합니다. <b>터미널을 안 봐도 됩니다.</b></p>
+        <label class="field">
+          <span class="label">서버 주소</span>
+          <input id="cw-ssh-host" type="text" placeholder="1.2.3.4 또는 my.server.com"
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
+          <span class="hint">포트가 22 가 아니면 <code>주소:포트</code> 로 적으세요.</span>
+        </label>
+        <label class="field">
+          <span class="label">아이디</span>
+          <input id="cw-ssh-user" type="text" value="root"
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span class="label">비밀번호</span>
+          <input id="cw-ssh-pw" type="password" autocapitalize="off" autocorrect="off"
+                 spellcheck="false">
+          <span class="hint">저장하지 않습니다. 설치할 때 한 번 쓰고 버립니다.</span>
+        </label>
+        <button id="cw-ssh-run" class="btn primary block">붙어서 설치하기</button>
+        <div id="cw-ssh-msg" class="msg" hidden></div>
+        <p class="hint" id="cw-ssh-fp"></p>
+        <p class="hint">잘 안 되면 아래 방법으로 직접 하셔도 됩니다.</p>
+      </div>
+    </div>
+
+    <details class="panel" id="cw-manual">
+      <summary>직접 터미널로 하기</summary>
+    <div class="step" id="cw-step-term">
+      <div class="step-n">3</div>
       <div class="step-body">
         <b>검은 명령 창(터미널)을 엽니다</b>
         <p class="hint">SSH 프로그램을 깔 필요 없습니다. 대부분의 VPS 업체는
@@ -647,7 +679,7 @@
     </div>
 
     <div class="step" id="cw-step-cmd">
-      <div class="step-n">3</div>
+      <div class="step-n">4</div>
       <div class="step-body">
         <b>이 한 줄을 붙여넣고 Enter</b>
         <pre class="cmd" id="cw-cmd"></pre>
@@ -661,8 +693,10 @@
       </div>
     </div>
 
+    </details>
+
     <div class="step" id="cw-step-paste">
-      <div class="step-n">4</div>
+      <div class="step-n">5</div>
       <div class="step-body">
         <b>화면에 나온 <code>peropix://</code> 한 줄을 여기 붙여넣기</b>
         <p class="hint">설치가 끝나면 터미널 맨 아래에
@@ -1915,6 +1949,7 @@
 <script src="js/updater.js"></script>
 <script src="js/consistency.js"></script>
 <script src="js/embed.js"></script>
+<script src="js/ssh.js"></script>
 <script src="js/image-util.js"></script>
 <script src="js/compose.js"></script>
 <script src="js/results-model.js"></script>
