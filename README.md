@@ -532,6 +532,41 @@ python tools/job.py --url ... --token ... files --prefix 미아/   # 결과 목�
 
 ## 수신함 설치 (PC · VPS)
 
+### 한 줄로 (권장)
+
+SSH 로 붙어서 이것만 붙여넣으면 끝입니다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lulus-cat/peropix-mobile/main/tools/deploy/install.sh | sudo bash -s -- --open
+```
+
+파일을 올릴 필요도, 방화벽을 열 필요도, 창을 켜 둘 필요도 없습니다. 스크립트가
+`receiver.py` 와 `score.py` 를 받아 `/opt/peropix` 에 놓고, 전용 사용자를 만들고,
+비밀번호를 만들고, systemd 서비스로 등록하고(로그아웃해도 재부팅해도 계속 돕니다),
+`ufw` 나 `firewalld` 가 켜져 있으면 포트를 열어 줍니다. 끝나면 앱에 그대로 붙여넣을
+`peropix://주소:포트#비밀번호` 한 줄을 찍어 줍니다.
+
+앱 설정의 **원격 저장 대상** 칸에 이 명령을 복사하는 단추가 있습니다.
+
+`--open` 을 빼면 `127.0.0.1` 에만 붙습니다. VPN(Tailscale·WireGuard) 안에서만 쓸 때 그렇게 합니다.
+
+```bash
+--port 9000          포트 바꾸기
+--host peropix.내도메인   앱에 찍어 줄 주소를 직접 정하기
+--dry-run            아무것도 안 고치고 무엇을 할지만 보기
+--uninstall          서비스와 프로그램 지우기 (이미지·비밀번호는 남습니다)
+```
+
+두 가지는 스크립트가 못 합니다. **클라우드 업체의 방화벽**(Contabo·AWS·Oracle 콘솔의
+인바운드 규칙)은 서버 밖에 있어서 손댈 수 없고, **TLS** 는 도메인이 있어야 붙일 수
+있습니다. 인터넷에 열린 VPS 라면 아래 「⚠ VPS 라면 반드시 암호화할 것」 을 보세요.
+
+> `curl … | sudo bash` 가 꺼림칙하면 당연합니다. 받을 스크립트는
+> [tools/deploy/install.sh](tools/deploy/install.sh) 에서 그대로 읽을 수 있고,
+> `--dry-run` 을 붙이면 아무것도 안 고치고 무엇을 할지만 찍습니다.
+
+### 직접 깔기
+
 `tools/receiver.py` 는 표준 라이브러리만 씁니다. **설치할 것이 없습니다** (Python 3.8+).
 
 일관성 검사를 이 서버에 맡기려면 `tools/score.py` 를 옆에 두고 `pip install torch

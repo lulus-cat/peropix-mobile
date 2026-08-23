@@ -454,6 +454,26 @@ const Store = (function () {
     await setRaw(KEY_CONS_READY, on ? '1' : '0');
   }
 
+  // ── 서버 열쇠 기억 ──────────────────────────────────────────────────────
+  // ★한 번 붙은 서버의 지문을 적어 둔다. 다음에 달라지면 서버를 다시 깔았거나 남이
+  //   중간에 끼어든 것이다. 조용히 넘어가면 안 된다.
+  const KEY_SSH_KEYS = 'ssh_hostkeys';
+
+  async function sshKeys() {
+    const raw = await getRaw(KEY_SSH_KEYS);
+    try { return raw ? (JSON.parse(raw) || {}) : {}; } catch (e) { return {}; }
+  }
+
+  async function getSshKey(host) {
+    return (await sshKeys())[String(host || '')] || '';
+  }
+
+  async function setSshKey(host, fingerprint) {
+    const all = await sshKeys();
+    all[String(host || '')] = String(fingerprint || '');
+    await setRaw(KEY_SSH_KEYS, JSON.stringify(all));
+  }
+
   const KEY_RECO_MIN = 'artist_reco_min';
 
   /** 추천할 작가의 최소 장수. ★기본 100 — 그 아래는 NAI 가 배울 거리가 없다. */
@@ -598,6 +618,8 @@ const Store = (function () {
     setUpdateAuto: setUpdateAuto,
     getUpdateRepo: getUpdateRepo,
     setUpdateRepo: setUpdateRepo,
+    getSshKey: getSshKey,
+    setSshKey: setSshKey,
     getConsistency: getConsistency,
     setConsistency: setConsistency,
     getConsistencyReady: getConsistencyReady,

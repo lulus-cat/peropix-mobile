@@ -120,7 +120,8 @@
     if (currentScreen === 'home' || currentScreen === 'main') hubScreen = currentScreen;
     currentScreen = which;
     ['setup', 'perms', 'home', 'main', 'settings', 'import', 'folders', 'results',
-     'wildcards', 'enhance', 'compose', 'jobs', 'artists', 'guide'].forEach(function (n) {
+     'wildcards', 'enhance', 'compose', 'jobs', 'artists', 'guide',
+     'connect'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     // ★들어오는 화면만 짧게 떠오르게. 클래스를 뗐다 붙이지 않으면 같은 화면을
@@ -1148,6 +1149,204 @@
     }
   }
 
+  // ★한 줄 설치. 파일 올리기·실행·방화벽·상시 실행을 이 한 줄이 대신한다.
+  //   저장소가 공개라 토큰이 필요 없다.
+  function installCmd() {
+    const open = $('rx-cmd-open').checked ? ' -s -- --open' : '';
+    return 'curl -fsSL https://raw.githubusercontent.com/' + Store.DEFAULT_UPDATE_REPO
+      + '/main/tools/deploy/install.sh | sudo bash' + open;
+  }
+
+  function renderInstallCmd() {
+    $('rx-cmd').textContent = installCmd();
+  }
+
+  async function copyInstallCmd() {
+    const box = $('rx-cmd-msg');
+    const t = $('editor-text');
+    const keep = t.value;
+    t.value = installCmd();
+    const ok = await copyFromEditor();
+    t.value = keep;
+    box.textContent = ok
+      ? '복사했습니다. SSH 창에 붙여넣고 Enter 를 누르세요.'
+      : '복사하지 못했습니다. 위 글을 길게 눌러 직접 복사하세요.';
+  }
+
+  // ── 연결 따라 하기 ──────────────────────────────────────────────────────
+  // ★명령 한 줄로 줄여도 「터미널을 어떻게 여는가」 를 모르면 못 한다. 업체별로 어디를
+  //   눌러야 웹 터미널이 나오는지까지 짚어 준다 — SSH 프로그램을 따로 깔지 않아도 된다.
+  const CW_KINDS = [
+    { key: 'vps', label: 'VPS (인터넷 서버)',
+      hint: '어디서든 닿습니다. 폰 데이터로도 씁니다. 업체 방화벽을 한 번 열어야 할 수 있습니다.' },
+    { key: 'pc', label: '집 안 PC (리눅스 · 맥)',
+      hint: '같은 Wi-Fi 안에서만 닿습니다. 방화벽을 건드릴 일이 거의 없습니다.' },
+    { key: 'win', label: '집 안 PC (윈도우)',
+      hint: '★이 설치 명령은 윈도우에서 안 돕니다. 아래 3번 대신 다른 방법을 알려 드립니다.' }
+  ];
+
+  // 업체마다 웹 터미널이 어디 있는지. ★여기가 이 화면의 알맹이다.
+  const CW_HOSTS = [
+    { key: 'contabo', label: 'Contabo',
+      how: '고객 패널 로그인 → 왼쪽 <b>Your Services</b> → 서버 줄의 <b>Manage</b> → '
+        + '위쪽 <b>VNC</b> 를 누르면 브라우저 안에 검은 창이 열립니다. '
+        + 'root 로 로그인한 뒤 3번으로 가세요.' },
+    { key: 'vultr', label: 'Vultr',
+      how: 'Products → 서버 이름 클릭 → 오른쪽 위 <b>View Console</b>.' },
+    { key: 'do', label: 'DigitalOcean',
+      how: 'Droplets → 서버 클릭 → 오른쪽 위 <b>Console</b>.' },
+    { key: 'lightsail', label: 'AWS Lightsail',
+      how: '인스턴스 카드의 <b>Connect using SSH</b> 단추. 바로 검은 창이 열립니다.' },
+    { key: 'oracle', label: 'Oracle Cloud',
+      how: '인스턴스 화면의 <b>Cloud Shell</b> 을 열고 '
+        + '<code>ssh ubuntu@서버IP</code> 를 칩니다.' },
+    { key: 'ssh', label: '그 밖 · SSH 로 직접',
+      how: '이미 쓰시는 SSH 프로그램(Termius · PuTTY · 맥 터미널)으로 서버에 붙으세요. '
+        + '폰만 있다면 <b>Termius</b> 앱이 무료로 됩니다.' }
+  ];
+
+  let cwKind = 'vps';
+
+  function renderWizard() {
+    const chips = $('cw-kind');
+    if (!chips.children.length) {
+      CW_KINDS.forEach(function (k) {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.textContent = k.label;
+        b.addEventListener('click', function () { cwKind = k.key; renderWizard(); });
+        chips.appendChild(b);
+      });
+    }
+    Array.from(chips.children).forEach(function (b, i) {
+      b.classList.toggle('on', CW_KINDS[i].key === cwKind);
+    });
+    const kind = CW_KINDS.find(function (k) { return k.key === cwKind; }) || CW_KINDS[0];
+    $('cw-kind-hint').innerHTML = kind.hint;
+
+    const sel = $('cw-host');
+    if (!sel.children.length) {
+      CW_HOSTS.forEach(function (h) {
+        const o = document.createElement('option');
+        o.value = h.key;
+        o.textContent = h.label;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', renderWizard);
+    }
+
+    // 윈도우는 이 스크립트가 안 돈다. 얼버무리지 말고 다른 길을 준다.
+    const win = cwKind === 'win';
+    $('cw-step-term').hidden = win;
+    if (win) {
+      $('cw-cmd').textContent = 'python receiver.py --root ./images';
+      $('cw-copy-msg').innerHTML = '윈도우에서는 이 설치 명령이 안 돕니다 (리눅스 전용). '
+        + '대신 <b>파이썬</b>을 깔고(python.org), 위 <b>한 줄로 설치</b> 아래의 '
+        + '<b>receiver.py 파일로 저장</b> 으로 파일을 받은 뒤, 그 폴더에서 '
+        + '<code>python receiver.py --root ./images</code> 를 실행하세요. '
+        + '창을 닫으면 멈추니 켜 두셔야 합니다.';
+    } else {
+      const h = CW_HOSTS.find(function (x) { return x.key === sel.value; }) || CW_HOSTS[0];
+      $('cw-host-how').innerHTML = h.how;
+      // 집 안 PC 면 바깥에 열 이유가 없다.
+      $('cw-cmd').textContent = cwInstallCmd();
+      $('cw-copy-msg').textContent = '복사한 뒤 터미널에 붙여넣고 Enter 를 누르세요. '
+        + '1~2분쯤 글자가 주르륵 올라갑니다.';
+    }
+  }
+
+  function cwInstallCmd() {
+    const open = cwKind === 'vps' ? ' -s -- --open' : '';
+    return 'curl -fsSL https://raw.githubusercontent.com/' + Store.DEFAULT_UPDATE_REPO
+      + '/main/tools/deploy/install.sh | sudo bash' + open;
+  }
+
+  /**
+   * 앱이 직접 SSH 로 붙어 수신함을 깐다.
+   * ★사람이 터미널을 아예 안 보게 하려는 것이다. 파일 올리기·명령 치기·방화벽 열기가
+   *   전부 여기서 끝난다.
+   */
+  async function cwSshRun() {
+    const box = $('cw-ssh-msg');
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (!P || !P.Ssh) {
+      say(box, '이 기능은 앱(APK)에서만 됩니다. 브라우저 미리보기에서는 아래 「직접 터미널로 하기」 를 쓰세요.', 'err');
+      return;
+    }
+    const at = Ssh.split($('cw-ssh-host').value);
+    const user = $('cw-ssh-user').value.trim();
+    const pw = $('cw-ssh-pw').value;
+    if (!at.host) { say(box, '서버 주소를 넣어 주세요.', 'err'); return; }
+    if (!user) { say(box, '아이디를 넣어 주세요.', 'err'); return; }
+
+    const btn = $('cw-ssh-run');
+    btn.disabled = true;
+    say(box, '붙는 중… (설치까지 1~3분 걸립니다. 화면을 켜 두세요)');
+    try {
+      const cmd = Ssh.installCommand({
+        repo: Store.DEFAULT_UPDATE_REPO,
+        open: cwKind === 'vps',
+        root: user === 'root'
+      });
+      const r = await P.Ssh.exec({
+        host: at.host, port: at.port, user: user, password: pw,
+        command: cmd, timeoutMs: 240000
+      });
+
+      // ★서버 열쇠가 예전과 다르면 알린다. 서버를 다시 깔았거나 남이 끼어든 것이다.
+      const saved = await Store.getSshKey(at.host);
+      if (Ssh.keyChanged(saved, r.fingerprint)) {
+        $('cw-ssh-fp').textContent = '⚠ 이 서버의 열쇠가 예전과 다릅니다 (' + r.fingerprint
+          + '). 서버를 다시 깐 것이 아니라면 조심하세요.';
+      } else {
+        $('cw-ssh-fp').textContent = r.fingerprint ? ('서버 열쇠: ' + r.fingerprint) : '';
+        if (r.fingerprint) await Store.setSshKey(at.host, r.fingerprint);
+      }
+
+      const v = Ssh.verdict(r);
+      if (!v.ok) { say(box, v.why, 'err'); return; }
+
+      say(box, '설치했습니다. 연결을 확인하는 중…');
+      const dest = await addDestination(v.pair, box);
+      if (dest) {
+        $('cw-ssh-pw').value = '';        // 비밀번호는 안 들고 있는다
+        $('cw-step-done').hidden = false;
+        $('cw-step-done').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    } catch (e) {
+      say(box, Ssh.explain(e), 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function cwCopy() {
+    const t = $('editor-text');
+    const keep = t.value;
+    t.value = $('cw-cmd').textContent;
+    const ok = await copyFromEditor();
+    t.value = keep;
+    $('cw-copy-msg').textContent = ok
+      ? '복사했습니다. 터미널에 붙여넣고 Enter 를 누르세요.'
+      : '복사하지 못했습니다. 위 글을 길게 눌러 직접 복사하세요.';
+  }
+
+  async function cwConnect() {
+    const box = $('cw-msg');
+    const r = await addDestination($('cw-paste').value, box);
+    if (!r) return;
+    $('cw-paste').value = '';
+    $('cw-step-done').hidden = false;
+    $('cw-step-done').scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  function openWizard() {
+    show('connect');
+    $('cw-msg').hidden = true;
+    $('cw-step-done').hidden = true;
+    renderWizard();
+  }
+
   async function copyReceiver() {
     const box = $('rx-msg');
     box.textContent = '꺼내는 중…';
@@ -1179,10 +1378,14 @@
     }
   }
 
-  async function applyPairString() {
-    const box = $('dest-paste-msg');
-    const r = parsePairString($('dest-paste').value);
-    if (!r.ok) { say(box, r.error, 'err'); return; }
+  /**
+   * peropix:// 한 줄로 수신함을 등록하고 연결까지 확인한다.
+   * ★설정 칸과 따라 하기 화면이 **같은 코드**를 쓴다. 두 벌로 두면 한쪽만 고쳐진다.
+   * @returns {Promise<object|null>} 붙은 대상, 실패하면 null
+   */
+  async function addDestination(pasted, box) {
+    const r = parsePairString(pasted);
+    if (!r.ok) { say(box, r.error, 'err'); return null; }
 
     // 같은 주소가 이미 있으면 토큰만 갈아 끼운다 (중복 등록을 막는다).
     const existing = destinations.find(function (d) {
@@ -1205,10 +1408,18 @@
     // ★검사를 맡길지는 지금 묻는다. 설정 깊은 곳에 숨겨 두면 아무도 못 찾는다.
     await askDestScore(dest, ping);
 
-    $('dest-paste').value = '';
     renderDestList();
     renderDestSelect();
     renderNamingPreview();
+    // ★닿지 않으면 성공으로 치지 않는다. 따라 하기 화면이 「끝났습니다」 를 띄우면
+    //   안 되는 것을 됐다고 믿고 넘어간다.
+    return ping.ok ? dest : null;
+  }
+
+  async function applyPairString() {
+    if (await addDestination($('dest-paste').value, $('dest-paste-msg'))) {
+      $('dest-paste').value = '';
+    }
   }
 
   // ── 일관성 검사 ──────────────────────────────────────────────────────────
@@ -1235,8 +1446,67 @@
     return Embed.pick({ mode: consMode, dest: consDest(), ready: consReady });
   }
 
-  /** 지금 검사가 되는가 — 화면에 버튼을 띄울지 말지. */
+  /** 지금 검사가 되는가. */
   function consOn() { return consPick().how !== 'off'; }
+
+  /**
+   * 검사 단추를 어떻게 보일지.
+   *
+   * ★못 재는 상태라고 단추를 **숨기면 안 된다.** 숨기면 기능이 있다는 것 자체를 알 길이
+   *   없다. 설정 깊은 곳에 켜는 자리를 두고 화면에서는 아무 흔적도 안 남기면, 만들어 놓고
+   *   아무도 안 쓰는 것과 같다. 그래서 단추는 늘 보이고, 대신 **무엇을 하면 되는지**를
+   *   옆에 적는다.
+   * @returns {{ready:boolean, why:string, fix:boolean}} fix 는 설정으로 보낼지
+   */
+  function consState(extra) {
+    // ★막힌 것이 둘이면 **설정 쪽을 먼저** 말한다. 「장수를 늘리세요」 만 말해 두면,
+    //   장수를 늘려 다시 뽑고 나서야 「아직 안 켰습니다」 를 보게 된다. 그림을 두 번
+    //   뽑게 만드는 안내다.
+    const how = consPick();
+    if (how.how === 'off') {
+      return { ready: false, why: how.why + ' 설정에서 켤 수 있습니다.', fix: true };
+    }
+    if (extra) return { ready: false, why: extra, fix: false };
+    return { ready: true, why: '', fix: false };
+  }
+
+  /** 단추 한 벌(단추 + 안내 + 설정 바로가기)을 상태에 맞게 그린다. */
+  function renderConsRow(rowId, btnId, msgId, visible, extra) {
+    const row = $(rowId);
+    row.hidden = !visible;
+    if (!visible) return;
+    const st = consState(extra);
+    const btn = $(btnId);
+    btn.disabled = !st.ready || consBusy;
+    $(msgId).textContent = st.why;
+
+    // 설정으로 가는 길을 그 자리에 둔다. "설정 어디에 있더라" 를 찾게 하지 않는다.
+    let go = document.getElementById(rowId + '-go');
+    if (st.fix) {
+      if (!go) {
+        go = document.createElement('button');
+        go.id = rowId + '-go';
+        go.className = 'btn small';
+        go.textContent = '설정 열기';
+        go.addEventListener('click', async function () {
+          $('settings-token').value = await Store.getToken();
+          say($('settings-msg'), '');
+          show('settings');
+          const sel = $('cons-mode');
+          // ★설정이 접이식이라 그 칸이 든 서랍을 먼저 펴야 한다. 접힌 채로 스크롤만
+          //   시키면 아무것도 안 보여, 데려다준 것이 아니라 버린 것이 된다.
+          const panel = sel.closest('details');
+          if (panel) panel.open = true;
+          sel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          sel.focus();
+        });
+        btn.parentNode.insertBefore(go, btn.nextSibling);
+      }
+      go.hidden = false;
+    } else if (go) {
+      go.hidden = true;
+    }
+  }
 
   /**
    * 그림들의 특징 벡터를 받아 온다.
@@ -1410,6 +1680,31 @@
       msg.className = 'msg';
       msg.hidden = true;
 
+      // 이 수신함에 검사를 맡길지. ★VPS 를 세팅하는 그 자리에서 켜고 끈다 —
+      //   수신함마다 사정이 다르므로(어디는 score.py 를 깔았고 어디는 아니고),
+      //   앱 전체 설정 하나로 묶어 두면 맞출 수가 없다.
+      const consLine = document.createElement('label');
+      consLine.className = 'check';
+      const consBox = document.createElement('input');
+      consBox.type = 'checkbox';
+      consBox.checked = d.score !== false;
+      consBox.disabled = d.canScore === false;
+      consLine.appendChild(consBox);
+      consLine.appendChild(document.createTextNode(' 이 수신함에 일관성 검사 맡기기'));
+      const consWhy = document.createElement('p');
+      consWhy.className = 'hint';
+      consWhy.textContent = d.canScore === false
+        ? '이 수신함에는 검사 기능이 없습니다. score.py 를 옆에 두고 pip 로 셋만 깔면 됩니다.'
+        : (d.canScore === true ? '「연결 확인」 에서 검사 가능으로 확인되었습니다.'
+          : '「연결 확인」 을 누르면 이 수신함이 검사를 할 수 있는지 봅니다.');
+      consBox.addEventListener('change', async function () {
+        destinations[i].score = consBox.checked;
+        await Store.setDestinations(destinations);
+        renderConsistency();
+      });
+      el.appendChild(consLine);
+      el.appendChild(consWhy);
+
       const test = document.createElement('button');
       test.className = 'btn block';
       test.textContent = '연결 확인';
@@ -1422,6 +1717,12 @@
           + (r.ok ? (r.canScore ? ' · 일관성 검사 가능' : ' · 일관성 검사 없음') : ''),
           r.ok ? 'ok' : 'err');
         await askDestScore(destinations[i], r);
+        // ★목록을 통째로 다시 그리면 방금 쓴 확인 메시지가 같이 지워진다. 그 줄만 고친다.
+        consBox.checked = destinations[i].score !== false;
+        consBox.disabled = destinations[i].canScore === false;
+        consWhy.textContent = destinations[i].canScore === false
+          ? '이 수신함에는 검사 기능이 없습니다. score.py 를 옆에 두고 pip 로 셋만 깔면 됩니다.'
+          : '검사 가능으로 확인되었습니다.';
       });
 
       const del = document.createElement('button');
@@ -3614,6 +3915,17 @@
   /** 한 장 뽑기. 처음 뽑을 때와 다시 뽑을 때가 같은 길을 타게 한다. */
   async function styleShot(token, b, i) {
     const sh = stRun.shots[i];
+    // ★컷마다 구도를 바꿔 끼울 수 있다 (최종 테스트가 쓴다). 안 주면 이번 판의 구도
+    //   하나로 전부 뽑는다 — 조합·깎기는 구도를 고정해야 견줄 수 있으니 그쪽이 기본이다.
+    let base = b.base;
+    if (sh.preset) {
+      const pb = StyleTest.build(Object.assign({}, stCfg, { preset: sh.preset }));
+      base = pb.base;
+      characters = pb.character
+        ? [{ prompt: pb.character, uc: '', coord: null, name: '테스트', skipSlotPrompt: false,
+            enabled: true }]
+        : [];
+    }
     // 컷마다 시드를 따로 줄 수 있다. 같은 조합을 여러 장 뽑을 때 쓴다.
     // 안 주면 styleApply 가 넣어 둔 시드를 그대로 쓴다.
     if (sh.seed !== undefined && sh.seed !== null) options.seed = sh.seed;
@@ -3624,7 +3936,7 @@
       name: sh.label,
       cycle: 1
     }, {
-      base: b.base, oneChar: false, tpl: '{label}.png', seq: i + 1,
+      base: base, oneChar: false, tpl: '{label}.png', seq: i + 1,
       // ★다시 시도하는 중이라는 것을 그 칸에 적는다. 아무 표시 없이 20초를 기다리면
       //   멈춘 줄 알고 앱을 끄는데, 그러면 이미 나간 요청의 Anlas 만 날아간다.
       onWait: function (msg) {
@@ -3872,6 +4184,9 @@
     $('mode-bisect').classList.toggle('on', m === 'bisect');
     $('sub-combo').hidden = (m !== 'combo');
     $('sub-bisect').hidden = (m !== 'bisect');
+    $('sub-final').hidden = (m !== 'final');
+    // ★최종 테스트는 탭으로 못 간다 — 조합에서 「그림체 선택」 을 눌러야 들어오는 자리다.
+    //   탭에 얹으면 아무 그림체도 안 고른 채로 들어와 빈 화면을 보게 된다.
   }
 
   // ── 조합 (무작위 가중치) ─────────────────────────────────────────────────
@@ -4075,22 +4390,25 @@
 
       const use = document.createElement('button');
       use.className = 'btn small';
-      use.textContent = '이걸로';
-      // ★마음에 든 조합을 섞기로 옮겨 준다. 숫자를 손으로 옮겨 적게 하면 반드시 틀린다.
+      use.textContent = '그림체 선택';
+      // ★마음에 든 조합을 섞기로 옮기고 최종 테스트로 넘어간다. 숫자를 손으로 옮겨
+      //   적게 하면 반드시 틀린다.
       use.addEventListener('click', async function () {
         artMix = c.mix.map(function (x) { return { tag: x.tag, weight: x.weight, on: x.on }; });
         await Store.setArtistMix(artMix);
         renderMix();
         renderDrawer();
-        setArtTab('drawer');
-        toast(c.name + ' 을 섞기로 가져왔습니다.', 2400);
+        openFinal(c);
       });
       row.appendChild(use);
       box.appendChild(row);
     });
 
-    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 두 장 이상일 때만 띄운다.
-    $('cmb-cons-row').hidden = !(cmbShots.length && cmbPerUsed >= 2 && consOn());
+    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 그래도 단추는 띄우고
+    //   무엇을 하면 되는지 적는다 — 숨기면 이런 기능이 있다는 것을 알 길이 없다.
+    renderConsRow('cmb-cons-row', 'cmb-cons', 'cmb-cons-msg', !!cmbShots.length,
+      (cmbShots.length && cmbPerUsed < 2)
+        ? '「조합마다 장수」 를 2장 이상으로 두고 뽑으면 잽니다.' : '');
 
     const rated = cmbLast.filter(function (c) { return c.score > 0; }).length;
     $('cmb-refine').textContent = rated
@@ -4160,6 +4478,76 @@
       consBusy = false;
       $('cmb-cons').disabled = false;
     }
+  }
+
+  // ── 최종 테스트 ──────────────────────────────────────────────────────────
+  // ★조합 화면은 구도 하나로만 견준다. 상반신에서 멀쩡하던 그림체가 전신이나 복잡한
+  //   배경에서 무너지는 일이 잦아서, 서랍에 넣기 전에 구도를 훑는 자리를 둔다.
+  let finCombo = null;
+
+  /** 최종 테스트에서 뽑을 구도들. 「직접 적기」 는 뺀다 (사람이 채워야 하는 칸이다). */
+  function finalShots() {
+    return StyleTest.PRESETS.filter(function (p) { return p.key !== 'custom'; });
+  }
+
+  function openFinal(combo) {
+    finCombo = combo;
+    setStyleMode('final');
+    $('fin-after').hidden = true;
+    $('fin-shots').innerHTML = '';
+    $('fin-shots-note').hidden = true;
+    $('fin-shots-retry').hidden = true;
+    renderFinalMix();
+    window.scrollTo(0, 0);
+  }
+
+  function renderFinalMix() {
+    if (!finCombo) return;
+    $('fin-mix').textContent = '고른 그림체: '
+      + finCombo.mix.filter(function (x) { return x.on; })
+        .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
+  }
+
+  async function finRun() {
+    if (!finCombo) { toast('먼저 조합에서 그림체를 고르세요.', 2400); return; }
+    const shots = finalShots();
+    if (!window.confirm('구도 ' + shots.length + '가지를 한 장씩 뽑을까요?\n\n'
+      + shots.map(function (p) { return '· ' + p.label; }).join('\n'))) return;
+
+    // ★시드를 하나로 묶는다. 구도 말고 다른 것이 달라지면 무엇 때문에 무너졌는지 모른다.
+    const seed = Math.floor(Math.random() * 1e9);
+    const prompt = Artists.bake(finCombo.mix, { cfg: wRange });
+    const jobs = shots.map(function (p) {
+      return { label: p.label, prompt: prompt, note: p.label, preset: p.key, seed: seed };
+    });
+    await styleGenerate(jobs, seed, 'fin-shots', { after: function () { $('fin-after').hidden = false; } });
+    $('fin-after').hidden = false;
+  }
+
+  /** 고른 그림체를 저장된 작가태그로. 대량생성에서 그대로 불러 쓴다. */
+  async function finSave() {
+    if (!finCombo) return;
+    const text = Artists.bake(finCombo.mix, { cfg: wRange });
+    const name = (window.prompt('이 그림체를 무슨 이름으로 저장할까요?', finCombo.name) || '').trim();
+    if (!name) return;
+    // 같은 이름이면 덮어쓴다 — 이름을 다시 고르게 하면 목록만 지저분해진다.
+    const same = tagsets.find(function (t) { return t.name === name; });
+    if (same) same.text = text;
+    else tagsets.push({ id: 't' + Date.now().toString(36), name: name, text: text });
+    await Store.setTagsets(tagsets);
+    renderTagsetSelect();
+    toast('"' + name + '" 을 저장된 작가태그에 넣었습니다.', 2800);
+  }
+
+  /** 깎기로 넘긴다 — 고른 그림체의 작가들을 그대로 후보로 올린다. */
+  function finToBisect() {
+    if (!finCombo) return;
+    const tags = finCombo.mix.filter(function (x) { return x.on; })
+      .map(function (x) { return x.tag; });
+    bisAdd(tags, true);
+    setStyleMode('bisect');
+    window.scrollTo(0, 0);
+    toast('깎기에 ' + tags.length + '명을 올렸습니다. 라운드를 시작하세요.', 2800);
   }
 
   /** 매긴 점수를 반영해 한 번 더. */
@@ -5556,7 +5944,8 @@
         + (s.failed ? ' · 실패 ' + s.failed : ''))
       : '';
 
-    $('res-cons-row').hidden = !(consOn() && ResultsModel.viewable(results).length >= 2);
+    const shots = ResultsModel.viewable(results).length;
+    renderConsRow('res-cons-row', 'res-cons', 'res-cons-msg', shots >= 2, '');
 
     const groups = ResultsModel.applyFilter(results, resultFilter);
     if (!groups.length) {
@@ -7114,7 +7503,12 @@
     $('cmb-run').addEventListener('click', function () { cmbRun(); });
     $('cmb-refine').addEventListener('click', cmbRefine);
     $('cmb-cons').addEventListener('click', cmbConsistency);
-    ['cmb-shots-retry', 'bis-shots-retry'].forEach(function (id) {
+    $('fin-run').addEventListener('click', finRun);
+    $('fin-save').addEventListener('click', finSave);
+    $('fin-bisect').addEventListener('click', finToBisect);
+    $('fin-tweak').addEventListener('click', function () { setStyleMode('combo'); window.scrollTo(0, 0); });
+    $('fin-back').addEventListener('click', function () { setStyleMode('combo'); window.scrollTo(0, 0); });
+    ['cmb-shots-retry', 'bis-shots-retry', 'fin-shots-retry'].forEach(function (id) {
       $(id).addEventListener('click', styleRetryFailed);
     });
     $('res-cons').addEventListener('click', resConsistency);
@@ -7315,6 +7709,15 @@
       renderNamingPreview();
     });
 
+    $('dest-wizard').addEventListener('click', openWizard);
+    $('cw-back').addEventListener('click', function () { show('settings'); });
+    $('cw-done').addEventListener('click', function () { show('settings'); });
+    $('cw-ssh-run').addEventListener('click', cwSshRun);
+    $('cw-copy').addEventListener('click', cwCopy);
+    $('cw-connect').addEventListener('click', cwConnect);
+    $('rx-cmd-copy').addEventListener('click', copyInstallCmd);
+    $('rx-cmd-open').addEventListener('change', renderInstallCmd);
+    renderInstallCmd();
     $('rx-copy').addEventListener('click', copyReceiver);
     $('rx-save').addEventListener('click', saveReceiver);
 

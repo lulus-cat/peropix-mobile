@@ -43,10 +43,9 @@ const StyleTest = (function () {
     'girl, loli, petite, solo',
     'pastel blue hair, light blue hair, medium hair',
     'inward curl, sidelocks, hair between eyes, ahoge',
-    'glossy hair, detailed hair, hair strand, side ivory hair ribbon',
+    'detailed hair, hair strand, side ivory hair ribbon',
     'apricot eyes, orange eyes, pale orange eyes',
-    'gradient eyes, detailed eyes, long eyelashes',
-    'tareme, thin eyebrows, light blush',
+    'tareme, light blush',
     'oversized cardigan, light blue cardigan, open cardigan',
     'off shoulder, long sleeves, sleeves past wrists',
     'white collared shirt, dress shirt, ivory neck ribbon',
@@ -159,6 +158,14 @@ const StyleTest = (function () {
   //   끼워야 한다. 안 그러면 한 번 켠 적 있는 폰에서는 기본값을 바꿔도 옛것이 그대로
   //   남아, 「바꿨다는데 왜 그대로냐」 가 된다.
   const OLD_CHARS = [
+    // 2026-08: thin eyebrows · long eyelashes · detailed eyes · gradient eyes · glossy hair 를 뺐다.
+    'girl, loli, petite, solo, pastel blue hair, light blue hair, medium hair, '
+      + 'inward curl, sidelocks, hair between eyes, ahoge, glossy hair, detailed hair, '
+      + 'hair strand, side ivory hair ribbon, apricot eyes, orange eyes, pale orange eyes, '
+      + 'gradient eyes, detailed eyes, long eyelashes, tareme, thin eyebrows, light blush, '
+      + 'oversized cardigan, light blue cardigan, open cardigan, off shoulder, long sleeves, '
+      + 'sleeves past wrists, white collared shirt, dress shirt, ivory neck ribbon, '
+      + 'ivory pleated skirt, thighs',
     '1girl, loli, medium hair, aqua hair, oversized clothes, open cardigan, '
       + 'collared shirt, skirt, barefoot'
   ];
