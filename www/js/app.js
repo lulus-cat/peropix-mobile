@@ -1235,8 +1235,63 @@
     return Embed.pick({ mode: consMode, dest: consDest(), ready: consReady });
   }
 
-  /** 지금 검사가 되는가 — 화면에 버튼을 띄울지 말지. */
+  /** 지금 검사가 되는가. */
   function consOn() { return consPick().how !== 'off'; }
+
+  /**
+   * 검사 단추를 어떻게 보일지.
+   *
+   * ★못 재는 상태라고 단추를 **숨기면 안 된다.** 숨기면 기능이 있다는 것 자체를 알 길이
+   *   없다. 설정 깊은 곳에 켜는 자리를 두고 화면에서는 아무 흔적도 안 남기면, 만들어 놓고
+   *   아무도 안 쓰는 것과 같다. 그래서 단추는 늘 보이고, 대신 **무엇을 하면 되는지**를
+   *   옆에 적는다.
+   * @returns {{ready:boolean, why:string, fix:boolean}} fix 는 설정으로 보낼지
+   */
+  function consState(extra) {
+    // ★막힌 것이 둘이면 **설정 쪽을 먼저** 말한다. 「장수를 늘리세요」 만 말해 두면,
+    //   장수를 늘려 다시 뽑고 나서야 「아직 안 켰습니다」 를 보게 된다. 그림을 두 번
+    //   뽑게 만드는 안내다.
+    const how = consPick();
+    if (how.how === 'off') {
+      return { ready: false, why: how.why + ' 설정에서 켤 수 있습니다.', fix: true };
+    }
+    if (extra) return { ready: false, why: extra, fix: false };
+    return { ready: true, why: '', fix: false };
+  }
+
+  /** 단추 한 벌(단추 + 안내 + 설정 바로가기)을 상태에 맞게 그린다. */
+  function renderConsRow(rowId, btnId, msgId, visible, extra) {
+    const row = $(rowId);
+    row.hidden = !visible;
+    if (!visible) return;
+    const st = consState(extra);
+    const btn = $(btnId);
+    btn.disabled = !st.ready || consBusy;
+    $(msgId).textContent = st.why;
+
+    // 설정으로 가는 길을 그 자리에 둔다. "설정 어디에 있더라" 를 찾게 하지 않는다.
+    let go = document.getElementById(rowId + '-go');
+    if (st.fix) {
+      if (!go) {
+        go = document.createElement('button');
+        go.id = rowId + '-go';
+        go.className = 'btn small';
+        go.textContent = '설정 열기';
+        go.addEventListener('click', async function () {
+          $('settings-token').value = await Store.getToken();
+          say($('settings-msg'), '');
+          show('settings');
+          const sel = $('cons-mode');
+          sel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          sel.focus();
+        });
+        btn.parentNode.insertBefore(go, btn.nextSibling);
+      }
+      go.hidden = false;
+    } else if (go) {
+      go.hidden = true;
+    }
+  }
 
   /**
    * 그림들의 특징 벡터를 받아 온다.
@@ -4089,8 +4144,11 @@
       box.appendChild(row);
     });
 
-    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 두 장 이상일 때만 띄운다.
-    $('cmb-cons-row').hidden = !(cmbShots.length && cmbPerUsed >= 2 && consOn());
+    // ★한 조합에 한 장뿐이면 그 조합이 고른지 잴 방법이 없다. 그래도 단추는 띄우고
+    //   무엇을 하면 되는지 적는다 — 숨기면 이런 기능이 있다는 것을 알 길이 없다.
+    renderConsRow('cmb-cons-row', 'cmb-cons', 'cmb-cons-msg', !!cmbShots.length,
+      (cmbShots.length && cmbPerUsed < 2)
+        ? '「조합마다 장수」 를 2장 이상으로 두고 뽑으면 잽니다.' : '');
 
     const rated = cmbLast.filter(function (c) { return c.score > 0; }).length;
     $('cmb-refine').textContent = rated
@@ -5556,7 +5614,8 @@
         + (s.failed ? ' · 실패 ' + s.failed : ''))
       : '';
 
-    $('res-cons-row').hidden = !(consOn() && ResultsModel.viewable(results).length >= 2);
+    const shots = ResultsModel.viewable(results).length;
+    renderConsRow('res-cons-row', 'res-cons', 'res-cons-msg', shots >= 2, '');
 
     const groups = ResultsModel.applyFilter(results, resultFilter);
     if (!groups.length) {
