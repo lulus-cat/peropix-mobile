@@ -13,9 +13,15 @@
 const Updater = (function () {
   const API = 'https://api.github.com';
 
-  /** 버전을 숫자 배열로. v1.2.10 → [1,2,10] */
+  /**
+   * 버전을 숫자 배열로. v1.2.10 → [1,2,10]
+   * ★'-' 를 구분자로 쓰면 안 된다. 잘못 붙은 태그 v1.2.-15 가 [1,2,15] 로 읽혀
+   *   1.2.12 보다 새 판이 되어 버린다 (실제로 빌드가 그런 태그를 낸 적이 있다).
+   *   '-' 뒤는 parseInt 가 알아서 버리므로 v1.2.3-beta 는 [1,2,3] 이 되고,
+   *   v1.2.-15 는 [1,2,-15] — 있는 그대로 낮은 판으로 읽힌다.
+   */
   function parts(v) {
-    return String(v || '').trim().replace(/^v/i, '').split(/[.\-+]/)
+    return String(v || '').trim().replace(/^v/i, '').split(/[.+]/)
       .map(function (x) { return parseInt(x, 10); })
       .filter(function (n) { return !isNaN(n); });
   }
