@@ -499,7 +499,10 @@
 
     <!-- ★제일 쉬운 길을 맨 위에 둔다. 파일을 올리고 켜고 방화벽을 여는 것을 한 줄이
          대신한다. 아래의 손 설치는 인터넷이 막힌 서버용으로 남겨 둔다. -->
-    <div class="row-head"><span class="label">한 줄로 설치 (권장)</span></div>
+    <button id="dest-wizard" class="btn primary block">처음이신가요? 따라 하기</button>
+    <p class="hint">터미널이 뭔지 몰라도 됩니다. 어디를 눌러야 하는지부터 짚어 드립니다.</p>
+
+    <div class="row-head"><span class="label">한 줄로 설치 (아는 분용)</span></div>
     <p class="hint">VPS 나 PC 에 SSH 로 붙어서 아래 한 줄만 붙여넣으면 끝입니다.
       파일을 올릴 필요도, 방화벽을 열 필요도, 계속 켜 둘 필요도 없습니다
       (로그아웃해도 재부팅해도 알아서 돕니다).</p>
@@ -603,6 +606,111 @@
 
     </details>
 
+  </div>
+</section>
+
+<!-- ── 수신함 연결 따라 하기 ───────────────────────────────────────────── -->
+<!-- ★"SSH 로 붙어서" 부터가 이미 벽이다. 터미널이 무엇인지 모르는 사람에게 명령 한 줄을
+     던져 두면 한 줄이든 열 줄이든 똑같이 못 한다. 어디를 눌러 터미널을 여는지부터 짚어 준다. -->
+<section id="screen-connect" class="screen" hidden>
+  <header class="topbar">
+    <button id="cw-back" class="btn icon" aria-label="뒤로">←</button>
+    <h1 class="brand sm">PC · VPS 연결하기</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="pad scroll">
+    <p class="hint">순서대로 따라 하시면 됩니다. <b>프로그램을 따로 깔 것도, 파일을 올릴
+      것도 없습니다.</b> 5분쯤 걸립니다.</p>
+
+    <div class="step">
+      <div class="step-n">1</div>
+      <div class="step-body">
+        <b>어디에 연결할까요?</b>
+        <div class="chips" id="cw-kind"></div>
+        <p class="hint" id="cw-kind-hint"></p>
+      </div>
+    </div>
+
+    <div class="step" id="cw-step-term">
+      <div class="step-n">2</div>
+      <div class="step-body">
+        <b>검은 명령 창(터미널)을 엽니다</b>
+        <p class="hint">SSH 프로그램을 깔 필요 없습니다. 대부분의 VPS 업체는
+          <b>홈페이지 안에서 바로</b> 터미널을 열 수 있습니다.</p>
+        <label class="field">
+          <span class="label">어디서 샀나요?</span>
+          <select id="cw-host" class="tool-select"></select>
+        </label>
+        <p class="hint" id="cw-host-how"></p>
+      </div>
+    </div>
+
+    <div class="step" id="cw-step-cmd">
+      <div class="step-n">3</div>
+      <div class="step-body">
+        <b>이 한 줄을 붙여넣고 Enter</b>
+        <pre class="cmd" id="cw-cmd"></pre>
+        <div class="toolrow">
+          <button id="cw-copy" class="btn primary">명령 복사</button>
+        </div>
+        <p class="hint" id="cw-copy-msg">복사한 뒤 터미널에 붙여넣고 Enter 를 누르세요.
+          1~2분쯤 글자가 주르륵 올라갑니다. 다 될 때까지 기다리시면 됩니다.</p>
+        <p class="hint">비밀번호를 묻거든 <b>서버 로그인 비밀번호</b>를 치세요.
+          칠 때 화면에 아무것도 안 보이는 게 정상입니다.</p>
+      </div>
+    </div>
+
+    <div class="step" id="cw-step-paste">
+      <div class="step-n">4</div>
+      <div class="step-body">
+        <b>화면에 나온 <code>peropix://</code> 한 줄을 여기 붙여넣기</b>
+        <p class="hint">설치가 끝나면 터미널 맨 아래에
+          <code>peropix://…</code> 로 시작하는 줄이 나옵니다. 그것을 통째로 복사해 오세요.</p>
+        <label class="field">
+          <input id="cw-paste" type="text" placeholder="peropix://1.2.3.4:8770#..."
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
+        </label>
+        <button id="cw-connect" class="btn primary block">연결하기</button>
+        <div id="cw-msg" class="msg" hidden></div>
+      </div>
+    </div>
+
+    <div class="step" id="cw-step-done" hidden>
+      <div class="step-n">✓</div>
+      <div class="step-body">
+        <b>끝났습니다</b>
+        <p class="hint">이제 생성 화면 위쪽의 <b>저장할 곳</b>에서 이 수신함을 고르면
+          뽑은 그림이 그쪽으로 바로 갑니다.</p>
+        <button id="cw-done" class="btn block">설정으로 돌아가기</button>
+      </div>
+    </div>
+
+    <details class="panel">
+      <summary>잘 안 될 때</summary>
+      <ul class="guide-ul">
+        <li><b>연결하기를 눌렀는데 안 됩니다</b>: 클라우드 업체의 방화벽이 막고 있을 수
+          있습니다. 업체 홈페이지의 방화벽(Firewall · Security Group) 설정에서
+          <b>TCP 8770</b> 들어오는 것을 허용해 주세요. 이건 서버 밖에 있어서 설치
+          명령이 손댈 수 없습니다.</li>
+        <li><b>peropix:// 줄이 안 보입니다</b>: 위로 스크롤해 보세요. 그래도 없으면
+          설치가 중간에 멈춘 것입니다. 마지막에 나온 빨간 글씨를 알려 주세요.</li>
+        <li><b>주소가 「이서버주소」 로 나옵니다</b>: 서버가 자기 공인 주소를 못 찾은
+          경우입니다. 업체 화면에 적힌 IP 로 바꿔 주세요.</li>
+        <li><b>다시 깔고 싶습니다</b>: 같은 명령을 다시 돌리면 됩니다. 비밀번호와
+          이미지는 그대로 있습니다.</li>
+      </ul>
+    </details>
+
+    <details class="panel">
+      <summary>안전에 대해</summary>
+      <p class="hint">이 방식은 <b>암호화 없이</b> 오갑니다. 집 안 PC 라면 그대로 쓰셔도
+        됩니다. 인터넷에 열린 VPS 라면 남이 주소와 비밀번호를 알아내면 들어올 수 있으니,
+        도메인이 있다면 Caddy 로 TLS 를 씌우거나 VPN(Tailscale) 안에서만 여는 것이
+        좋습니다.</p>
+      <p class="hint"><b>NovelAI 키는 폰에만 있습니다.</b> 서버로는 그림과
+        「무엇을 뽑을지」 만 올라갑니다.</p>
+    </details>
   </div>
 </section>
 
@@ -966,9 +1074,11 @@
       <summary>원격 작업 · 저장 위치</summary>
       <ul class="guide-ul">
         <li><b>폰에 저장</b>: 아무것도 준비할 게 없습니다. 갤러리에 바로 들어갑니다.</li>
-        <li><b>PC · VPS 수신함</b>: <code>receiver.py</code> 를 띄우면 화면에
-          <code>peropix://…</code> 한 줄이 나옵니다. 그걸 설정 칸에 붙여넣으면 끝입니다.
-          주소·비밀번호를 따로 옮겨 적지 않습니다.</li>
+        <li><b>PC · VPS 수신함</b>: 설정 → 원격 저장 대상 → <b>처음이신가요? 따라 하기</b>
+          를 누르면 순서대로 짚어 줍니다. 터미널이 뭔지 몰라도 되고, SSH 프로그램을
+          깔지 않아도 됩니다 (VPS 업체 홈페이지 안에 검은 창이 있습니다).
+          명령 한 줄을 붙여넣으면 설치·상시 실행·방화벽까지 알아서 되고, 마지막에 나온
+          <code>peropix://…</code> 한 줄을 앱에 붙여넣으면 끝입니다.</li>
         <li><b>GitHub 지시함</b>: 저장소에 JSON 을 올려 두면 폰이 받아 뽑습니다.
           앱은 저장소에 <b>쓰지 않습니다</b>.</li>
       </ul>

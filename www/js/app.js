@@ -120,7 +120,8 @@
     if (currentScreen === 'home' || currentScreen === 'main') hubScreen = currentScreen;
     currentScreen = which;
     ['setup', 'perms', 'home', 'main', 'settings', 'import', 'folders', 'results',
-     'wildcards', 'enhance', 'compose', 'jobs', 'artists', 'guide'].forEach(function (n) {
+     'wildcards', 'enhance', 'compose', 'jobs', 'artists', 'guide',
+     'connect'].forEach(function (n) {
       $('screen-' + n).hidden = (n !== which);
     });
     // ★들어오는 화면만 짧게 떠오르게. 클래스를 뗐다 붙이지 않으면 같은 화면을
@@ -1172,6 +1173,121 @@
       : '복사하지 못했습니다. 위 글을 길게 눌러 직접 복사하세요.';
   }
 
+  // ── 연결 따라 하기 ──────────────────────────────────────────────────────
+  // ★명령 한 줄로 줄여도 「터미널을 어떻게 여는가」 를 모르면 못 한다. 업체별로 어디를
+  //   눌러야 웹 터미널이 나오는지까지 짚어 준다 — SSH 프로그램을 따로 깔지 않아도 된다.
+  const CW_KINDS = [
+    { key: 'vps', label: 'VPS (인터넷 서버)',
+      hint: '어디서든 닿습니다. 폰 데이터로도 씁니다. 업체 방화벽을 한 번 열어야 할 수 있습니다.' },
+    { key: 'pc', label: '집 안 PC (리눅스 · 맥)',
+      hint: '같은 Wi-Fi 안에서만 닿습니다. 방화벽을 건드릴 일이 거의 없습니다.' },
+    { key: 'win', label: '집 안 PC (윈도우)',
+      hint: '★이 설치 명령은 윈도우에서 안 돕니다. 아래 3번 대신 다른 방법을 알려 드립니다.' }
+  ];
+
+  // 업체마다 웹 터미널이 어디 있는지. ★여기가 이 화면의 알맹이다.
+  const CW_HOSTS = [
+    { key: 'contabo', label: 'Contabo',
+      how: '고객 패널 로그인 → 왼쪽 <b>Your Services</b> → 서버 줄의 <b>Manage</b> → '
+        + '위쪽 <b>VNC</b> 를 누르면 브라우저 안에 검은 창이 열립니다. '
+        + 'root 로 로그인한 뒤 3번으로 가세요.' },
+    { key: 'vultr', label: 'Vultr',
+      how: 'Products → 서버 이름 클릭 → 오른쪽 위 <b>View Console</b>.' },
+    { key: 'do', label: 'DigitalOcean',
+      how: 'Droplets → 서버 클릭 → 오른쪽 위 <b>Console</b>.' },
+    { key: 'lightsail', label: 'AWS Lightsail',
+      how: '인스턴스 카드의 <b>Connect using SSH</b> 단추. 바로 검은 창이 열립니다.' },
+    { key: 'oracle', label: 'Oracle Cloud',
+      how: '인스턴스 화면의 <b>Cloud Shell</b> 을 열고 '
+        + '<code>ssh ubuntu@서버IP</code> 를 칩니다.' },
+    { key: 'ssh', label: '그 밖 · SSH 로 직접',
+      how: '이미 쓰시는 SSH 프로그램(Termius · PuTTY · 맥 터미널)으로 서버에 붙으세요. '
+        + '폰만 있다면 <b>Termius</b> 앱이 무료로 됩니다.' }
+  ];
+
+  let cwKind = 'vps';
+
+  function renderWizard() {
+    const chips = $('cw-kind');
+    if (!chips.children.length) {
+      CW_KINDS.forEach(function (k) {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.textContent = k.label;
+        b.addEventListener('click', function () { cwKind = k.key; renderWizard(); });
+        chips.appendChild(b);
+      });
+    }
+    Array.from(chips.children).forEach(function (b, i) {
+      b.classList.toggle('on', CW_KINDS[i].key === cwKind);
+    });
+    const kind = CW_KINDS.find(function (k) { return k.key === cwKind; }) || CW_KINDS[0];
+    $('cw-kind-hint').innerHTML = kind.hint;
+
+    const sel = $('cw-host');
+    if (!sel.children.length) {
+      CW_HOSTS.forEach(function (h) {
+        const o = document.createElement('option');
+        o.value = h.key;
+        o.textContent = h.label;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', renderWizard);
+    }
+
+    // 윈도우는 이 스크립트가 안 돈다. 얼버무리지 말고 다른 길을 준다.
+    const win = cwKind === 'win';
+    $('cw-step-term').hidden = win;
+    if (win) {
+      $('cw-cmd').textContent = 'python receiver.py --root ./images';
+      $('cw-copy-msg').innerHTML = '윈도우에서는 이 설치 명령이 안 돕니다 (리눅스 전용). '
+        + '대신 <b>파이썬</b>을 깔고(python.org), 위 <b>한 줄로 설치</b> 아래의 '
+        + '<b>receiver.py 파일로 저장</b> 으로 파일을 받은 뒤, 그 폴더에서 '
+        + '<code>python receiver.py --root ./images</code> 를 실행하세요. '
+        + '창을 닫으면 멈추니 켜 두셔야 합니다.';
+    } else {
+      const h = CW_HOSTS.find(function (x) { return x.key === sel.value; }) || CW_HOSTS[0];
+      $('cw-host-how').innerHTML = h.how;
+      // 집 안 PC 면 바깥에 열 이유가 없다.
+      $('cw-cmd').textContent = cwInstallCmd();
+      $('cw-copy-msg').textContent = '복사한 뒤 터미널에 붙여넣고 Enter 를 누르세요. '
+        + '1~2분쯤 글자가 주르륵 올라갑니다.';
+    }
+  }
+
+  function cwInstallCmd() {
+    const open = cwKind === 'vps' ? ' -s -- --open' : '';
+    return 'curl -fsSL https://raw.githubusercontent.com/' + Store.DEFAULT_UPDATE_REPO
+      + '/main/tools/deploy/install.sh | sudo bash' + open;
+  }
+
+  async function cwCopy() {
+    const t = $('editor-text');
+    const keep = t.value;
+    t.value = $('cw-cmd').textContent;
+    const ok = await copyFromEditor();
+    t.value = keep;
+    $('cw-copy-msg').textContent = ok
+      ? '복사했습니다. 터미널에 붙여넣고 Enter 를 누르세요.'
+      : '복사하지 못했습니다. 위 글을 길게 눌러 직접 복사하세요.';
+  }
+
+  async function cwConnect() {
+    const box = $('cw-msg');
+    const r = await addDestination($('cw-paste').value, box);
+    if (!r) return;
+    $('cw-paste').value = '';
+    $('cw-step-done').hidden = false;
+    $('cw-step-done').scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  function openWizard() {
+    show('connect');
+    $('cw-msg').hidden = true;
+    $('cw-step-done').hidden = true;
+    renderWizard();
+  }
+
   async function copyReceiver() {
     const box = $('rx-msg');
     box.textContent = '꺼내는 중…';
@@ -1203,10 +1319,14 @@
     }
   }
 
-  async function applyPairString() {
-    const box = $('dest-paste-msg');
-    const r = parsePairString($('dest-paste').value);
-    if (!r.ok) { say(box, r.error, 'err'); return; }
+  /**
+   * peropix:// 한 줄로 수신함을 등록하고 연결까지 확인한다.
+   * ★설정 칸과 따라 하기 화면이 **같은 코드**를 쓴다. 두 벌로 두면 한쪽만 고쳐진다.
+   * @returns {Promise<object|null>} 붙은 대상, 실패하면 null
+   */
+  async function addDestination(pasted, box) {
+    const r = parsePairString(pasted);
+    if (!r.ok) { say(box, r.error, 'err'); return null; }
 
     // 같은 주소가 이미 있으면 토큰만 갈아 끼운다 (중복 등록을 막는다).
     const existing = destinations.find(function (d) {
@@ -1229,10 +1349,18 @@
     // ★검사를 맡길지는 지금 묻는다. 설정 깊은 곳에 숨겨 두면 아무도 못 찾는다.
     await askDestScore(dest, ping);
 
-    $('dest-paste').value = '';
     renderDestList();
     renderDestSelect();
     renderNamingPreview();
+    // ★닿지 않으면 성공으로 치지 않는다. 따라 하기 화면이 「끝났습니다」 를 띄우면
+    //   안 되는 것을 됐다고 믿고 넘어간다.
+    return ping.ok ? dest : null;
+  }
+
+  async function applyPairString() {
+    if (await addDestination($('dest-paste').value, $('dest-paste-msg'))) {
+      $('dest-paste').value = '';
+    }
   }
 
   // ── 일관성 검사 ──────────────────────────────────────────────────────────
@@ -7522,6 +7650,11 @@
       renderNamingPreview();
     });
 
+    $('dest-wizard').addEventListener('click', openWizard);
+    $('cw-back').addEventListener('click', function () { show('settings'); });
+    $('cw-done').addEventListener('click', function () { show('settings'); });
+    $('cw-copy').addEventListener('click', cwCopy);
+    $('cw-connect').addEventListener('click', cwConnect);
     $('rx-cmd-copy').addEventListener('click', copyInstallCmd);
     $('rx-cmd-open').addEventListener('change', renderInstallCmd);
     renderInstallCmd();

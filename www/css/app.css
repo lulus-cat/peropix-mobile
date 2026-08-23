@@ -1694,3 +1694,27 @@ textarea.expandable { cursor: pointer; }
   user-select: all;
   -webkit-user-select: all;
 }
+
+/* ── 따라 하기 (연결 마법사) ─────────────────────────────────────────── */
+.step {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.step:first-of-type { border-top: 0; }
+.step-n {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-body { flex: 1 1 auto; min-width: 0; }
+.step-body > b { display: block; margin-bottom: 5px; font-size: 14px; }
