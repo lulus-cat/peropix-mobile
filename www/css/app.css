@@ -1327,8 +1327,11 @@ textarea.expandable { cursor: pointer; }
 .mix-bar input[type=range] { flex: 1; margin: 0; }
 
 /* 조합 결과 */
+/* ★줄을 넘어가게 둔다. 조합마다 여러 장을 뽑으면 그림이 자리를 다 먹어, 안 그러면
+   별점 칸이 눌리지도 않을 만큼 짜부라진다. */
 .cmb-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
@@ -1378,16 +1381,22 @@ textarea.expandable { cursor: pointer; }
   cursor: pointer;
   flex: 0 0 auto;
 }
-.cmb-main { flex: 1; min-width: 0; }
-.stars { display: flex; gap: 1px; margin-top: 3px; }
+.cmb-main { flex: 1 1 210px; min-width: 210px; }   /* 별 다섯 개가 들어가는 넓이 */
+/* 별점 — ★손가락이 닿는 넓이를 먼저 맞춘다. 23px 짜리를 다섯 개 붙여 두면 어느 별을
+   눌렀는지가 운이 되고, 가장자리를 누르면 아예 안 눌린다. 글자는 그대로 두고 눌리는
+   칸만 넓힌다. */
+.stars { display: flex; gap: 2px; margin-top: 4px; }
 .stars button {
   border: 0;
   background: none;
-  padding: 2px 1px;
-  font-size: 17px;
+  padding: 0;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 21px;
   line-height: 1;
   color: var(--accent);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ── 홈 ────────────────────────────────────────────────────────────────
@@ -1498,7 +1507,7 @@ textarea.expandable { cursor: pointer; }
   align-items: center;
   gap: 6px;
 }
-.stars.big button { font-size: 26px; padding: 2px 3px; }
+.stars.big button { font-size: 30px; min-width: 48px; min-height: 48px; }
 .viewer-combo {
   font-size: 12px;
   color: var(--text-dim);
