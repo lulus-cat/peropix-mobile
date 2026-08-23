@@ -203,7 +203,7 @@ const Store = (function () {
   }
 
   /** 슬롯 프롬프트를 'base'(공통) 와 'char'(캐릭터) 중 어디에 붙일지.
-   *  ★데스크톱판 기본값이 'char' 다 — 여기서 다르면 같은 설정인데 다른 그림이 나온다. */
+   *  ★데스크톱 버전 기본값이 'char' 다 — 여기서 다르면 같은 설정인데 다른 그림이 나온다. */
   async function getSlotTarget() {
     const v = await getRaw(KEY_SLOT_TARGET);
     return (v === 'base' || v === 'char') ? v : 'char';
@@ -362,7 +362,7 @@ const Store = (function () {
 
   const KEY_STYLE = 'style_test';
 
-  /** 그림체 시험 판 (구도·인물·품질·네거티브). */
+  /** 그림체 테스트 설정 (구도·캐릭터·퀄리티·네거티브). */
   async function getStyleTest() {
     const raw = await getRaw(KEY_STYLE);
     if (!raw) return null;
@@ -378,8 +378,8 @@ const Store = (function () {
     await setRaw(KEY_STYLE, JSON.stringify(cfg || {}));
   }
 
-  // ── 새 판 알림 ────────────────────────────────────────────────────────
-  // ★언제 마지막으로 봤는지와, 「이 판은 건너뛴다」 로 정한 판만 남긴다. 받아 온 내용은
+  // ── 업데이트 알림 ────────────────────────────────────────────────────────
+  // ★언제 마지막으로 봤는지와, 「이 버전은 건너뛴다」 로 정한 판만 남긴다. 받아 온 내용은
   //   안 남긴다 — 다음에 켤 때 다시 물어보면 되고, 오래된 것을 보여 주면 더 헷갈린다.
   const KEY_UPD_AT = 'update_checked_at';
   const KEY_UPD_SKIP = 'update_skipped';
@@ -402,7 +402,7 @@ const Store = (function () {
 
   const KEY_UPD_AUTO = 'update_auto';
 
-  /** 켤 때 새 판을 확인할지. ★기본 켜짐 — 옆에서 받아 까는 앱이라 스토어가 안 알려 준다. */
+  /** 켤 때 업데이트를 확인할지. ★기본 켜짐 — 옆에서 받아 까는 앱이라 스토어가 안 알려 준다. */
   async function getUpdateAuto() {
     return (await getRaw(KEY_UPD_AUTO)) !== '0';
   }

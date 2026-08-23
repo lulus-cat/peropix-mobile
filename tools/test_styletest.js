@@ -141,6 +141,6 @@ check('UC·퀄리티는 글로 담는다',
   S.opts({ uc_preset: 'Heavy', quality_preset: 'light' }).uc_preset === 'Heavy');
 
 const total = pass + fails.length;
-console.log('그림체 시험 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
+console.log('그림체 테스트 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });
 process.exit(fails.length ? 1 : 0);

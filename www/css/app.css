@@ -1612,3 +1612,14 @@ textarea.expandable { cursor: pointer; }
 .upd .toolrow { margin-bottom: 0; flex-wrap: wrap; }
 
 @media (prefers-reduced-motion: reduce) { .upd { animation: none; } }
+
+/* 조합·깎기에서 작가를 고르는 칸 — 서랍 라벨대로 묶어 보여 준다 */
+.pick-head {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin: 10px 0 4px;
+  letter-spacing: .02em;
+}
+.pick-head:first-child { margin-top: 0; }
+.pick-row { display: flex; flex-wrap: wrap; gap: 6px; }

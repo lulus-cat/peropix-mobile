@@ -1,6 +1,6 @@
 // 와일드카드 — 프롬프트 안의 토큰을 풀에서 뽑아 바꾼다.
 //
-// 데스크톱판(index.html 의 parseWildcardDoc / resolveWildcards)과 같은 규칙이다.
+// 데스크톱 버전(index.html 의 parseWildcardDoc / resolveWildcards)과 같은 규칙이다.
 //   #이름          한 줄에 단독으로 있으면 풀 정의, 프롬프트 안에 있으면 그 풀에서 하나 뽑기
 //   //             주석 (줄 시작 또는 공백 뒤. http:// 처럼 붙은 것은 남긴다)
 //   ||a|b||        NAI 네이티브 인라인

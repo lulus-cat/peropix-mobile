@@ -209,7 +209,7 @@ function coordToXy(coord) {
 }
 
 function snapCenter(center) {
-  // ★가까운 눈금 찾기가 아니다 — 구간을 5등분해 떨어뜨린다.
+  // ★가까운 단계 찾기가 아니다 — 구간을 5등분해 떨어뜨린다.
   //   0.2 는 가까운 쪽으로 하면 0.1 과 동률이지만 공홈 식으로는 0.3 이다.
   const grid = T.CENTER_GRID;
   const q = function (v) {
@@ -466,7 +466,7 @@ function buildNaiPayload(req) {
 
 // ── NAI 업스케일 (/ai/upscale) ────────────────────────────────────────────
 // ★생성과 별개의 API 다. 창작적 변형 없이 해상도만 4배로 올린다.
-//   PeroPix 데스크톱판은 이걸 쓰지 않고 로컬 업스케일러를 쓴다 — 폰에는 그게 없으므로 이쪽을 쓴다.
+//   PeroPix 데스크톱 버전은 이걸 쓰지 않고 로컬 업스케일러를 쓴다 — 폰에는 그게 없으므로 이쪽을 쓴다.
 function buildUpscalePayload(imageBase64, width, height, scale) {
   return {
     url: 'https://image.novelai.net/ai/upscale',

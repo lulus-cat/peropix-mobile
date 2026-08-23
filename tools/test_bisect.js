@@ -1,4 +1,4 @@
-// 작태 깎기 검사 — 이분 탐색이 정말로 범인을 찾아내는가.
+// 작가 태그 깎기 검사 — 이분 탐색이 정말로 범인을 찾아내는가.
 //
 // ★여기가 틀리면 엉뚱한 작가를 범인으로 지목한다. 사람은 그 말을 믿고 태그를 빼므로
 //   틀린 것을 알아차리지도 못한다. 그래서 「범인을 심어 두고 끝까지 돌려 보는」 검사를 둔다.
@@ -150,13 +150,13 @@ check('도는 중에는 남은 후보 수를 알려 준다',
   /남은 후보 2명/.test(B.summary(B.answer(B.start({ tags: ['a', 'b'] }), {}))),
   B.summary(B.answer(B.start({ tags: ['a', 'b'] }), {})));
 check('★없애려던 것이면 「빼라」 고 말한다',
-  /빼거나 세기를 낮춰/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'drop' }))),
+  /빼거나 가중치를 낮춰/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'drop' }))),
   B.summary(solve(['a', 'b'], 'a', { goal: 'drop' })));
 check('★살리려던 것이면 「올려 보라」 고 말한다',
-  /세기를 올려/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'keep' }))),
+  /가중치를 올려/.test(B.summary(solve(['a', 'b'], 'a', { goal: 'keep' }))),
   B.summary(solve(['a', 'b'], 'a', { goal: 'keep' })));
 
 const total = pass + fails.length;
-console.log('작태 깎기 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
+console.log('작가 태그 깎기 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });
 process.exit(fails.length ? 1 : 0);

@@ -56,15 +56,15 @@
   // ★쓰는 법을 여기서 한 줄씩 알려 준다. 기능이 늘면서 어디에 뭐가 있는지 찾기 어려워졌는데,
   //   설명서를 따로 만들어 봐야 아무도 안 읽는다. 어차피 뜨는 화면이니 여기에 얹는다.
   const TIPS = [
-    '작가 태그 → 찾기 에서 이름을 넣으면 그 작가 그림이 몇 장인지, NAI 가 알아볼 만한지 바로 보입니다.',
+    '작가 태그 → 찾기 에서 이름을 넣으면 그 작가 이미지가 몇 장인지, NAI 가 알아볼 만한지 바로 보입니다.',
     '작가 태그 → 테스트 → 조합 은 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 줍니다. 마음에 드는 걸 고르세요.',
-    '조합에서 딱 맞는 게 없으면 별점을 매기고 「점수 반영해서 다시 뽑기」. 높은 점수 쪽으로 세기가 당겨집니다.',
+    '조합에서 딱 맞는 게 없으면 별점을 매기고 "점수 반영해서 다시 뽑기". 높은 점수 쪽으로 가중치가 당겨집니다.',
     '작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모르겠다면, 테스트 → 깎기 가 5번 만에 범인을 찾아 줍니다.',
     '뷰어에서 위로 밀면 버리기, 아래로 밀면 저장. 손가락 두 개로 벌리면 확대됩니다.',
-    '조합·깎기에서 뽑은 그림을 누르면 크게 뜹니다. 좌우로 밀어 그 판 안을 오가고, 아래 별점으로 점수를 줍니다.',
-    '인터넷이 끊겨 몇 장이 깨졌으면, 결과 화면 맨 위의 「못 만든 N장 다시 생성」 이 그것만 다시 뽑습니다.',
-    '인물이 많고 슬롯이 적으면 「한 명 모드」 를 켜세요. 인물 수만큼 자동으로 돌립니다.',
-    '투명 배경으로 뽑은 그림은 「배경 합성」 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
+    '조합·깎기에서 생성한 이미지을 누르면 크게 뜹니다. 좌우로 밀어 그 세트 안을 오가고, 아래 별점으로 점수를 줍니다.',
+    '인터넷이 끊겨 몇 장이 깨졌으면, 결과 화면 맨 위의 "못 만든 N장 다시 생성" 이 그것만 다시 뽑습니다.',
+    '인물이 많고 슬롯이 적으면 "한 명 모드" 를 켜세요. 인물 수만큼 자동으로 돌립니다.',
+    '투명 배경으로 생성한 이미지은 "배경 합성" 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
     'API 키는 이 폰에만 저장됩니다. APK 를 남에게 줘도 키는 따라가지 않습니다.'
   ];
 
@@ -132,16 +132,16 @@
     window.scrollTo(0, 0);
   }
 
-  // ── 새 판 알림 ──────────────────────────────────────────────────────────
+  // ── 업데이트 알림 ──────────────────────────────────────────────────────────
   // ★조용히 알아서 깔리게는 **못 만든다.** 안드로이드는 옆에서 받아 까는 앱을 설치할 때
   //   반드시 사람이 확인 화면을 눌러야 한다. 그러니 앱이 할 수 있는 것은 여기까지다 —
-  //   새 판이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.
+  //   새 버전이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.
   // ★스토어를 안 거치므로 아무도 안 알려 준다. 그래서 앱이 직접 본다.
   const UPDATE_REPO = 'lulus-cat/peropix-mobile';
-  let appVersion = '';        // 지금 깔려 있는 판 (네이티브에서만 알 수 있다)
+  let appVersion = '';        // 지금 깔려 있는 버전 (네이티브에서만 알 수 있다)
   let updLatest = null;
 
-  /** 지금 깔린 판. ★브라우저 미리보기에서는 알 길이 없어 빈 값이다. */
+  /** 지금 깔린 버전. ★브라우저 미리보기에서는 알 길이 없어 빈 값이다. */
   async function loadAppVersion() {
     const P = window.Capacitor && window.Capacitor.Plugins;
     if (!P || !P.App || !P.App.getInfo) return '';
@@ -181,7 +181,7 @@
     const box = $('home-upd');
     if (!d || !d.show || !updLatest) { box.hidden = true; return; }
     box.hidden = false;
-    $('upd-title').textContent = '새 판이 나왔습니다';
+    $('upd-title').textContent = '업데이트가 있습니다';
     $('upd-ver').textContent = Updater.summary(appVersion, updLatest);
     const list = $('upd-list');
     list.innerHTML = '';
@@ -197,7 +197,7 @@
   }
 
   /**
-   * 새 판이 있는지 본다.
+   * 업데이트가 있는지 본다.
    * @param {boolean} manual 사람이 눌러서 부른 것인가 (그러면 간격을 안 따지고 결과도 적는다)
    */
   async function checkUpdate(manual) {
@@ -207,8 +207,8 @@
       if (!Updater.due(await Store.getUpdateCheckedAt(), Date.now())) return;
     }
     if (manual) msg.textContent = '보는 중…';
-    // 깔린 판을 그때그때 다시 읽는다. 켤 때 한 번만 읽어 두면, 읽기 전에 확인이 돌면
-    // 「지금 판을 모른다」 로 새어 나간다.
+    // 깔린 버전을 그때그때 다시 읽는다. 켤 때 한 번만 읽어 두면, 읽기 전에 확인이 돌면
+    // 「현재 버전을 모른다」 로 새어 나간다.
     appVersion = await loadAppVersion();
     try {
       updLatest = await fetchLatest();
@@ -221,12 +221,12 @@
       renderUpdate(d);
       if (!manual) return;
       // ★눌러서 본 것은 결과를 반드시 적어 준다. 아무 일도 안 일어나면 고장으로 보인다.
-      if (d.show) msg.textContent = '새 판 ' + d.version + ' 이 있습니다. 아래 시작 화면에서 받으세요.';
+      if (d.show) msg.textContent = '새 버전 ' + d.version + ' 이 있습니다. 아래 시작 화면에서 받으세요.';
       else if (d.reason === 'current') msg.textContent = '최신입니다 (' + d.version + ').';
       else if (d.reason === 'skipped') msg.textContent = d.version + ' 은 건너뛰기로 해 두셨습니다.';
       else if (d.reason === 'unknown') {
-        msg.textContent = '가장 새 판은 ' + d.version + ' 입니다. '
-          + '(브라우저 미리보기에서는 지금 판을 알 수 없어 견주지 못합니다.)';
+        msg.textContent = '최신 버전은 ' + d.version + ' 입니다. '
+          + '(브라우저 미리보기에서는 현재 버전을 알 수 없어 견주지 못합니다.)';
       } else msg.textContent = '릴리즈를 찾지 못했습니다.';
     } catch (e) {
       updLatest = null;
@@ -244,7 +244,7 @@
       if (!updLatest) return;
       await Store.setUpdateSkipped(updLatest.version);
       $('home-upd').hidden = true;
-      toast(updLatest.version + ' 은 다시 안 알립니다. 그 다음 판부터 알려 드립니다.', 3000);
+      toast(updLatest.version + ' 은 다시 안 알립니다. 그 다음 버전부터 알려 드립니다.', 3000);
     });
     // 「나중에」 는 이번에만 접는다 (다음에 켜면 또 알려 준다).
     $('upd-later').addEventListener('click', function () { $('home-upd').hidden = true; });
@@ -299,12 +299,12 @@
   // ── 안드로이드 뒤로가기 ──────────────────────────────────────────────────
   // ★기본 동작은 "앱 종료" 다. 갤럭시 네비게이션 바로 뒤로 가면 작업 중이던 것이
   //   통째로 날아간다. 그래서 직접 가로채, 열린 것부터 차례로 닫는다.
-  //     덮개(편집기·뷰어) → 하위 화면 → 메인 → (한 번 더 누르면) 종료
+  //     오버레이(편집기·뷰어) → 하위 화면 → 메인 → (한 번 더 누르면) 종료
   let backExitArmed = false;
   let backExitTimer = null;
 
   function handleBack() {
-    // 1) 덮개가 떠 있으면 그것부터 닫는다. 겹쳐 있으면 위에 있는 것부터.
+    // 1) 오버레이가 떠 있으면 그것부터 닫는다. 겹쳐 있으면 위에 있는 것부터.
     if (!$('editor').hidden) { closeEditor(); return; }
     if (!$('item-edit').hidden) { closeItemEdit(); return; }
     if (openDrawerName) { closeDrawer(); return; }
@@ -609,7 +609,7 @@
     };
 
     if (isChar) {
-      box.appendChild(mkText('이름', 'name', '예: 미아 — 비워 두면 「인물 ' + (i + 1) + '」',
+      box.appendChild(mkText('이름', 'name', '예: 미아, 비워 두면 "인물 ' + (i + 1) + '"',
         '목록에서 이 이름으로 보입니다. 그림에는 들어가지 않습니다.'));
       box.appendChild(mkArea('프롬프트', 'prompt', 3, '예: 1girl, blonde hair, red dress'));
       box.appendChild(mkArea('네거티브 (UC)', 'uc', 2, '이 인물에만 걸리는 네거티브'));
@@ -660,7 +660,7 @@
     const list = isChar ? characters : slots;
     const it = list[editIndex];
     const nm = isChar ? charName(it, editIndex) : slotName(it, editIndex);
-    if (!window.confirm('「' + nm + '」 을(를) 지울까요?')) return;
+    if (!window.confirm('"' + nm + '" 을(를) 지울까요?')) return;
 
     list.splice(editIndex, 1);
     if (isChar) Store.setCharacters(characters); else Store.setSlots(slots);
@@ -682,7 +682,7 @@
   /**
    * 저장 직전 손질 — 생성 정보 기록/삭제, 형식 변환.
    * ★PNG 는 재인코딩하지 않는다. NAI 가 붙여 보낸 tEXt 청크(Title/Source 등)가
-   *   살아 있어야 나중에 그 그림을 NAI 산출물로 되읽을 수 있다.
+   *   살아 있어야 나중에 그 그림을 NAI 산출물로 다시 읽을 수 있다.
    * @returns {Promise<{bytes: Uint8Array, path: string}>}
    */
   async function prepareForSave(bytes, relPath, info) {
@@ -709,7 +709,7 @@
 
   /**
    * NAI 가 붙여 둔 tEXt(Title·Source 등)를 원본에서 옮겨 심는다.
-   * ★다시 인코딩하면 사라지는데, 사라지면 그 그림을 NAI 산출물로 되읽지 못한다.
+   * ★다시 인코딩하면 사라지는데, 사라지면 그 그림을 NAI 산출물로 다시 읽지 못한다.
    */
   function copyNaiTexts(outBytes, srcBytes) {
     try {
@@ -728,7 +728,7 @@
    * 인핸스·업스케일 결과에 **원본의 투명도를 되살린다.**
    *
    * ★NAI 에 보내는 베이스 이미지는 알파를 흰 배경에 평탄화해서 보낸다 (backend.py 와
-   *   같은 절차). 그래서 투명 배경으로 뽑은 그림을 인핸스하면 배경이 하얗게 붙어 돌아온다.
+   *   같은 절차). 그래서 투명 배경으로 생성한 이미지을 인핸스하면 배경이 하얗게 붙어 돌아온다.
    * ★NAI 가 알파를 담아 돌려주면 그것을 그대로 쓰고, 불투명하게 왔을 때만 되살린다.
    * ★모양이 크게 달라지는 편집에는 쓸 수 없다 — 인핸스는 같은 그림을 다시 그리는 것이라
    *   실루엣이 거의 그대로여서 성립한다.
@@ -1019,8 +1019,8 @@
 
   /**
    * 앱 안에 든 receiver.py 를 꺼낸다.
-   * ★저장소를 뒤져 내려받게 하지 않는다. 앱 안의 것이 **지금 이 앱과 짝이 맞는 판**이라,
-   *   여기서 꺼내 쓰는 것이 제일 확실하다 (저장소 기본 가지에는 옛 판이 있을 수 있다).
+   * ★저장소를 뒤져 내려받게 하지 않는다. 앱 안의 것이 **지금 이 앱과 짝이 맞는 버전**이라,
+   *   여기서 꺼내 쓰는 것이 제일 확실하다 (저장소 기본 가지에는 예전 버전이 있을 수 있다).
    */
   async function receiverSource() {
     const r = await fetch('receiver.py.txt', { cache: 'no-store' });
@@ -1042,8 +1042,8 @@
       const ok = await copyFromEditor();
       t.value = keep;
       box.textContent = ok
-        ? 'receiver.py 를 복사했습니다. SSH 에서 「cat > receiver.py」 하고 붙여넣은 뒤 Ctrl+D.'
-        : '복사하지 못했습니다. 「파일로 저장」 을 쓰세요.';
+        ? 'receiver.py 를 복사했습니다. SSH 에서 "cat > receiver.py" 하고 붙여넣은 뒤 Ctrl+D.'
+        : '복사하지 못했습니다. "파일로 저장" 을 쓰세요.';
     } catch (e) {
       box.textContent = '꺼내지 못했습니다: ' + (e.message || e);
     }
@@ -1569,10 +1569,10 @@
     for (let i = 0; i < targets.length; i++) {
       if (cancelRequested) break;
       const src = targets[i];
-      say($('enh-msg'), '인핸스 중 ' + (i + 1) + '/' + targets.length + ' — ' + src.name);
+      say($('enh-msg'), '인핸스 중 ' + (i + 1) + '/' + targets.length + ', ' + src.name);
       try {
         // ★베이스 이미지는 요청 해상도로 미리 맞춰 보낸다. 서버 리사이즈에 맡기면
-        //   필터가 달라 초기 latent 가 바뀌고 데스크톱판과 결과가 갈린다.
+        //   필터가 달라 초기 latent 가 바뀌고 데스크톱 버전과 결과가 갈린다.
         const processed = await ImageUtil.preprocessBaseImage(src.bytes, size.w, size.h);
         const info = src.saveInfo || {};
         const req = Object.assign({}, options, {
@@ -1585,7 +1585,7 @@
           base_image_processed: processed,
           base_strength: strength,
           base_noise: noise,
-          // ★투명 배경으로 뽑은 그림은 인핸스도 투명으로 요청한다. 지금 화면의 체크박스를
+          // ★투명 배경으로 생성한 이미지은 인핸스도 투명으로 요청한다. 지금 화면의 체크박스를
           //   그대로 쓰면, 그 사이에 체크를 껐거나 모델을 바꿨을 때 배경이 붙어 나온다.
           transparent_bg: (info.transparent_bg === undefined)
             ? options.transparent_bg : info.transparent_bg,
@@ -1595,7 +1595,7 @@
         });
         const built = buildNaiPayload(req);
         const res = await NaiClient.generate(token, built, function (n, wait, err) {
-          say($('enh-msg'), src.name + ' — ' + NaiClient.networkMessage(err)
+          say($('enh-msg'), src.name + ', ' + NaiClient.networkMessage(err)
             + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
         });
         // ★베이스를 흰 배경에 평탄화해 보내므로 그림이 불투명하게 돌아온다.
@@ -1638,14 +1638,14 @@
 
     for (let i = 0; i < targets.length; i++) {
       const src = targets[i];
-      say(box, '업스케일 중 ' + (i + 1) + '/' + targets.length + ' — ' + src.name);
+      say(box, '업스케일 중 ' + (i + 1) + '/' + targets.length + ', ' + src.name);
       try {
         const info = src.saveInfo || {};
         const w = info.width || options.width;
         const h = info.height || options.height;
         const built = buildUpscalePayload(ImageUtil.toBase64(src.bytes), w, h, 4);
         const res = await NaiClient.upscale(token, built, function (n, wait, err) {
-          say(box, src.name + ' — ' + NaiClient.networkMessage(err)
+          say(box, src.name + ', ' + NaiClient.networkMessage(err)
             + ' · ' + Math.round(wait / 1000) + '초 뒤 다시 시도 (' + n + '/3)');
         });
         const bytes = await keepTransparency(res.bytes, src.bytes);
@@ -1671,7 +1671,7 @@
   let cmpTarget = null;      // { item } 또는 { batch: true }
   let cmpBg = null;          // { name, w, h, data, canvas }
   let cmpFg = null;          // 미리보기 기준 { name, w, h, straight, bounds, detected, canvas }
-  let cmpBgCache = null;     // 결과 크기로 줄여 둔 배경 — 같은 배경으로 여러 장 돌릴 때 재사용
+  let cmpBgCache = null;     // 결과 크기로 줄여 둔 배경, 같은 배경으로 여러 장 돌릴 때 재사용
   // 무작위 배치의 씨앗. ★Math.random 을 그냥 쓰면 미리보기를 다시 그릴 때마다 인물이 튄다.
   //   씨앗을 들고 있다가 「다시 굴려 보기」 를 눌렀을 때만 바꾼다. 장마다는 씨앗 + 번호를 쓴다.
   let cmpSeed = 1;
@@ -1737,7 +1737,7 @@
     const map = {
       premultiplied: '이 그림은 **미리 곱해진 알파**로 보입니다 (되돌려서 합칩니다).',
       straight: '이 그림은 Straight Alpha 로 보입니다.',
-      none: '⚠ 이 그림에는 투명한 곳이 없습니다 — 배경이 통째로 가려집니다.'
+      none: '⚠ 이 그림에는 투명한 곳이 없습니다. 배경이 통째로 가려집니다.'
     };
     $('cmp-alpha-hint').textContent = (map[cmpFg.detected] || '').replace(/\*\*/g, '');
   }
@@ -1800,7 +1800,7 @@
 
     const n = cmpTargets().length;
     const many = (s.mode === 'random')
-      ? ' (미리보기는 한 번 뽑아 본 것 — 실제로는 ' + n + '장이 저마다 다른 자리에 섭니다)'
+      ? ' (미리보기는 한 번 뽑아 본 것, 실제로는 ' + n + '장이 저마다 다른 자리에 섭니다)'
       : ' (미리보기는 첫 장, 실제로는 ' + n + '장에 같은 설정이 걸립니다)';
     $('cmp-preview-hint').textContent =
       place.width + '×' + place.height + ' · ' + cmpFg.name + (n > 1 ? many : '');
@@ -1870,7 +1870,7 @@
 
     for (let i = 0; i < targets.length; i++) {
       const src = targets[i];
-      say($('cmp-msg'), '합치는 중 ' + (i + 1) + '/' + targets.length + ' — ' + src.name);
+      say($('cmp-msg'), '합치는 중 ' + (i + 1) + '/' + targets.length + ', ' + src.name);
       // ★한 장씩 화면에 숨 돌릴 틈을 준다. 안 그러면 진행 문구가 끝날 때 한 번에 뜬다.
       await new Promise(function (r) { setTimeout(r, 0); });
       try {
@@ -1920,7 +1920,7 @@
   let jobsAuto = false;       // 받으면 바로 실행
   let jobsList = [];
   let jobTimer = null;
-  let activeJob = null;       // { id, dest, total } — 지금 돌고 있는 원격 작업
+  let activeJob = null;       // { id, dest, total }, 지금 돌고 있는 원격 작업
   let jobReportAt = 0;
 
   const JOB_POLL_MS = 8000;
@@ -1972,7 +1972,7 @@
     const url = token ? Github.apiFileUrl(ghCfg, path) : Github.rawUrl(ghCfg, path, Date.now());
     const text = await ghGet(url, token ? 'application/vnd.github.raw' : null);
     const parsed = Github.parseJson(text);
-    if (!parsed.ok) throw new Error(path + ' — ' + parsed.error);
+    if (!parsed.ok) throw new Error(path + ', ' + parsed.error);
     return parsed.data;
   }
 
@@ -2006,10 +2006,10 @@
     const repo = Github.parseRepo(ghCfg.repo);
     const where = repo ? (repo.owner + '/' + repo.repo) : '<내 저장소 owner/repo>';
     return [
-      '저장소 ' + where + ' 를 PeroPix 모바일의 「지시함」 으로 세팅해 줘.',
+      '저장소 ' + where + ' 를 PeroPix 모바일의 "지시함" 으로 세팅해 줘.',
       '',
       '1. AGENTS.md 와 CLAUDE.md 를 만들어, 아래 규약을 그대로 적어 둘 것',
-      '   (두 파일 내용은 같아도 된다 — Codex 는 AGENTS.md, Claude Code 는 CLAUDE.md 를 읽는다).',
+      '   (두 파일 내용은 같아도 된다. Codex 는 AGENTS.md, Claude Code 는 CLAUDE.md 를 읽는다).',
       '2. 폴더 구조',
       '     <작품 이름>/characters/*.json   인물 (그 작품 안에서 공용)',
       '     <작품 이름>/slots/*.json        슬롯 묶음. 파일 하나가 작업 하나',
@@ -2021,7 +2021,7 @@
       '     { "name": "미아", "content": "1girl, silver hair" }',
       '4. 규칙',
       '   - 슬롯 파일이 새로 생기거나 내용이 바뀌면 폰 앱이 그것을 새 작업으로 뽑는다.',
-      '     그러니 파일을 고치는 것은 곧 생성 요청이다. 시험 삼아 고치지 말 것.',
+      '     그러니 파일을 고치는 것은 곧 생성 요청이다. 테스트 삼아 고치지 말 것.',
       '   - 인물 파일을 고치는 것은 작업을 만들지 않는다 (다음 실행 때 최신 인물이 쓰인다).',
       '   - 저장 폴더는 작품 폴더 이름을 쓴다. 슬롯 파일에 folder 를 적으면 그것이 이긴다.',
       '   - options 는 아는 값만: nai_model, width, height, steps, cfg, sampler, uc_preset,',
@@ -2068,7 +2068,7 @@
   let artMix = [];             // 지금 섞고 있는 것
   let artCur = null;           // 지금 펼쳐 본 작가
   let artTab = 'find';
-  let artTotal = 0;            // Danbooru 전체 장수 (특징 태그의 분모)
+  let artTotal = 0;            // Danbooru 전체 이미지 수 (특징 태그의 분모)
   let drwF = { q: '', cat: '', fav: false, genre: '' };
   // 라벨 붙이기 모드. ★라벨은 **한 번 고르고 나서** 작가를 넣고 뺀다. 작가마다 이름을
   //   다시 적게 하면 스무 명한테 붙이려고 스무 번을 타이핑하게 된다.
@@ -2076,23 +2076,23 @@
   let drwLabel = '';
   let acTimer = null;
   let lastBaked = '';          // 작가 태그 칸에 넣어 둔 조합 (다시 넣을 때 갈아 끼우려고)
-  let wRange = null;           // 세기 범위 (사람이 정한다. null 이면 기본값)
-  let recoOff = false;         // 「이런 작태는 어떠세요」 를 껐나
-  let recoMin = 100;           // 추천할 작가의 최소 장수
+  let wRange = null;           // 가중치 범위 (사람이 정한다. null 이면 기본값)
+  let recoOff = false;         // "이런 작태는 어떠세요" 를 껐나
+  let recoMin = 100;           // 추천할 작가의 최소 이미지 수
   let recoBusy = false;
-  let stCfg = null;            // 그림체 시험 판 (구도·인물·품질·네거티브)
-  let styleSaved = null;       // 시험 전 상태 — 끝나면 그대로 돌려놓는다
+  let stCfg = null;            // 그림체 테스트 설정 (구도·캐릭터·퀄리티·네거티브)
+  let styleSaved = null;       // 테스트 전 상태, 끝나면 그대로 돌려놓는다
   let cmbPool = [];            // 조합에 쓸 작가 풀
   let cmbSel = [];             // 그중 고른 것
   let cmbLast = [];            // 방금 뽑은 조합들 (어느 그림이 어느 조합인지)
-  let cmbShots = [];           // 그 조합으로 뽑은 그림
+  let cmbShots = [];           // 그 조합으로 생성한 이미지
   let styleBusy = false;
   let styleView = null;        // 조합·깎기에서 연 뷰어일 때 {items, meta}
   let styleMode = 'combo';
   let bisPool = [];            // 깎기 후보 풀 (여기서 골라 담는다)
   let bisSel = [];             // 그중 고른 것 (최대 20)
   let bis = null;              // 깎기 상태
-  let bisScan = null;          // 세기 훑기 중인가
+  let bisScan = null;          // 가중치 훑기 중인가
 
   /**
    * Danbooru 에 묻는다. ★토큰이 없다 — 이쪽은 비로그인으로 열려 있고 CORS 도 열려 있다.
@@ -2138,7 +2138,7 @@
     renderBisPick();
     // ★깎기는 뽑으러 메인으로 갔다가 돌아온다. 다시 그리지 않으면 「답하기」 가 안 뜬다.
     renderBis();
-    // 전체 장수는 한 번만 물어 둔다 (특징 태그의 분모).
+    // 전체 이미지 수는 한 번만 물어 둔다 (특징 태그의 분모).
     if (!artTotal) {
       try { artTotal = Danbooru.parseTotal(await dbGet(Danbooru.totalUrl())); } catch (e) { /* 없어도 된다 */ }
     }
@@ -2258,7 +2258,7 @@
     const alias = (a.artist && a.artist.others.length)
       ? ('별명: ' + a.artist.others.slice(0, 6).map(function (n) { return n.replace(/_/g, ' '); }).join(', '))
       : '';
-    $('art-alias').textContent = (a.artist && a.artist.banned) ? '★Danbooru 에서 차단된 작가입니다.' : alias;
+    $('art-alias').textContent = (a.artist && a.artist.banned) ? 'Danbooru 에서 차단된 작가입니다.' : alias;
 
     const r = Danbooru.reach(a.count, { deprecated: a.deprecated });
     const fill = $('art-reach-fill');
@@ -2327,7 +2327,7 @@
       grid.appendChild(link);
     });
     if (!a.images.length) {
-      grid.innerHTML = '<p class="hint">이 수위에서는 보여 줄 그림이 없습니다.</p>';
+      grid.innerHTML = '<p class="hint">이 등급에서는 보여 줄 그림이 없습니다.</p>';
     }
 
     $('art-keep').textContent = Artists.has(artDrawer, a.tag) ? '서랍에 있음' : '서랍에 담기';
@@ -2386,7 +2386,7 @@
     if (!rows.length) {
       list.innerHTML = '<p class="hint">'
         + (artDrawer.length ? '이 조건에 맞는 작가가 없습니다.'
-          : '「찾기」에서 마음에 드는 작가를 담아 두세요.') + '</p>';
+          : '"찾기"에서 마음에 드는 작가를 담아 두세요.') + '</p>';
       return;
     }
     rows.forEach(function (e) {
@@ -2511,7 +2511,7 @@
       const skipped = names.length - artists.length;
       msg.textContent = added + '명을 담았습니다.'
         + (artists.length - added ? ' 이미 있던 ' + (artists.length - added) + '명은 건너뛰었습니다.' : '')
-        + (skipped > 0 ? ' 작가가 아니거나 버려진 태그 ' + skipped + '개는 뺐습니다.' : '');
+        + (skipped > 0 ? ' 작가가 아니거나 폐기된 태그 ' + skipped + '개는 뺐습니다.' : '');
       if (names.length > 40) {
         msg.textContent += ' (한 번에 40개까지만 봅니다)';
       }
@@ -2538,7 +2538,7 @@
     $('drw-label-mode').textContent = drwLabelMode ? '라벨 붙이기 끝내기' : '라벨 붙이기';
     $('drw-label-bar').hidden = !drwLabelMode;
     $('drw-label-now').textContent = labeling()
-      ? ('「' + drwLabel + '」 붙이는 중')
+      ? ('"' + drwLabel + '" 붙이는 중')
       : (drwLabelMode ? '라벨을 고르세요' : '');
 
     // ★막 만든 라벨과, 마지막 한 명에게서 떨어진 라벨은 아직/이제 아무한테도 안 붙어 있어
@@ -2561,13 +2561,13 @@
       });
       box.appendChild(b);
     });
-    if (!cats.length) box.innerHTML = '<p class="hint">아직 라벨이 없습니다. 「＋ 새 라벨」 로 만드세요.</p>';
+    if (!cats.length) box.innerHTML = '<p class="hint">아직 라벨이 없습니다. "＋ 새 라벨" 로 만드세요.</p>';
 
     ['drw-label-all', 'drw-label-rename', 'drw-label-del'].forEach(function (id) {
       $(id).disabled = !labeling();
     });
     $('drw-label-hint').textContent = labeling()
-      ? '작가 줄을 누르면 「' + drwLabel + '」 이 붙었다 떨어집니다.'
+      ? '작가 줄을 누르면 "' + drwLabel + '" 이 붙었다 떨어집니다.'
       : '라벨을 고른 다음 작가 줄을 누르면 붙었다 떨어집니다.';
   }
 
@@ -2585,7 +2585,7 @@
       drwLabelMode = true;
       drwLabel = name;
       renderDrawer();
-      toast('「' + name + '」 을 붙일 작가를 누르세요.', 2800);
+      toast('"' + name + '" 을 붙일 작가를 누르세요.', 2800);
     });
 
     // 지금 걸러 보고 있는 사람 전부에게 한 번에. 검색·즐겨찾기·장르와 같이 쓰면
@@ -2598,7 +2598,7 @@
       const off = rows.filter(function (e) { return e.cats.indexOf(drwLabel) === -1; });
       // 다 붙어 있으면 「전부 떼기」 로 뒤집는다 — 같은 자리에서 되돌릴 수 있어야 한다.
       const on = off.length > 0;
-      if (!window.confirm(rows.length + '명에게 「' + drwLabel + '」 을 '
+      if (!window.confirm(rows.length + '명에게 "' + drwLabel + '" 을 '
         + (on ? '붙일까요?' : '전부 뗄까요?'))) return;
       artDrawer = Artists.setCat(artDrawer, tags, drwLabel, on);
       await Store.setArtists(artDrawer);
@@ -2618,7 +2618,7 @@
 
     $('drw-label-del').addEventListener('click', async function () {
       if (!labeling()) return;
-      if (!window.confirm('「' + drwLabel + '」 라벨을 없앨까요?\n작가는 서랍에 그대로 남습니다.')) return;
+      if (!window.confirm('"' + drwLabel + '" 라벨을 없앨까요?\n작가는 서랍에 그대로 남습니다.')) return;
       artDrawer = Artists.removeCat(artDrawer, drwLabel);
       await Store.setArtists(artDrawer);
       if (drwF.cat === drwLabel) drwF.cat = '';
@@ -2655,7 +2655,7 @@
     return Artists.bake(artMix, { normalize: $('mix-norm').checked, cfg: wRange });
   }
 
-  /** 지금 정해진 세기 범위 (성한 값으로 다듬은 것). */
+  /** 지금 정해진 가중치 범위 (성한 값으로 다듬은 것). */
   function wr() {
     return Artists.range(wRange);
   }
@@ -2672,7 +2672,7 @@
   /**
    * 폭·간격 단추를 그린다.
    * ★서랍과 조합 두 군데에 똑같이 나온다. 조합을 하다가 폭을 바꾸려고 서랍으로 갔다
-   *   오게 만들면 흐름이 끊긴다. 값은 한 벌이라 어느 쪽에서 바꿔도 같이 움직인다.
+   *   오게 만들면 흐름이 끊긴다. 값은 한 세트이라 어느 쪽에서 바꿔도 같이 움직인다.
    */
   function renderWeightChips(presetsId, stepsId) {
     const r = wr();
@@ -2714,7 +2714,7 @@
     $('w-step').value = String(r.step);
     renderWeightChips('w-presets', 'w-steps');
     $('w-hint').textContent = '지금 ' + r.min + ' ~ ' + r.max + ', ' + r.step + ' 간격'
-      + ' (세기 훑기는 ' + Artists.scanSteps(wRange).join(' / ') + ')';
+      + ' (가중치 훑기는 ' + Artists.scanSteps(wRange).join(' / ') + ')';
   }
 
   /** 어느 쪽 숫자 칸에서 읽을지. 서랍과 조합 두 군데에 같은 칸이 있다. */
@@ -2847,7 +2847,7 @@
   /**
    * 작가 태그 칸에 넣는다.
    * ★앞서 넣어 둔 조합이 그대로 남아 있으면 **갈아 끼운다.** 그냥 앞에 덧붙이면
-   *   누를 때마다 같은 작가가 쌓여 세기가 몇 배가 된다.
+   *   누를 때마다 같은 작가가 쌓여 가중치가 몇 배가 된다.
    */
   async function applyMix() {
     const baked = mixBaked();
@@ -2864,11 +2864,11 @@
   }
 
   // ── 깎기 ──────────────────────────────────────────────────────────────────
-  /** 글에서 작가 태그를 뽑아낸다. 세기 문법(1.2::이름::)은 벗긴다. */
+  /** 글에서 작가 태그를 뽑아낸다. 가중치 문법(1.2::이름::)은 벗긴다. */
   function tagsFromText(text) {
     return String(text || '').split(/[,\n]/).map(function (t) {
       return Danbooru.normalize(t
-        .replace(/^\s*[\d.]+\s*::/, '')      // 1.2::태그:: 의 세기
+        .replace(/^\s*[\d.]+\s*::/, '')      // 1.2::태그:: 의 가중치
         .replace(/::\s*$/, '')
         // ★artist: 는 Danbooru 의 **검색 문법**이지 태그 이름이 아니다. NAI 프롬프트에는
         //   artist:wlop 처럼 쓰는 사람이 많은데, 그대로 물어보면 그런 태그는 없다고 나온다.
@@ -2889,26 +2889,56 @@
     renderBisPick();
   }
 
-  function renderBisPick() {
-    const box = $('bis-pick');
+  /**
+   * 고를 작가를 라벨별로 묶어 그린다. 조합과 깎기가 **같은 코드**를 쓴다 —
+   * 두 벌로 두면 한쪽만 고쳐진다.
+   *
+   * @param {string} boxId 그릴 칸
+   * @param {string[]} pool 고를 수 있는 태그
+   * @param {string[]} sel  지금 고른 태그
+   * @param {function} toggle (tag) 눌렀을 때
+   * @param {string} empty 아무것도 없을 때 적을 말
+   */
+  function renderTagPicker(boxId, pool, sel, toggle, empty) {
+    const box = $(boxId);
     box.innerHTML = '';
-    if (!bisPool.length) {
-      box.innerHTML = '<p class="hint">위 단추로 후보를 불러오세요.</p>';
+    if (!pool.length) {
+      box.innerHTML = '<p class="hint">' + empty + '</p>';
+      return;
     }
-    bisPool.forEach(function (t) {
-      const on = bisSel.indexOf(t) !== -1;
-      const b = document.createElement('button');
-      b.className = on ? 'on' : '';
-      b.textContent = t.replace(/_/g, ' ');
-      // ★상한에 찼으면 더 못 고르게 막는다. 눌리기는 하는데 안 담기면 고장으로 보인다.
-      b.disabled = !on && bisSel.length >= Artists.MAX_TAGS;
-      b.addEventListener('click', function () {
-        if (on) bisSel = bisSel.filter(function (x) { return x !== t; });
-        else if (bisSel.length < Artists.MAX_TAGS) bisSel.push(t);
-        renderBisPick();
+    const full = sel.length >= Artists.MAX_TAGS;
+    Artists.groupByLabel(pool, artDrawer).forEach(function (g) {
+      const head = document.createElement('div');
+      head.className = 'pick-head';
+      const picked = g.tags.filter(function (t) { return sel.indexOf(t) !== -1; }).length;
+      head.textContent = g.label + ' ' + g.tags.length + (picked ? ' · 선택 ' + picked : '');
+      box.appendChild(head);
+
+      const row = document.createElement('div');
+      row.className = 'pick-row';
+      g.tags.forEach(function (t) {
+        const on = sel.indexOf(t) !== -1;
+        const b = document.createElement('button');
+        b.className = on ? 'on' : '';
+        b.textContent = t.replace(/_/g, ' ');
+        // ★상한에 찼으면 더 못 고르게 막는다. 눌리기는 하는데 안 담기면 고장으로 보인다.
+        b.disabled = !on && full;
+        b.addEventListener('click', function () { toggle(t); });
+        row.appendChild(b);
       });
-      box.appendChild(b);
+      box.appendChild(row);
     });
+  }
+
+  function renderBisPick() {
+    renderTagPicker('bis-pick', bisPool, bisSel, function (t) {
+      if (bisSel.indexOf(t) !== -1) {
+        bisSel = bisSel.filter(function (x) { return x !== t; });
+      } else if (bisSel.length < Artists.MAX_TAGS) {
+        bisSel.push(t);
+      }
+      renderBisPick();
+    }, '위 버튼으로 후보를 불러오세요.');
     $('bis-count').textContent = bisSel.length + ' / ' + Artists.MAX_TAGS + '명';
     renderBisSetup();
   }
@@ -3003,7 +3033,7 @@
     }
 
     const word = bis.goal === 'drop' ? '거슬리는 부분' : '그 부분';
-    $('bis-ask-q').textContent = '뽑은 그림에 ' + word + '이 아직 보이나요?';
+    $('bis-ask-q').textContent = '생성한 이미지에 ' + word + '이 아직 보이나요?';
     const rows = bis.cross ? ['L', 'R'] : ['L'];
     const answers = {};
     rows.forEach(function (side) {
@@ -3011,7 +3041,7 @@
       ['남아 있다', '사라졌다'].forEach(function (text, i) {
         const b = document.createElement('button');
         b.className = 'btn';
-        b.textContent = label + ' — ' + text;
+        b.textContent = label + ', ' + text;
         b.addEventListener('click', function () {
           answers[side] = (i === 0);
           b.classList.add('primary');
@@ -3056,20 +3086,20 @@
     renderBis();
   }
 
-  /** 범인의 세기를 훑는다 — 1차원이라 가짓수가 곱해지지 않는다. */
+  /** 범인의 가중치를 훑는다 — 1차원이라 가짓수가 곱해지지 않는다. */
   async function bisScanRun() {
     if (!bis || !bis.culprit) return;
     const base = Artists.mix(bis.base, wRange);
     const steps = Artists.scan(base, bis.culprit, null, { cfg: wRange });
-    if (!window.confirm('세기 ' + steps.length + '칸을 뽑을까요? ('
+    if (!window.confirm('가중치 ' + steps.length + '칸을 뽑을까요? ('
       + steps.map(function (s) { return s.weight; }).join(' / ') + ')')) return;
 
     bisScan = true;
     await styleGenerate(steps.map(function (x) {
       return {
-        label: '세기-' + x.weight,
+        label: '가중치-' + x.weight,
         prompt: x.prompt,
-        note: bis.culprit.replace(/_/g, ' ') + ' 세기 ' + x.weight
+        note: bis.culprit.replace(/_/g, ' ') + ' 가중치 ' + x.weight
       };
     }), bis.seeds[0], 'bis-shots');
   }
@@ -3087,7 +3117,7 @@
     bis.shot = false;
     bisScan = null;
 
-    // ★평소 베이스에서 후보를 빼낼 필요가 없다. 시험은 자기 베이스를 쓰기 때문이다.
+    // ★평소 베이스에서 후보를 빼낼 필요가 없다. 테스트은 자기 베이스를 쓰기 때문이다.
     renderBis();
   }
 
@@ -3099,10 +3129,10 @@
     renderBisPick();
   }
 
-  // ── 그림체 시험 판 ───────────────────────────────────────────────────────
+  // ── 그림체 테스트 설정 ───────────────────────────────────────────────────────
   // ★그림체를 견주려면 작가 말고는 아무것도 달라지면 안 된다. 평소 슬롯으로 돌리면
   //   베이스·네거티브·인물이 전부 딸려 들어와 무엇 때문에 달라졌는지 알 수 없다.
-  //   그래서 시험은 **자기 프롬프트 한 벌**을 쓰고, 끝나면 평소 것을 그대로 돌려놓는다.
+  //   그래서 테스트은 **자기 프롬프트 한 세트**을 쓰고, 끝나면 평소 것을 그대로 돌려놓는다.
 
   function renderStyleUI() {
     const sel = $('st-preset');
@@ -3130,13 +3160,13 @@
     $('st-char').parentElement.style.opacity = b.withChar ? '' : '.45';
   }
 
-  // 시험 쪽 숫자 칸과 대량생성 쪽 설정 열쇠의 짝. 한 곳에 두어 그리기와 읽기가 안 갈리게.
+  // 테스트 쪽 숫자 칸과 대량생성 쪽 설정 열쇠의 짝. 한 곳에 두어 그리기와 읽기가 안 갈리게.
   const ST_NUMS = [['st-width', 'width'], ['st-height', 'height'], ['st-steps', 'steps'],
     ['st-cfg', 'cfg'], ['st-cfg-rescale', 'cfg_rescale']];
   const ST_BOOLS = [['st-variety', 'variety_plus'], ['st-transparent', 'transparent_bg'],
     ['st-straight-alpha', 'straight_alpha']];
 
-  /** 시험용 이미지 설정. 비어 있는 칸은 대량생성 값을 자리표시로 보여 준다. */
+  /** 테스트용 이미지 설정. 비어 있는 칸은 대량생성 값을 플레이스홀더로 보여 준다. */
   function renderStyleOpts() {
     const o = stCfg.opts || {};
     const same = { value: '', text: '대량생성 값 그대로' };
@@ -3159,7 +3189,7 @@
     });
 
     // ★모델이 못 하는 것은 여기서도 잠근다. 켜 봐야 무시되거나 돈만 나간다.
-    //   기준은 대량생성 값이 아니라 **시험에서 실제로 쓸 모델**이다.
+    //   기준은 대량생성 값이 아니라 **테스트에서 실제로 쓸 모델**이다.
     const use = StyleTest.withOpts(options, o);
     const cap = NAI_TABLES.MODEL_CAPS[baseModelOf(use.nai_model)] || NAI_TABLES.CAPS_FALLBACK;
     $('st-variety').disabled = !cap.cfg_delay;
@@ -3188,7 +3218,7 @@
       if (String($(p[0]).value).trim() !== '') o[p[1]] = Number($(p[0]).value);
     });
     // ★켜고 끄는 것에는 「안 정했다」 가 없다. 대량생성 값과 같으면 안 담는다 —
-    //   담아 두면 나중에 대량생성 쪽을 바꿔도 시험은 옛 상태에 묶인다.
+    //   담아 두면 나중에 대량생성 쪽을 바꿔도 테스트은 옛 상태에 묶인다.
     ST_BOOLS.forEach(function (p) {
       if ($(p[0]).checked !== !!options[p[1]]) o[p[1]] = $(p[0]).checked;
     });
@@ -3210,7 +3240,7 @@
   }
 
   /**
-   * 시험용 프롬프트로 잠깐 바꾼다.
+   * 테스트용 프롬프트로 잠깐 바꾼다.
    *
    * ★슬롯은 건드리지 않는다. 뽑을 목록을 직접 만들어 runOneJob 에 넘기기 때문이다.
    *   예전에는 슬롯을 갈아 끼우고 대량생성 화면으로 넘어갔는데, 그러면 작가 태그를
@@ -3226,7 +3256,7 @@
         target: slotTarget,
         one: options.one_char_mode,
         save: options.auto_save,
-        // ★시험용 이미지 설정으로 바꾼 것만 담아 둔다. 안 정한 것까지 담으면 되돌릴 때
+        // ★테스트용 이미지 설정으로 바꾼 것만 담아 둔다. 안 정한 것까지 담으면 되돌릴 때
         //   그 사이에 대량생성 쪽에서 바꾼 값을 옛것으로 덮어쓴다.
         opts: {}
       };
@@ -3265,7 +3295,7 @@
   }
 
   /**
-   * 그림체 시험 한 판을 뽑는다. ★작가 태그 화면에 머문 채로 돈다.
+   * 그림체 테스트를 한 번 돌린다. ★작가 태그 화면에 머문 채로 돈다.
    * @param {Array} shots [{label, prompt, note}]
    * @param {object} [hooks] {rate, scoreOf} — 주면 뷰어에서 별점을 매길 수 있다
    * @returns {Array} 뽑은 결과 (실패한 것도 들어 있다)
@@ -3306,7 +3336,7 @@
     });
   }
 
-  /** 뽑은 그림을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
+  /** 생성한 이미지을 그 자리에 늘어놓는다. doing 은 지금 뽑는 중인 칸. */
   function renderStyleShots(boxId, done, shots, doing, hooks) {
     const box = $(boxId);
     if (!box) return;
@@ -3345,15 +3375,15 @@
   }
 
   /**
-   * 조합·깎기에서 뽑은 그림을 크게 본다.
+   * 조합·깎기에서 생성한 이미지을 크게 본다.
    *
-   * ★한 판에서 뽑은 것을 **통째로** 넣는다. 그래야 좌우로 밀어 그 판 안을 오갈 수 있다.
+   * ★한 번에 뽑은 것을 **통째로** 넣는다. 그래야 좌우로 밀어 그 세트 안을 오갈 수 있다.
    *   전부 같은 묶음 이름(그림체)이라 뷰어가 한 묶음으로 본다.
    * ★뷰어는 결과 목록 안의 항목만 열 수 있어서 목록에 없으면 넣어 준다. 자동 저장은
    *   꺼져 있으므로 마음에 든 그림은 여기서 저장하면 된다.
    *
    * @param {object} item 열 그림
-   * @param {Array}  all  같은 판에서 뽑은 것 전부
+   * @param {Array}  all  같은 번에 뽑은 것 전부
    * @param {function} meta (item) => 아래에 적을 글 (어떤 조합인지)
    * @param {function} [rate] (item, score) 별점을 매기면 부른다. 없으면 별점 줄이 안 뜬다
    * @param {function} [scoreOf] (item) => 지금 점수
@@ -3368,7 +3398,7 @@
     styleView = { items: list, meta: meta, rate: rate, scoreOf: scoreOf };
 
     // ★공용 묶음(결과 화면의 필터를 거친 것)을 쓰지 않는다. 필터에 걸려 몇 장만 남으면
-    //   좌우로 밀어도 그 판 안을 못 오간다. 이 판만 담은 묶음을 그대로 쓴다.
+    //   좌우로 밀어도 그 세트 안을 못 오간다. 이번 것만 담은 그룹을 그대로 쓴다.
     viewGroups = [{ label: '테스트', items: list }];
     viewSlot = 0;
     viewIndex = Math.max(0, list.indexOf(item));
@@ -3421,22 +3451,14 @@
   }
 
   function renderCombo() {
-    const box = $('cmb-pick');
-    box.innerHTML = '';
-    if (!cmbPool.length) box.innerHTML = '<p class="hint">위 단추로 작가를 불러오세요.</p>';
-    cmbPool.forEach(function (t) {
-      const on = cmbSel.indexOf(t) !== -1;
-      const b = document.createElement('button');
-      b.className = on ? 'on' : '';
-      b.textContent = t.replace(/_/g, ' ');
-      b.disabled = !on && cmbSel.length >= Artists.MAX_TAGS;
-      b.addEventListener('click', function () {
-        if (on) cmbSel = cmbSel.filter(function (x) { return x !== t; });
-        else if (cmbSel.length < Artists.MAX_TAGS) cmbSel.push(t);
-        renderCombo();
-      });
-      box.appendChild(b);
-    });
+    renderTagPicker('cmb-pick', cmbPool, cmbSel, function (t) {
+      if (cmbSel.indexOf(t) !== -1) {
+        cmbSel = cmbSel.filter(function (x) { return x !== t; });
+      } else if (cmbSel.length < Artists.MAX_TAGS) {
+        cmbSel.push(t);
+      }
+      renderCombo();
+    }, '위 버튼으로 작가를 불러오세요.');
     $('cmb-count').textContent = cmbSel.length + ' / ' + Artists.MAX_TAGS + '명';
 
     renderWeightChips('cmb-presets', 'cmb-steps');
@@ -3477,7 +3499,7 @@
     renderComboResult();
     const seed = $('cmb-seed-fix').checked ? Math.floor(Math.random() * 1e9) : undefined;
     const comboNote = function (c) {
-      return c.name + ' — ' + c.mix.filter(function (x) { return x.on; })
+      return c.name + ', ' + c.mix.filter(function (x) { return x.on; })
         .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; }).join(' · ');
     };
     cmbShots = (await styleGenerate(cmbLast.map(function (c) {
@@ -3514,7 +3536,7 @@
         openViewerFor(shot, cmbShots,
           function (r) {
             const c = cmbLast[cmbShots.indexOf(r)];
-            return c ? (c.name + ' — ' + c.mix.filter(function (x) { return x.on; })
+            return c ? (c.name + ', ' + c.mix.filter(function (x) { return x.on; })
               .map(function (x) { return x.tag.replace(/_/g, ' ') + ' ' + x.weight; })
               .join(' · ')) : '';
           },
@@ -3584,7 +3606,7 @@
     $('cmb-refine').disabled = !rated;
   }
 
-  /** 매긴 점수를 반영해 한 판 더. */
+  /** 매긴 점수를 반영해 한 번 더. */
   async function cmbRefine() {
     const n = parseInt($('cmb-n').value, 10) || 6;
     const next = Artists.refine(cmbLast, n, wRange);
@@ -3594,16 +3616,16 @@
 
 
   // ── 「이런 작태는 어떠세요」 ──────────────────────────────────────────────
-  // ★**앱을 켤 때** 한 번 띄운다. 뽑고 난 뒤가 아니다 — 다 뽑고 나면 이미 그 판은 끝났고,
-  //   새 작가는 다음 판을 짜기 **전에** 알아야 쓸모가 있다.
-  // ★근거는 **장수 100 이상**이다. 그 아래는 NAI 가 배울 거리가 없어 태그를 넣어도
+  // ★**앱을 켤 때** 한 번 띄운다. 뽑고 난 뒤가 아니다 — 다 뽑고 나면 이미 그 세션은 끝났고,
+  //   새 작가는 다음 세트를 짜기 **전에** 알아야 쓸모가 있다.
+  // ★근거는 **이미지 수 100 이상**이다. 그 아래는 NAI 가 배울 거리가 없어 태그를 넣어도
   //   그림에 안 나온다 — 권해 봐야 헛걸음을 시키는 셈이다.
   // ★100장 이상인 작가가 약 2만 4천 명이라 한 번에 다 받을 수 없다. 무작위 쪽(페이지)을
   //   받아 그중에서 다시 고른다. 그래서 켤 때마다 다른 얼굴이 나온다.
 
   const RECO_PAGE_MAX = 246;   // 100장 이상 · 한 쪽 100명 기준 (2026-08 실측 24,602명)
 
-  /** 한 쪽을 받아 온다. ★빈 쪽이면 절반으로 줄여 다시 본다 (문턱을 올리면 쪽수가 준다). */
+  /** 한 쪽을 받아 온다. ★빈 쪽이면 절반으로 줄여 다시 본다 (기준을 올리면 쪽수가 준다). */
   async function recoPage(min) {
     let page = 1 + Math.floor(Math.random() * RECO_PAGE_MAX);
     for (let i = 0; i < 4; i++) {
@@ -3732,7 +3754,7 @@
             sub.textContent += ' · ' + gs.map(function (g) { return g.label; }).join(' ');
           }
         })
-        .catch(function () { /* 그림이 없어도 이름과 장수는 쓸모가 있다 */ });
+        .catch(function () { /* 그림이 없어도 이름과 이미지 수는 쓸모가 있다 */ });
 
       keep.addEventListener('click', async function () {
         artDrawer = Artists.add(artDrawer,
@@ -3833,7 +3855,7 @@
       tools.className = 'toolrow';
       if (j.status === 'more') {
         box.appendChild(row);
-        return;   // 「그 밖에 N건」 은 안내일 뿐이다
+        return;   // "그 밖에 N건" 은 안내일 뿐이다
       }
       if (j.status === 'pending' || j.status === 'failed') {
         const run = document.createElement('button');
@@ -4001,7 +4023,7 @@
     const shots = jobShots(job.spec || {});
     if (!auto) {
       const ok = window.confirm(
-        '「' + (job.name || '작업') + '」 을 실행할까요?\n\n'
+        '"' + (job.name || '작업') + '" 을 실행할까요?\n\n'
         + '약 ' + shots + '장을 뽑고 Anlas 를 씁니다.\n'
         + '지금 슬롯·인물·폴더 이름이 이 작업 것으로 바뀝니다.');
       if (!ok) return;
@@ -4045,7 +4067,7 @@
     // 진행 알림은 수신함에만 보낸다 (GitHub 은 되돌려 줄 곳이 없다).
     activeJob = d ? { id: claimed.id, dest: d, total: shots } : null;
     jobReportAt = 0;
-    say($('jobs-msg'), '「' + (claimed.name || '작업') + '」 을 뽑는 중입니다…');
+    say($('jobs-msg'), '"' + (claimed.name || '작업') + '" 을 뽑는 중입니다…');
     show('main');
 
     const total = shots;
@@ -4058,7 +4080,7 @@
         // ★한 것을 기억한다. 지시 파일을 지우지 않아도 다시 돌지 않는다.
         ghDone = Github.rememberDone(ghDone, claimed.id);
         await Store.setGithubDone(ghDone);
-        say($('jobs-msg'), '「' + (claimed.name || '작업') + '」 ' + saved.length + '장 완료'
+        say($('jobs-msg'), '"' + (claimed.name || '작업') + '" ' + saved.length + '장 완료'
           + (failed.length ? (' · 실패 ' + failed.length + '장') : ''), failed.length ? 'err' : 'ok');
       } else {
         await RemoteStore.updateJob(d, {
@@ -4308,7 +4330,7 @@
     const over = activeChars().length > lim;
     say($('import-msg'),
       '캐릭터 ' + r.characters.length + '명을 ' + (append ? '추가했습니다.' : '가져왔습니다.')
-      + (over ? ' 켠 인물이 모델 상한(' + lim + '명)을 넘습니다 — 안 쓸 인물을 꺼 주세요.' : ''),
+      + (over ? ' 켠 인물이 모델 상한(' + lim + '명)을 넘습니다. 안 쓸 인물을 꺼 주세요.' : ''),
       over ? 'err' : 'ok');
     setTimeout(function () { show('main'); }, over ? 1600 : 700);
   }
@@ -4351,7 +4373,7 @@
       isOpus: subscription ? subscription.isOpus : false,
       opusExhausted: subscription ? subscription.opusExhausted : false,
       refCount: cap.char_ref ? references.length : 0,
-      // ★실제로 뽑을 장수로 센다 — 배수와 한 명 모드의 바퀴까지 포함이다.
+      // ★실제로 뽑을 이미지 수로 센다 — 배수와 한 명 모드의 바퀴까지 포함이다.
       //   슬롯 수만 세면 「배수 3」 을 켠 사람에게 1/3 로 적힌 값을 보여 주게 된다.
       count: Math.max(1, plannedJobs().length)
     });
@@ -4401,7 +4423,7 @@
       ? ('풀 ' + names.length + '개: ' + names.map(function (n) {
         return '#' + n + '(' + wildcardPools[n].length + ')';
       }).join(', '))
-      : '아직 정의가 없습니다. 「예시 넣기」 를 눌러 보세요.';
+      : '아직 정의가 없습니다. "예시 넣기" 를 눌러 보세요.';
   }
 
   // ── Precise Reference ────────────────────────────────────────────────────
@@ -4586,7 +4608,7 @@
       el.hidden = true;
     } else if (on > lim) {
       el.textContent = '켜 둔 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
-        + '명까지라 뒤 ' + (on - lim) + '명은 전송되지 않습니다 — 안 쓸 인물은 꺼 주세요.';
+        + '명까지라 뒤 ' + (on - lim) + '명은 전송되지 않습니다. 안 쓸 인물은 꺼 주세요.';
       el.hidden = false;
     } else {
       el.textContent = '';
@@ -4634,7 +4656,7 @@
 
     let text;
     if (on && chars) {
-      text = '켠 인물 ' + chars + '명을 **한 명씩** 돌립니다 — 인물 ' + chars
+      text = '켠 인물 ' + chars + '명을 **한 명씩** 돌립니다. 인물 ' + chars
         + ' × 슬롯 ' + slotCount + (perSlot > 1 ? ' × 배수 ' + perSlot : '')
         + ' = ' + jobs.length + '장. 저장 경로에 인물 폴더가 한 겹 끼어듭니다.';
     } else if (on) {
@@ -4664,7 +4686,7 @@
     const on = activeChars().length;
     $('chars-summary').textContent = characters.length
       ? ('인물 ' + characters.length + '명 · ' + on + '명 켜짐')
-      : '인물 없음 — 눌러서 추가';
+      : '인물 없음. 눌러서 추가';
   }
 
   function renderCharDrawer() {
@@ -4685,7 +4707,7 @@
       w.hidden = true;
     } else if (on > lim) {
       w.textContent = '켠 인물이 ' + on + '명입니다. 현재 모델은 ' + lim
-        + '명까지라 「초과」 표시된 인물은 전송되지 않습니다.';
+        + '명까지라 "초과" 표시된 인물은 전송되지 않습니다.';
       w.hidden = false;
     } else {
       w.hidden = true;
@@ -4697,7 +4719,7 @@
     if (!characters.length) {
       const e = document.createElement('div');
       e.className = 'drawer-empty';
-      e.textContent = '인물이 없습니다. 아래 「+ 인물 추가」 를 누르거나 캐릭터 JSON 을 가져오세요.';
+      e.textContent = '인물이 없습니다. 아래 "+ 인물 추가" 를 누르거나 캐릭터 JSON 을 가져오세요.';
       box.appendChild(e);
       return;
     }
@@ -4778,7 +4800,7 @@
 
   /**
    * 슬롯 프롬프트를 어디에 붙일지 정해 최종 프롬프트 구성을 만든다.
-   * ★데스크톱판(backend.py 의 promptTarget 분기)과 같은 규칙이어야 한다.
+   * ★데스크톱 버전(backend.py 의 promptTarget 분기)과 같은 규칙이어야 한다.
    */
   function composePrompts(base, slotContent, target, charsIn) {
     // 켠 인물만 추린 뒤 모델 상한까지 자른다. 순서를 뒤집으면 꺼 둔 인물이
@@ -4816,7 +4838,7 @@
     const on = slots.filter(function (x) { return x.enabled !== false; }).length;
     $('slots-summary').textContent = slots.length
       ? ('슬롯 ' + slots.length + '개 · ' + on + '개 켜짐')
-      : '슬롯 없음 — 눌러서 추가';
+      : '슬롯 없음. 눌러서 추가';
   }
 
   function renderSlotDrawer() {
@@ -5050,7 +5072,7 @@
     });
   }
 
-  /** 다시 뽑을 수 있는 장수 = 실패한 장 + 아직 손도 못 댄 장. */
+  /** 다시 뽑을 수 있는 이미지 수 = 실패한 장 + 아직 손도 못 댄 장. */
   function unfinishedCount() {
     return failedItems().length + pendingJobs.length;
   }
@@ -5109,11 +5131,11 @@
     for (let i = 0; i < retryItems.length; i++) {
       if (cancelRequested) break;
       const prev = retryItems[i];
-      say(box, '다시 생성 중 ' + (done + 1) + '/' + total + ' — ' + prev.name);
+      say(box, '다시 생성 중 ' + (done + 1) + '/' + total + ', ' + prev.name);
       const item = await runOneJob(token, prev.job, {
         base: lastRun.base, tpl: lastRun.tpl, oneChar: lastRun.oneChar,
         seq: results.length + 1,
-        onWait: function (msg) { say(box, prev.name + ' — ' + msg); }
+        onWait: function (msg) { say(box, prev.name + ', ' + msg); }
       });
       const at = results.indexOf(prev);
       if (at !== -1) results[at] = item; else results.push(item);
@@ -5129,11 +5151,11 @@
         break;
       }
       const job = pend[i];
-      say(box, '이어서 생성 중 ' + (done + 1) + '/' + total + ' — ' + job.name);
+      say(box, '이어서 생성 중 ' + (done + 1) + '/' + total + ', ' + job.name);
       const item = await runOneJob(token, job, {
         base: lastRun.base, tpl: lastRun.tpl, oneChar: lastRun.oneChar,
         seq: results.length + 1,
-        onWait: function (msg) { say(box, job.name + ' — ' + msg); }
+        onWait: function (msg) { say(box, job.name + ', ' + msg); }
       });
       results.push(item);
       if (!item.bytes) failed++;
@@ -5334,7 +5356,7 @@
       // ★확인을 묻지 않는다 — 「되돌리기」 가 있어서 되살릴 수 있다.
       $('editor-text').value = '';
       editorSync();
-      editorSay('전부 지웠습니다. 되돌리려면 「되돌리기」.');
+      editorSay('전부 지웠습니다. 되돌리려면 "되돌리기".');
     });
 
     document.addEventListener('keydown', function (e) {
@@ -5492,7 +5514,7 @@
   }
 
   /**
-   * 화면 한가운데의 큰 글씨. p 는 0~1 로 문턱에 얼마나 다가갔는지 —
+   * 화면 한가운데의 큰 글씨. p 는 0~1 로 기준에 얼마나 다가갔는지 —
    * 1 이 되면 「놓으면 실행」 이라는 뜻이라 한 번 커진다.
    */
   function setFlash(text, kind, p) {
@@ -5595,7 +5617,7 @@
     const stage = $('viewer-stage');
     const img = $('viewer-img');
     const THRESHOLD = 60;
-    // ★세로 문턱은 더 크게 잡는다 — 실수로 버리면 되돌릴 수 없다.
+    // ★세로 기준은 더 크게 잡는다 — 실수로 버리면 되돌릴 수 없다.
     const V_THRESHOLD = 90;
 
     let pinching = false;
@@ -5672,7 +5694,7 @@
       if (Math.abs(dy) > Math.abs(dx)) {
         dragY = dy; dragX = 0;
         img.style.transform = 'translate(0,' + dy + 'px)';
-        // 문턱을 넘으면 무엇이 일어날지 미리 알려 준다 — 화면 한가운데에 크게.
+        // 기준을 넘으면 무엇이 일어날지 미리 알려 준다 — 화면 한가운데에 크게.
         const p = Math.abs(dy) / V_THRESHOLD;
         if (dy < 0) {
           setFlash('버리기', 'delete', p);
@@ -5935,11 +5957,11 @@
       const job = jobs[ji];
       const tag = (oneChar ? (job.charName + ' · ') : '')
         + (job.perSlot > 1 ? (job.slotName + ' (' + job.cycle + '/' + job.perSlot + ')') : job.slotName);
-      setProgress(done, totalJobs, '생성 중 ' + (done + 1) + '/' + totalJobs + ' — ' + tag);
+      setProgress(done, totalJobs, '생성 중 ' + (done + 1) + '/' + totalJobs + ', ' + tag);
 
       const item = await runOneJob(token, job, {
         base: base, tpl: tpl, oneChar: oneChar, seq: done + 1,
-        onWait: function (msg) { setProgress(done, totalJobs, tag + ' — ' + msg); }
+        onWait: function (msg) { setProgress(done, totalJobs, tag + ', ' + msg); }
       });
       if (!item.bytes) failed++;
       results.push(item);
@@ -6122,7 +6144,7 @@
     // 잔량은 통신이 필요하므로 화면을 먼저 띄우고 뒤따라 채운다.
     refreshAnlas();
 
-    // ★앱을 켤 때 한 번 권한다 — 새 작가는 판을 짜기 **전에** 알아야 쓸모가 있다.
+    // ★앱을 켤 때 한 번 권한다 — 새 작가는 세트를 짜기 **전에** 알아야 쓸모가 있다.
     //   키를 아직 안 넣은 첫 실행에는 띄우지 않는다 (그때 할 일은 키 넣기다).
     // ★인트로가 걷힌 뒤에 띄운다. 인트로 밑에서 먼저 열리면 걷히는 순간 이미 떠 있어,
     //   사람이 무엇을 눌러 띄운 것인지 알 수 없다.
@@ -6130,10 +6152,10 @@
       setTimeout(function () { openReco(false); }, INTRO_MS + 700);
     }
 
-    // ★새 판은 조용히 본다. 스토어를 안 거치므로 아무도 안 알려 주는데, 그렇다고 켤 때마다
+    // ★업데이트는 조용히 본다. 스토어를 안 거치므로 아무도 안 알려 주는데, 그렇다고 켤 때마다
     //   물어보면 GitHub 한도(토큰 없이 시간당 60번)를 헛되이 쓴다. 여섯 시간에 한 번이다.
     appVersion = await loadAppVersion();
-    $('ver-now').textContent = appVersion ? ('지금 ' + appVersion + ' 판') : '판 번호를 알 수 없습니다 (미리보기)';
+    $('ver-now').textContent = appVersion ? ('현재 ' + appVersion) : '버전을 알 수 없습니다 (미리보기)';
     $('ver-auto').checked = await Store.getUpdateAuto();
     checkUpdate(false);
 
@@ -6183,7 +6205,7 @@
     });
     $('wc-roll').addEventListener('click', function () {
       const src = $('wc-try').value;
-      if (!src.trim()) { say($('wc-result'), '시험할 문장을 넣어주세요.', 'err'); return; }
+      if (!src.trim()) { say($('wc-result'), '테스트할 문장을 넣어주세요.', 'err'); return; }
       say($('wc-result'), Wildcards.resolve(src, wildcardPools), 'ok');
     });
 
@@ -6314,7 +6336,7 @@
       }
     });
     $('art-rating').addEventListener('change', function () {
-      if (artCur) artLoad(artCur.tag);       // 수위를 바꾸면 그림을 다시 받는다
+      if (artCur) artLoad(artCur.tag);       // 등급를 바꾸면 그림을 다시 받는다
     });
     $('art-open').addEventListener('click', function () {
       const tag = artCur ? artCur.tag : Danbooru.normalize($('art-q').value);
@@ -6376,7 +6398,7 @@
       $('bis-tags').value = '';
     });
 
-    // 세기 범위
+    // 가중치 범위
     ['w-min', 'w-max', 'w-step'].forEach(function (id) {
       // ★함수를 그대로 넘기면 Event 가 첫 인자로 들어가 접두사 자리를 차지한다.
       $(id).addEventListener('change', function () { readWeightUI('w'); });
@@ -6388,7 +6410,7 @@
       renderMix();
     });
 
-    // 그림체 시험 판
+    // 그림체 테스트 설정
     ['st-preset', 'st-comp', 'st-char', 'st-base', 'st-neg'].forEach(function (id) {
       $(id).addEventListener('change', readStyleUI);
     });
@@ -6396,7 +6418,7 @@
     //   프롬프트를 고치는 것은 폰에서 사실상 불가능하다 (복사·되돌리기·글자수도 없다).
     //   편집기는 고칠 때 input 을 흘리므로 여기서도 input 을 받아야 저장된다.
     [['st-comp', '테스트 구도 태그'], ['st-char', '테스트용 캐릭터'],
-     ['st-base', '테스트 품질 프롬프트'], ['st-neg', '테스트 네거티브']]
+     ['st-base', '테스트 퀄리티 프롬프트'], ['st-neg', '테스트 네거티브']]
       .forEach(function (p) {
         makeExpandable($(p[0]), p[1]);
         $(p[0]).addEventListener('input', readStyleUI);
@@ -6461,7 +6483,7 @@
     $('reco-tab-min').addEventListener('change', async function () {
       recoMin = parseInt($('reco-tab-min').value, 10) || 100;
       await Store.setRecoMin(recoMin);
-      // ★한 곳에서 정한 문턱이다. 안 맞춰 두면 팝업과 메뉴가 서로 다른 것을 보여 준다.
+      // ★한 곳에서 정한 기준이다. 안 맞춰 두면 팝업과 메뉴가 서로 다른 것을 보여 준다.
       $('reco-min').value = String(recoMin);
       loadRecoTab();
     });
@@ -6577,7 +6599,7 @@
         Store.setOptions(options);
         renderOneChar();
         renderCharLimitHint();
-        renderCharDrawer();     // 「초과」 표시가 달라진다
+        renderCharDrawer();     // "초과" 표시가 달라진다
         renderNamingUI();       // 경로에 인물 폴더가 생기거나 사라진다
         renderAnlas();
       });

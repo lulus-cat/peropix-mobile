@@ -5,9 +5,9 @@
 // 놓친다.
 //
 // ★가짓수를 안 터뜨리는 방법은 **탐색하지 않는 것**이다.
-//   · on/off 20개 = 2^20, 거기에 세기 5단계를 곱하면 5^20. 훑을 수 없다.
+//   · on/off 20개 = 2^20, 거기에 가중치 5단계를 곱하면 5^20. 훑을 수 없다.
 //   · 그래서 「누구인가」와 「얼마나」를 **절대 같이 돌리지 않는다.**
-//       1단계 — 세기를 전부 1.0 으로 묶고 on/off 만 이분 탐색 → 20개면 5라운드
+//       1단계 — 가중치를 전부 1.0 으로 묶고 on/off 만 이분 탐색 → 20개면 5라운드
 //       2단계 — 범인이 정해진 뒤 그 한 명만 1차원으로 훑는다 (artists.js 의 scan) → 5장
 //     합쳐 10장 안팎이면 끝난다.
 //
@@ -129,7 +129,7 @@ const Bisect = (function () {
         seed: sd,
         removed: (group || []).slice(),
         tags: kept,
-        // ★세기는 건드리지 않는다. 1단계에서는 on/off 만 본다.
+        // ★가중치는 건드리지 않는다. 1단계에서는 on/off 만 본다.
         name: r === 0 ? ('원본-' + sd) : ('빼기' + side + '-' + sd)
       };
     });
@@ -181,7 +181,7 @@ const Bisect = (function () {
       s.done = true;
       return s;
     }
-    // 둘 다 사라졌다 → 양쪽에 하나씩 있거나, 뺀 장수 자체가 그림을 바꾼 것이다.
+    // 둘 다 사라졌다 → 양쪽에 하나씩 있거나, 뺀 이미지 수 자체가 그림을 바꾼 것이다.
     if (s.cross && a.L === false && a.R === false) {
       s.rounds.push({ kind: 'split', left: left, right: right, verdict: 'both' });
       s.shared = true;
@@ -253,8 +253,8 @@ const Bisect = (function () {
     if (state.culprit) {
       const who = state.culprit.replace(/_/g, ' ');
       return state.goal === 'drop'
-        ? ('범인은 ' + who + ' 입니다. 빼거나 세기를 낮춰 보세요.')
-        : ('그 부분은 ' + who + ' 덕입니다. 세기를 올려 보세요.');
+        ? ('범인은 ' + who + ' 입니다. 빼거나 가중치를 낮춰 보세요.')
+        : ('그 부분은 ' + who + ' 덕입니다. 가중치를 올려 보세요.');
     }
     if (state.done && !state.candidates.length) {
       return '후보가 다 떨어졌습니다. 작가 태그 때문이 아닐 수도 있습니다.';

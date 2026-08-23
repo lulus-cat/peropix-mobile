@@ -32,7 +32,7 @@
 </div>
 
 <!-- ── 홈 ─────────────────────────────────────────────────────────────────
-     ★작은 글자를 상단에 늘어놓는 대신 큰 판으로 깔았다. 폰에서는 엄지가 닿는 넓이가
+     ★작은 글자를 상단에 늘어놓는 대신 큰 카드로 깔았다. 폰에서는 엄지가 닿는 넓이가
      곧 쓰기 쉬움이다. 무엇을 하는 곳인지 한 줄씩 붙여 두어, 처음 여는 사람도 어디로
      가야 할지 읽고 고를 수 있게 했다. -->
 <section id="screen-home" class="screen" hidden>
@@ -80,7 +80,7 @@
         <span class="home-card-ic" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         </span>
-        <span class="home-card-txt"><b>폴더 관리</b><i>뽑은 그림 정리</i></span>
+        <span class="home-card-txt"><b>폴더 관리</b><i>생성한 이미지 정리</i></span>
       </button>
 
       <button class="home-card" id="home-results">
@@ -109,7 +109,7 @@
       </button>
     </div>
 
-    <!-- ★새 판이 나오면 여기에 뜬다. 시작 화면은 어차피 지나가는 곳이라, 알림을 따로
+    <!-- ★새 버전이 나오면 여기에 뜬다. 시작 화면은 어차피 지나가는 곳이라, 알림을 따로
          띄워 하려던 일을 가로막지 않아도 된다. -->
     <div class="upd" id="home-upd" hidden>
       <div class="upd-top">
@@ -119,7 +119,7 @@
       <ul class="upd-list" id="upd-list"></ul>
       <div class="toolrow">
         <button id="upd-get" class="btn small primary">받으러 가기</button>
-        <button id="upd-skip" class="btn small">이 판 건너뛰기</button>
+        <button id="upd-skip" class="btn small">이 버전 건너뛰기</button>
         <button id="upd-later" class="btn small">나중에</button>
       </div>
     </div>
@@ -213,7 +213,7 @@
     <label class="field">
       <span class="label">폴더 이름</span>
       <input id="persona" type="text" placeholder="예: 미아">
-      <span class="hint">뽑은 그림이 이 이름의 폴더에 들어갑니다.</span>
+      <span class="hint">생성한 이미지이 이 이름의 폴더에 들어갑니다.</span>
     </label>
 
     <div class="row-head">
@@ -366,7 +366,7 @@
       </div>
 
       <label class="field" id="opt-quality-field" hidden>
-        <span class="label">JPG · WebP 품질 <span id="opt-quality-val"></span></span>
+        <span class="label">JPG · WebP 화질 <span id="opt-quality-val"></span></span>
         <input id="opt-jpg-quality" type="range" min="50" max="100" step="1">
       </label>
       <label class="check">
@@ -404,7 +404,7 @@
 
   <div class="bottombar">
     <div id="cost-row" class="cost-row">
-      <span id="cost-est" class="cost-est">—</span>
+      <span id="cost-est" class="cost-est">, </span>
       <span id="anlas-bal" class="anlas-bal"></span>
     </div>
     <button id="generate" class="btn primary block">생성</button>
@@ -462,15 +462,15 @@
 
     <div id="settings-msg" class="msg" hidden></div>
 
-    <div class="row-head"><span class="label">판 번호</span></div>
+    <div class="row-head"><span class="label">버전</span></div>
     <div class="toolrow">
       <span class="hint" id="ver-now">확인 중…</span>
       <span class="spacer"></span>
-      <button id="ver-check" class="btn small">새 판 확인</button>
+      <button id="ver-check" class="btn small">업데이트 확인</button>
     </div>
     <p class="hint" id="ver-msg">GitHub 릴리즈를 봅니다. 토큰은 필요 없습니다.</p>
     <label class="check">
-      <input id="ver-auto" type="checkbox" checked> 켤 때 새 판이 나왔는지 확인
+      <input id="ver-auto" type="checkbox" checked> 켤 때 업데이트 확인
     </label>
 
     <button id="settings-save" class="btn primary block">키 확인하고 저장</button>
@@ -491,19 +491,19 @@
     </div>
     <p class="hint">
       PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다.
-      <b>비밀번호는 만들 필요가 없습니다</b> — <code>python3 receiver.py --root ./images</code>
+      <b>비밀번호는 만들 필요가 없습니다.</b> <code>python3 receiver.py --root ./images</code>
       만 하면 알아서 만들어 기억합니다.
     </p>
 
     <!-- ★파일을 받으려고 저장소를 뒤지게 하지 않는다. 앱 안에 든 것이 지금 앱과 짝이
-         맞는 판이라, 여기서 꺼내 쓰는 것이 제일 확실하다. -->
+         맞는 버전이라, 여기서 꺼내 쓰는 것이 제일 확실하다. -->
     <div class="toolrow">
       <button id="rx-copy" class="btn small">receiver.py 복사</button>
       <button id="rx-save" class="btn small">파일로 저장</button>
     </div>
     <p class="hint" id="rx-msg">SSH 로 붙어서
       <code>cat &gt; receiver.py</code> 하고 붙여넣은 뒤 Ctrl+D 를 누르면 끝입니다.
-      이 앱에 든 것과 같은 판입니다.</p>
+      이 앱에 든 것과 같은 버전입니다.</p>
 
     <label class="field">
       <span class="label">한 줄로 붙여넣기</span>
@@ -511,8 +511,7 @@
              autocapitalize="off" autocorrect="off" spellcheck="false">
       <span class="hint">
         수신함을 켜면 화면에 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
-        이름·주소·비밀번호가 한 번에 채워집니다. <b>비밀번호는 만들 필요가 없습니다</b> —
-        <code>python receiver.py --root ./images</code> 만 하면 알아서 만들어 기억합니다.
+        이름·주소·비밀번호가 한 번에 채워집니다. <b>비밀번호는 만들 필요가 없습니다.</b> <code>python receiver.py --root ./images</code> 만 하면 알아서 만들어 기억합니다.
       </span>
     </label>
     <div id="dest-paste-msg" class="msg" hidden></div>
@@ -746,7 +745,7 @@
     <div id="wc-info" class="msg"></div>
 
     <label class="field">
-      <span class="label">시험해 보기</span>
+      <span class="label">테스트해 보기</span>
       <input id="wc-try" type="text" placeholder="예: 1girl, #hair, #outfit">
     </label>
     <button id="wc-roll" class="btn block">뽑아 보기</button>
@@ -814,7 +813,7 @@
         <li><b>설정 → API 키</b>에 NovelAI 키를 넣습니다. 키는 <b>이 폰에만</b> 저장됩니다.
           APK 를 남에게 줘도 키는 따라가지 않습니다.</li>
         <li><b>설정 → 저장 위치</b>에서 폰에 저장할지, PC·VPS 수신함으로 보낼지 고릅니다.</li>
-        <li><b>이미지 대량생성</b>에서 슬롯에 프롬프트를 넣고 「생성」.</li>
+        <li><b>이미지 대량생성</b>에서 슬롯에 프롬프트를 넣고 "생성".</li>
       </ol>
       <p class="hint">Anlas 잔량은 홈 오른쪽 위에 뜹니다. 뽑기 전에 몇 장이 나오고
         Anlas 가 얼마나 드는지 화면에 먼저 적어 줍니다.</p>
@@ -823,14 +822,14 @@
     <details class="panel" data-guide="bulk">
       <summary>이미지 대량생성</summary>
       <ul class="guide-ul">
-        <li><b>슬롯</b> 하나가 프롬프트 한 벌입니다. 슬롯을 여러 개 켜 두면 차례로 다 뽑습니다.
+        <li><b>슬롯</b> 하나가 프롬프트 한 세트입니다. 슬롯을 여러 개 켜 두면 차례로 다 뽑습니다.
           왼쪽으로 밀면 슬롯 서랍이 열립니다.</li>
         <li><b>인물</b>은 오른쪽으로 밀면 나옵니다. 켠 인물만 나갑니다.</li>
-        <li><b>한 명씩 돌리기</b> — 인물이 많고 슬롯이 적을 때 켜세요. 인물 수만큼 자동으로
+        <li><b>한 명씩 돌리기</b>: 인물이 많고 슬롯이 적을 때 켜세요. 인물 수만큼 자동으로
           돌고, 저장 경로에 인물 폴더가 한 겹 끼어듭니다.</li>
         <li>서랍 목록에서 <b>동그라미를 누른 채 쓸면</b> 지나간 줄이 한꺼번에 켜지고 꺼집니다.</li>
         <li>인터넷이 끊겨 몇 장이 깨졌으면 결과 화면 맨 위의
-          <b>「못 만든 N장 다시 생성」</b> 이 그것만 다시 뽑습니다. 이미 나온 장은 다시 안 뽑습니다.</li>
+          <b>"못 만든 N장 다시 생성"</b> 이 그것만 다시 뽑습니다. 이미 나온 장은 다시 안 뽑습니다.</li>
       </ul>
     </details>
 
@@ -849,17 +848,17 @@
     <details class="panel" data-guide="artists">
       <summary>작가 태그 테스트</summary>
       <ul class="guide-ul">
-        <li><b>찾기</b> — 이름을 넣으면 Danbooru 에 그때그때 물어봅니다. 그림이 몇 장인지,
+        <li><b>찾기</b>: 이름을 넣으면 Danbooru 에 그때그때 물어봅니다. 이미지가 몇 장인지,
           NAI 가 알아볼 만한지, 어떤 걸 주로 그리는지가 나옵니다.</li>
-        <li><b>서랍</b> — 마음에 든 작가를 담아 둡니다. 눌러서 <b>섞기</b>에 넣고 세기를 정합니다.
+        <li><b>서랍</b>: 마음에 든 작가를 담아 둡니다. 눌러서 <b>섞기</b>에 넣고 가중치를 정합니다.
           한 조합에 20명까지입니다.</li>
-        <li><b>라벨</b> — 「라벨 붙이기」 를 누르고 라벨을 하나 고르면, 그 뒤로는
+        <li><b>라벨</b>: "라벨 붙이기" 를 누르고 라벨을 하나 고르면, 그 뒤로는
           <b>작가 줄을 누르기만</b> 하면 붙었다 떨어집니다. 이름을 다시 적지 않아도 됩니다.</li>
-        <li><b>추천</b> — 그림 100장 이상인 작가 중에서 골라 줍니다. 이름을 누르면
-          「찾기」로 넘어가 그 작가가 펼쳐집니다.</li>
-        <li><b>테스트 → 조합</b> — 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 견줍니다.
-          딱 맞는 게 없으면 <b>별점을 매기고</b> 「점수 반영해서 다시 뽑기」.</li>
-        <li><b>테스트 → 깎기</b> — 작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모를 때.
+        <li><b>추천</b>: 그림 100장 이상인 작가 중에서 골라 줍니다. 이름을 누르면
+          "찾기"로 넘어가 그 작가가 펼쳐집니다.</li>
+        <li><b>테스트 → 조합</b>: 가중치를 아무렇게나 매긴 조합을 여러 개 뽑아 견줍니다.
+          딱 맞는 게 없으면 <b>별점을 매기고</b> "점수 반영해서 다시 뽑기".</li>
+        <li><b>테스트 → 깎기</b>: 작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모를 때.
           5라운드면 범인을 찾습니다.</li>
       </ul>
       <p class="hint">테스트는 <b>자기 프롬프트와 자기 이미지 설정</b>을 따로 씁니다.
@@ -869,11 +868,11 @@
     <details class="panel" data-guide="remote">
       <summary>원격 작업 · 저장 위치</summary>
       <ul class="guide-ul">
-        <li><b>폰에 저장</b> — 아무것도 준비할 게 없습니다. 갤러리에 바로 들어갑니다.</li>
-        <li><b>PC · VPS 수신함</b> — <code>receiver.py</code> 를 띄우면 화면에
+        <li><b>폰에 저장</b>: 아무것도 준비할 게 없습니다. 갤러리에 바로 들어갑니다.</li>
+        <li><b>PC · VPS 수신함</b>: <code>receiver.py</code> 를 띄우면 화면에
           <code>peropix://…</code> 한 줄이 나옵니다. 그걸 설정 칸에 붙여넣으면 끝입니다.
           주소·비밀번호를 따로 옮겨 적지 않습니다.</li>
-        <li><b>GitHub 지시함</b> — 저장소에 JSON 을 올려 두면 폰이 받아 뽑습니다.
+        <li><b>GitHub 지시함</b>: 저장소에 JSON 을 올려 두면 폰이 받아 뽑습니다.
           앱은 저장소에 <b>쓰지 않습니다</b>.</li>
       </ul>
       <p class="hint">키는 언제나 폰에만 있습니다. 수신함으로 올라가는 것은 프롬프트와
@@ -883,16 +882,16 @@
     <details class="panel" data-guide="stuck">
       <summary>자주 막히는 곳</summary>
       <ul class="guide-ul">
-        <li><b>뽑히다 말았다</b> — 안드로이드가 백그라운드를 재웁니다. 뽑는 동안에는
+        <li><b>뽑히다 말았다</b>: 안드로이드가 백그라운드를 재웁니다. 뽑는 동안에는
           앱을 켜 두세요.</li>
-        <li><b>APK 가 안 깔린다</b> — 예전에 다른 서명으로 깔았던 것이 남아 있으면
-          지우고 다시 깔아야 합니다. 지금 판끼리는 덮어 설치되고 키·슬롯도 남습니다.</li>
-        <li><b>인핸스하면 투명 배경이 풀린다</b> — 이제 원본 알파를 다시 씌워 지킵니다.</li>
-        <li><b>＋ 를 눌러도 세기 숫자가 안 움직인다</b> — 합 고정이 켜져 있으면 한 명을
+        <li><b>APK 가 안 깔린다</b>: 예전에 다른 서명으로 깔았던 것이 남아 있으면
+          지우고 다시 깔아야 합니다. 지금 버전끼리는 덮어 설치되고 키·슬롯도 남습니다.</li>
+        <li><b>인핸스하면 투명 배경이 풀린다</b>: 이제 원본 알파를 다시 씌워 지킵니다.</li>
+        <li><b>＋ 를 눌러도 가중치 숫자가 안 움직인다</b>: 합 고정이 켜져 있으면 한 명을
           올릴 때 나머지가 내려갑니다. 큰 숫자가 정한 값, 옆의 작은 <code>→1.10</code> 이
           실제로 나가는 값입니다.</li>
-        <li><b>작가 태그를 넣었는데 그림에 안 나온다</b> — 그림 수가 적은 작가는 NAI 가
-          배운 게 없습니다. 「찾기」에서 반영율을 먼저 보세요.</li>
+        <li><b>작가 태그를 넣었는데 그림에 안 나온다</b>: 이미지 수가 적은 작가는 NAI 가
+          배운 게 없습니다. "찾기"에서 반영율을 먼저 보세요.</li>
       </ul>
     </details>
 
@@ -943,7 +942,7 @@
         <span class="label">토큰 (비공개 저장소일 때만)</span>
         <input id="gh-token" type="password" placeholder="github_pat_... (공개 저장소면 비워 두세요)"
                autocapitalize="off" autocorrect="off" spellcheck="false">
-        <span class="hint">★<b>읽기 전용</b> 토큰을 쓰세요. 앱은 저장소에 쓰지 않습니다.</span>
+        <span class="hint"><b>읽기 전용</b> 토큰을 쓰세요. 앱은 저장소에 쓰지 않습니다.</span>
       </label>
       <div class="toolrow">
         <button id="gh-save" class="btn small primary">저장하고 확인</button>
@@ -978,7 +977,7 @@
 리사/
   characters/리사.json
   slots/교복.json</pre>
-        <p class="hint">★<b>슬롯 파일이 새로 생기거나 내용이 바뀌면</b> 그것이 새 작업이 됩니다.
+        <p class="hint"><b>슬롯 파일이 새로 생기거나 내용이 바뀌면</b> 그것이 새 작업이 됩니다.
           인물 파일을 고치는 건 작업이 되지 않습니다. 다음에 그 작품을 돌릴 때 최신 인물이 쓰입니다.</p>
       </details>
     </div>
@@ -987,14 +986,14 @@
       <input id="jobs-auto" type="checkbox"> 받으면 바로 실행
     </label>
     <p class="hint">꺼 두면 목록만 받아 오고, 실행은 아래에서 눌러 정합니다.
-      ★켜 두면 <b>물어보지 않고 Anlas 를 씁니다.</b></p>
+      켜 두면 <b>물어보지 않고 Anlas 를 씁니다.</b></p>
 
     <div id="jobs-msg" class="msg" hidden></div>
     <div id="jobs-list"></div>
 
     <details class="panel">
       <summary>지시 파일 모양</summary>
-      <p class="hint"><b>슬롯 파일</b> — <code>미아/slots/일상.json</code></p>
+      <p class="hint"><b>슬롯 파일</b>, <code>미아/slots/일상.json</code></p>
       <pre class="code-block">{
   "name": "미아 · 일상",
   "prefix": "1girl, silver hair, masterpiece",
@@ -1004,7 +1003,7 @@
   ],
   "options": { "count_per_slot": 1 }
 }</pre>
-      <p class="hint"><b>인물 파일</b> — <code>미아/characters/미아.json</code></p>
+      <p class="hint"><b>인물 파일</b>, <code>미아/characters/미아.json</code></p>
       <pre class="code-block">{ "name": "미아", "content": "1girl, silver hair, blue eyes" }</pre>
       <p class="hint">저장 폴더는 <b>작품 폴더 이름</b>을 씁니다. 슬롯 파일에 <code>folder</code> 를
         적으면 그것이 이깁니다. <code>options</code> 는 아는 값만 받습니다. 모델, 크기, steps, cfg, 
@@ -1147,8 +1146,8 @@
 </section>
 
 <!-- ★작가 태그를 다루는 곳. 네 가지 일을 한 화면에서 한다.
-       찾기: Danbooru 에 실시간으로 물어 반영율(그림 수)과 그림체를 확인한다
-       서랍: 골라 둔 작가를 갈래로 나누고 섞는다 (세기 배분 포함)
+       찾기: Danbooru 에 실시간으로 물어 반영율(이미지 수)과 그림체를 확인한다
+       서랍: 골라 둔 작가를 갈래로 나누고 섞는다 (가중치 배분 포함)
        추천: 그림 100장 이상인 작가 중에서 무작위로 권한다
        그림체: 조합(무작위 가중치)과 깎기(범인 찾기) -->
 <section id="screen-artists" class="screen" hidden>
@@ -1213,7 +1212,7 @@
       <summary>반영율이란</summary>
       <p class="hint">솔직히 말하면 <b>짐작</b>입니다. NAI 가 뭘 얼마나 배웠는지는 공개된 적이
         없습니다. 다만 NAI 는 Danbooru 로 학습했으니 <b>그림이 많은 작가일수록 많이 배웠다</b>고
-        볼 수 있고, 실제로 그림이 적은 작가는 태그를 넣어도 잘 안 나옵니다. 그래서 그림 수를
+        볼 수 있고, 실제로 그림이 적은 작가는 태그를 넣어도 잘 안 나옵니다. 그래서 이미지 수를
         그대로 기준으로 쓰되, 몇 장이라서 이 등급인지 같이 적어 뒀습니다. 판단은 직접 하세요.</p>
       <p class="hint">그림이 많아도 <b>최근 것만 잔뜩</b>이면 NAI 가 배운 뒤에 올라온 그림이라
         안 먹힐 수 있습니다. 그래서 몇 년 이전 그림이 몇 %인지도 같이 보여 줍니다.</p>
@@ -1267,7 +1266,7 @@
          꼭 필요할 때만 숫자를 편다. -->
     <details class="panel">
       <summary>가중치 범위 정하기</summary>
-      <p class="hint">작가 세기를 어디까지 올리고 내릴 수 있는지 정합니다. 넓힐수록 차이가
+      <p class="hint">작가 가중치를 어디까지 올리고 내릴 수 있는지 정합니다. 넓힐수록 차이가
         커지지만, <b>1.5 를 넘으면 그 작가가 그림을 다 덮어버리고 0.5 아래면 넣으나 마나입니다.</b></p>
       <div class="row-head"><span class="label">폭</span></div>
       <div id="w-presets" class="chips"></div>
@@ -1292,10 +1291,10 @@
     </details>
 
     <label class="check">
-      <input id="mix-norm" type="checkbox" checked> 세기 합을 작가 수로 고정
+      <input id="mix-norm" type="checkbox" checked> 가중치 합을 작가 수로 고정
     </label>
     <p class="hint">다섯 명한테 전부 1.2 를 주면 프롬프트가 작가 쪽으로 쏠려서 구도, 표정,
-      옷 태그가 밀립니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩 내려가니까, 세기를
+      옷 태그가 밀립니다. 켜 두면 한 명을 올릴 때 나머지가 조금씩 내려가니까, 가중치를
       올려도 다른 게 망가지지 않습니다. 끄면 적은 값이 그대로 나갑니다.</p>
 
     <label class="field">
@@ -1307,7 +1306,7 @@
       <button id="mix-copy" class="btn small">복사</button>
       <button id="mix-clear" class="btn small">비우기</button>
     </div>
-    <p class="hint">세기는 <code>숫자::태그::</code> 모양으로 나갑니다. 1.0 인 작가는 그냥
+    <p class="hint">가중치는 <code>숫자::태그::</code> 모양으로 나갑니다. 1.0 인 작가는 그냥
       이름만 씁니다. 어차피 같은 뜻인데 프롬프트만 지저분해지니까요.</p>
   </div>
 
@@ -1332,8 +1331,8 @@
 
   <!-- ── 깎기 ───────────────────────────────────────────────────────── -->
   <!-- ── 그림체 조작 ─────────────────────────────────────────────────── -->
-  <!-- ★조합과 깎기는 같은 판 위에서 논다. 시험 판(구도·인물·품질·네거티브)을 위에 한 번만
-       두고 두 모드가 나눠 쓴다 — 판이 다르면 두 모드의 결과를 서로 견줄 수 없다. -->
+  <!-- ★조합과 깎기는 같은 화면에서 돈다. 테스트 설정(구도·캐릭터·퀄리티·네거티브)을 위에 한 번만
+       두고 두 모드가 나눠 쓴다 — 설정이 다르면 두 모드의 결과를 서로 견줄 수 없다. -->
   <div class="pad scroll" id="pane-style" hidden>
 
     <details class="panel" id="st-panel" open>
@@ -1359,7 +1358,7 @@
         <textarea id="st-char" rows="2"></textarea>
       </label>
       <label class="field">
-        <span class="label">품질</span>
+        <span class="label">퀄리티</span>
         <textarea id="st-base" rows="2"></textarea>
         <span class="hint">수채화, 러프처럼 그림체를 바꾸는 말은 넣지 마세요. 작가 차이가 묻힙니다.</span>
       </label>
@@ -1368,8 +1367,8 @@
         <textarea id="st-neg" rows="2"></textarea>
       </label>
       <!-- ★모델·크기·스텝을 바꾸면 그림체 인상이 통째로 달라진다. 여기서 고를 수 있어야
-           한다. 다만 대량생성 값을 직접 고치면 시험 좀 해 봤다가 평소 설정이 바뀌어
-           있게 되므로, 시험은 자기 값을 따로 들고 돈다. -->
+           한다. 다만 대량생성 값을 직접 고치면 테스트 좀 해 봤다가 평소 설정이 바뀌어
+           있게 되므로, 테스트은 자기 값을 따로 들고 돈다. -->
       <div class="row-head"><span class="label">이미지 설정</span></div>
       <p class="hint">여기서 정한 값은 <b>테스트할 때만</b> 쓰입니다. 대량생성 설정은
         그대로 있습니다. 비워 두면 대량생성에서 쓰던 값을 씁니다.</p>
@@ -1421,7 +1420,7 @@
       <label class="check" id="st-straight-alpha-row" hidden>
         <input id="st-straight-alpha" type="checkbox"> Straight Alpha
       </label>
-      <p class="hint">저장 설정(형식·품질·생성 정보 지우기·자동 저장)과 인핸스 설정은
+      <p class="hint">저장 설정(형식·화질·생성 정보 지우기·자동 저장)과 인핸스 설정은
         여기 없습니다. 그림이 달라지는 값이 아니라 뽑은 뒤를 다루는 값입니다.
         배수도 없습니다. 테스트는 조합마다 한 장씩 뽑는 게 전제입니다.</p>
       <p class="hint" id="st-opt-echo"></p>
@@ -1492,7 +1491,7 @@
         <div class="row-head"><span class="label">뽑은 조합</span></div>
         <p class="hint">마음에 드는 게 있으면 <b>이걸로</b> 를 누르세요. 딱 맞는 게 없으면
           별점을 매기고 <b>점수 반영해서 다시 뽑기</b>. 높은 점수를 준 조합 쪽으로
-          세기가 당겨집니다.</p>
+          가중치가 당겨집니다.</p>
         <div id="cmb-shots" class="shots"></div>
         <div id="cmb-list"></div>
         <button id="cmb-refine" class="btn primary block" hidden>점수 반영해서 다시 뽑기</button>
@@ -1546,7 +1545,7 @@
       <label class="check">
         <input id="bis-cross" type="checkbox" checked> 양쪽을 다 빼 본다 (교차 확인)
       </label>
-      <p class="hint">뽑는 장수가 두 배가 되는 대신, <b>한 명이 만든 게 아닌 경우</b>를 잡아냅니다.
+      <p class="hint">뽑는 이미지 수가 두 배가 되는 대신, <b>한 명이 만든 게 아닌 경우</b>를 잡아냅니다.
         왼쪽을 빼도 남아 있고 오른쪽을 빼도 남아 있으면, 여러 명이 같이 만들어낸 겁니다.</p>
 
       <div id="bis-est" class="cost-est"></div>
@@ -1568,10 +1567,10 @@
         <div id="bis-ask-btns" class="bis-ask-btns"></div>
       </div>
       <div id="bis-done" hidden>
-        <div class="row-head"><span class="label">세기 맞추기</span></div>
-        <p class="hint">범인을 찾았으니 이제 <b>얼마나 세게</b> 쓸지 정합니다. 한 명만 세기를
-          바꿔가며 뽑으니까 장수가 확 늘지 않습니다.</p>
-        <button id="bis-scan" class="btn primary block">세기 바꿔가며 뽑아 보기</button>
+        <div class="row-head"><span class="label">가중치 맞추기</span></div>
+        <p class="hint">범인을 찾았으니 이제 <b>얼마나 세게</b> 쓸지 정합니다. 한 명만 가중치를
+          바꿔가며 뽑으니까 이미지 수가 확 늘지 않습니다.</p>
+        <button id="bis-scan" class="btn primary block">가중치 바꿔가며 뽑아 보기</button>
       </div>
     </div>
 
@@ -1581,16 +1580,16 @@
         뭐 때문에 달라졌는지 알 수 없습니다. 전부 넣은 채로 절반만 빼야, 나머지 그림체는
         그대로인 상태에서 그 부분만 사라졌는지 보입니다.</p>
       <p class="hint"><b>누구인지</b>와 <b>얼마나 세게</b>를 같이 찾으면 안 됩니다. 켜고 끄는
-        것만 해도 20명이면 100만 가지가 넘는데, 여기에 세기 5단계를 곱하면 손댈 수 없는
-        숫자가 됩니다. 그래서 범인은 세기를 전부 1.0 으로 묶고 켜고 끄기만으로 찾고,
-        세기는 범인을 찾은 다음에 그 한 명만 바꿔 봅니다. 다 합쳐서 10장쯤이면 끝납니다.</p>
+        것만 해도 20명이면 100만 가지가 넘는데, 여기에 가중치 5단계를 곱하면 손댈 수 없는
+        숫자가 됩니다. 그래서 범인은 가중치를 전부 1.0 으로 묶고 켜고 끄기만으로 찾고,
+        가중치는 범인을 찾은 다음에 그 한 명만 바꿔 봅니다. 다 합쳐서 10장쯤이면 끝납니다.</p>
     </details>
     </div>
   </div>
 </section>
 
-<!-- ★「이런 작태는 어떠세요」 — 앱을 켤 때 띄운다. 다 뽑고 나면 그 판은 이미 끝났고,
-     새 작가는 판을 짜기 전에 알아야 쓸모가 있다. 고르는 기준은 「그림 100장 이상」 이며,
+<!-- ★「이런 작태는 어떠세요」 — 앱을 켤 때 띄운다. 다 뽑고 나면 그 세션은 이미 끝났고,
+     새 작가는 세트를 짜기 전에 알아야 쓸모가 있다. 고르는 기준은 「그림 100장 이상」 이며,
      그 아래는 NAI 가 배운 것이 없어 태그를 넣어도 안 나온다. 끌 수 있다. -->
 <div id="reco" class="reco" hidden>
   <div class="reco-sheet">

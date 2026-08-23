@@ -309,6 +309,33 @@ check('다른 라벨은 안 건드린다', catsOf(ld, 'b').indexOf('굵은 선')
 check('없는 라벨을 지우라고 해도 안 터진다',
   JSON.stringify(A.removeCat(lr, '없는것')) === JSON.stringify(lr));
 
+// ── 라벨별로 묶어 보여 주기 ──────────────────────────────────────────────
+// ★스무 명이 한 줄로 늘어서 있으면 어느 것이 무엇인지 알 수가 없다.
+let gl = A.add(A.add(A.add(A.add([], { name: 'w' }), { name: 'x' }), { name: 'y' }), { name: 'z' });
+gl = A.setCat(gl, ['w', 'x'], '수채', true);
+gl = A.setCat(gl, ['w'], '두꺼운 선', true);
+// y 는 라벨 없음, z 는 서랍에 없는 태그로 흉내 낸다
+
+let g = A.groupByLabel(['w', 'x', 'y', '서랍밖'], gl);
+const byName = function (n) { return g.find(function (x) { return x.label === n; }); };
+check('많이 붙은 라벨이 먼저', g[0].label === '수채', JSON.stringify(g.map(function (x) { return x.label; })));
+check('★한 사람이 두 라벨에 걸치면 양쪽에 다 나온다 (하나로 몰면 다른 쪽에서 못 찾는다)',
+  byName('수채').tags.indexOf('w') !== -1 && byName('두꺼운 선').tags.indexOf('w') !== -1);
+check('라벨 없는 사람은 따로 모은다', byName('라벨 없음').tags.join(',') === 'y');
+check('★서랍에 없는 태그도 버리지 않는다 (작가 태그 칸에서 불러온 것이 사라지면 안 된다)',
+  byName('서랍에 없음').tags.join(',') === '서랍밖');
+check('라벨 없음·서랍에 없음이 맨 뒤',
+  g[g.length - 1].label === '서랍에 없음' && g[g.length - 2].label === '라벨 없음',
+  JSON.stringify(g.map(function (x) { return x.label; })));
+check('빈 목록이면 빈 결과', A.groupByLabel([], gl).length === 0 && A.groupByLabel(null, gl).length === 0);
+check('서랍이 비어 있으면 전부 「서랍에 없음」',
+  A.groupByLabel(['a', 'b'], []).length === 1
+  && A.groupByLabel(['a', 'b'], [])[0].tags.length === 2);
+check('★모든 태그가 한 번씩은 나온다 (묶다가 흘리면 고를 수가 없다)',
+  ['w', 'x', 'y', '서랍밖'].every(function (t) {
+    return g.some(function (x) { return x.tags.indexOf(t) !== -1; });
+  }));
+
 const total = pass + fails.length;
 console.log('작가 서랍 검사 ' + total + '건 — 통과 ' + pass + '건, 실패 ' + fails.length + '건');
 fails.forEach(function (f) { console.log('\n  ▸ ' + f); });

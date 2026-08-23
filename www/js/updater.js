@@ -1,9 +1,9 @@
-// 새 판이 나왔는지 본다 — GitHub Releases 를 그대로 눈금으로 쓴다.
+// 업데이트가 있는지 본다 — GitHub Releases 를 그대로 기준으로 쓴다.
 //
 // ★조용히 알아서 깔리게는 **못 만든다.** 안드로이드는 설치할 때 반드시 사람이 확인
 //   화면을 눌러야 한다 (시스템 앱이나 기기 관리자면 예외인데, 옆에서 받아 까는 앱은
 //   거기 해당하지 않는다). 그러니 앱이 할 수 있는 것은 여기까지다 —
-//   **새 판이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.**
+//   **새 버전이 나온 것을 알아채고, 받는 곳까지 한 번에 데려다주는 것.**
 //   그 뒤 「설치」 를 누르는 것은 사람 몫이다.
 //
 // ★여기는 주소를 만들고 응답을 읽는 일만 한다. 실제로 부르는 것은 app.js — 그래야
@@ -13,7 +13,7 @@
 const Updater = (function () {
   const API = 'https://api.github.com';
 
-  /** 판 번호를 숫자 배열로. v1.2.10 → [1,2,10] */
+  /** 버전을 숫자 배열로. v1.2.10 → [1,2,10] */
   function parts(v) {
     return String(v || '').trim().replace(/^v/i, '').split(/[.\-+]/)
       .map(function (x) { return parseInt(x, 10); })
@@ -21,8 +21,8 @@ const Updater = (function () {
   }
 
   /**
-   * 판 번호 견주기. a 가 크면 1, 같으면 0, 작으면 -1.
-   * ★글자로 견주면 안 된다. '1.2.10' < '1.2.9' 가 되어 새 판이 나와도 모른다.
+   * 버전 비교. a 가 크면 1, 같으면 0, 작으면 -1.
+   * ★글자로 견주면 안 된다. '1.2.10' < '1.2.9' 가 되어 새 버전이 나와도 모른다.
    */
   function compare(a, b) {
     const x = parts(a);
@@ -36,7 +36,7 @@ const Updater = (function () {
     return 0;
   }
 
-  /** 저장소의 마지막 판 주소. 토큰이 필요 없다 (공개 저장소). */
+  /** 저장소의 최신 릴리스 주소. 토큰이 필요 없다 (공개 저장소). */
   function latestUrl(repo) {
     const r = String(repo || '').trim().replace(/^https?:\/\/github\.com\//i, '')
       .replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
@@ -46,7 +46,7 @@ const Updater = (function () {
 
   /**
    * 응답에서 쓸 것만 꺼낸다.
-   * ★APK 를 못 찾으면 릴리즈 쪽(html_url)이라도 준다. 소스만 올라간 판에서 「받기」 가
+   * ★APK 를 못 찾으면 릴리즈 쪽(html_url)이라도 준다. 소스만 올라간 릴리스에서 「받기」 가
    *   아무 데도 안 가면 고장으로 보인다.
    */
   function parseLatest(body) {
@@ -74,7 +74,7 @@ const Updater = (function () {
   /**
    * 지금 볼 때가 되었는가.
    * ★켤 때마다 물어보지 않는다. 토큰 없이 부르면 한 시간에 60번까지라, 자주 부르면
-   *   정작 필요할 때 막힌다. 판이 하루에 몇 번씩 나오지도 않는다.
+   *   정작 필요할 때 막힌다. 릴리스가 하루에 몇 번씩 나오지도 않는다.
    */
   function due(lastAt, now, hours) {
     const gap = (hours === undefined ? 6 : hours) * 3600 * 1000;
@@ -87,14 +87,14 @@ const Updater = (function () {
 
   /**
    * 알릴 것이 있는가.
-   * @param {object} o {current, latest, skipped} 지금 판 · 받아 온 판 · 건너뛰기로 정한 판
+   * @param {object} o {current, latest, skipped} 현재 버전 · 받아 온 버전 · 건너뛰기로 정한 버전
    * @returns {{show, version, reason}}
    */
   function decide(o) {
     const opt = o || {};
     const latest = opt.latest;
     if (!latest || !latest.version) return { show: false, reason: 'none' };
-    // ★지금 판을 모르면(브라우저 미리보기 등) 알림을 띄우지 않는다. 늘 「새 판이다」 가
+    // ★현재 버전을 모르면(브라우저 미리보기 등) 알림을 띄우지 않는다. 늘 「새 버전이다」 가
     //   되어 버려 알림이 무의미해진다.
     if (!opt.current) return { show: false, version: latest.version, reason: 'unknown' };
     if (compare(latest.version, opt.current) <= 0) {

@@ -2,13 +2,13 @@
 //
 // ★가중치를 어떻게 다룰지가 이 파일의 전부다.
 //
-//   작가 20명을 on/off 만 해도 2^20 이고, 거기에 세기 5단계를 곱하면 5^20 이다.
+//   작가 20명을 on/off 만 해도 2^20 이고, 거기에 가중치 5단계를 곱하면 5^20 이다.
 //   탐색으로는 못 푼다. 그래서 **탐색하지 않는다** —
-//     · 누가 범인인지는 bisect.js 가 on/off 로만 찾고 (세기는 전부 1.0 으로 묶는다),
-//     · 세기는 범인이 정해진 **뒤에** 한 명씩 1차원으로 훑는다.
+//     · 누가 범인인지는 bisect.js 가 on/off 로만 찾고 (가중치는 전부 1.0 으로 묶는다),
+//     · 가중치는 범인이 정해진 **뒤에** 한 명씩 1차원으로 훑는다.
 //   여기서는 그 결과를 담아 두고 굽는 일만 한다.
 //
-// ★세기 범위는 0.6~1.4 로 자른다. 1.5 를 넘으면 그 작가가 그림을 통째로 잡아먹고,
+// ★가중치 범위는 0.6~1.4 로 자른다. 1.5 를 넘으면 그 작가가 그림을 통째로 잡아먹고,
 //   0.5 아래면 없는 것과 다르지 않다. 그 밖은 훑을 값어치가 없어서 아예 못 쓰게 막는다.
 //
 // ★여러 명을 섞을 때는 **합을 작가 수로 고정**한다. 다섯 명한테 전부 1.2 를 주면
@@ -41,24 +41,24 @@ const Artists = (function () {
     if (!isFinite(max) || max <= 0) max = RANGE.max;
     if (min > max) { const t = min; min = max; max = t; }   // 뒤집어 넣어도 받아 준다
     if (!isFinite(step) || step <= 0) step = RANGE.step;
-    // ★간격이 범위보다 크면 눈금이 하나도 안 생긴다.
+    // ★간격이 범위보다 크면 단계이 하나도 안 생긴다.
     if (step > (max - min) && max > min) step = max - min;
     return { min: round2(min), max: round2(max), step: round2(step) };
   }
 
-  /** 범위 밖을 잘라 내고 눈금에 맞춘다. */
+  /** 범위 밖을 잘라 내고 단계에 맞춘다. */
   function clampWeight(w, cfg) {
     const r = range(cfg);
     let n = Number(w);
     if (!isFinite(n)) n = 1;
-    // ★눈금은 최소값을 기준으로 센다. 0 에서 세면 최소가 0.65 인데 눈금이 0.6·0.7 로
+    // ★단계은 최소값을 기준으로 센다. 0 에서 세면 최소가 0.65 인데 단계이 0.6·0.7 로
     //   떨어져, 슬라이더가 끝까지 가도 최소값에 닿지 않는다.
     n = r.min + Math.round((n - r.min) / r.step) * r.step;
     return round2(Math.min(r.max, Math.max(r.min, n)));
   }
 
   /**
-   * 세기를 훑을 눈금을 만든다.
+   * 가중치를 훑을 단계을 만든다.
    * ★1.0 이 범위 안에 있으면 반드시 넣는다 — 원래와 견줄 기준이 없으면 무엇이 나아졌는지
    *   판단할 수 없다.
    */
@@ -121,7 +121,7 @@ const Artists = (function () {
       out.push(e);
       return out;
     }
-    // ★이미 있는 것을 다시 넣으면 장수만 새로 고친다. 사람이 붙여 둔 갈래와 메모를
+    // ★이미 있는 것을 다시 넣으면 이미지 수만 새로 고친다. 사람이 붙여 둔 갈래와 메모를
     //   덮어쓰면 애써 정리한 것이 날아간다.
     const old = out[i];
     out[i] = {
@@ -228,7 +228,48 @@ const Artists = (function () {
   }
 
   /**
-   * 걸러 보기.
+   * 태그 목록을 서랍의 라벨별로 묶는다 — 조합·깎기에서 고를 때 쓴다.
+   *
+   * ★스무 명이 한 줄로 늘어서 있으면 어느 것이 무엇인지 알 수가 없다. 서랍에 이미
+   *   라벨을 붙여 뒀으니 그대로 나눠 보여 준다.
+   * ★한 사람이 라벨을 여러 개 가질 수 있고, 그때는 **양쪽에 다 나온다.** 하나로
+   *   몰아넣으면 「수채」 로 찾을 때와 「두꺼운 선」 으로 찾을 때가 달라진다.
+   *   고른 상태는 태그로 보므로 어느 쪽을 눌러도 똑같이 켜진다.
+   *
+   * @param {string[]} tags 고를 수 있는 태그
+   * @param {object[]} list 서랍
+   * @returns {{label, tags}[]} 라벨이 많이 붙은 순 · 라벨 없는 것 · 서랍에 없는 것 순
+   */
+  function groupByLabel(tags, list) {
+    const drawer = list || [];
+    const find = function (t) {
+      return drawer.find(function (e) { return e.tag === t; });
+    };
+    const named = Object.create(null);
+    const none = [];
+    const missing = [];
+
+    (tags || []).forEach(function (t) {
+      const e = find(t);
+      if (!e) { missing.push(t); return; }
+      if (!e.cats || !e.cats.length) { none.push(t); return; }
+      e.cats.forEach(function (c) {
+        if (!named[c]) named[c] = [];
+        named[c].push(t);
+      });
+    });
+
+    const out = Object.keys(named).sort(function (a, b) {
+      return named[b].length - named[a].length || (a < b ? -1 : 1);
+    }).map(function (c) { return { label: c, tags: named[c] }; });
+
+    if (none.length) out.push({ label: '라벨 없음', tags: none });
+    if (missing.length) out.push({ label: '서랍에 없음', tags: missing });
+    return out;
+  }
+
+  /**
+   * 필터.
    * @param {object} o {cat, fav, q} — 갈래 / 즐겨찾기만 / 이름 검색
    */
   function filter(list, o) {
@@ -260,7 +301,7 @@ const Artists = (function () {
     const out = [];
     (tags || []).forEach(function (t) {
       const e = entry(t);
-      if (!e || seen[e.tag]) return;      // ★같은 작가를 두 번 넣으면 세기가 두 배가 된다
+      if (!e || seen[e.tag]) return;      // ★같은 작가를 두 번 넣으면 가중치가 두 배가 된다
       seen[e.tag] = true;
       // ★상한을 넘으면 조용히 버린다. 그림 하나에 작가 20명이 넘게 들어가면 화풍이
       //   뭉개져 무엇이 무엇인지 볼 수 없다 (화면에서 왜 잘렸는지 알려 준다).
@@ -310,7 +351,7 @@ const Artists = (function () {
   }
 
   /**
-   * ★켠 작가마다 세기를 **무작위로** 준다 — 조합 시험의 씨앗이다.
+   * ★켠 작가마다 가중치를 **무작위로** 준다 — 조합 테스트의 씨앗이다.
    *
    * 손으로 슬라이더를 다섯 번 움직여 한 조합을 만드는 것보다, 무작위로 여러 벌을 뽑아
    * 그림으로 견주는 편이 빠르다. 어느 배합이 좋은지는 눈으로만 알 수 있기 때문이다.
@@ -337,7 +378,7 @@ const Artists = (function () {
     const want = Math.max(1, Math.min(n || 5, 30));
     const seen = Object.create(null);
     const out = [];
-    // ★넉넉히 돌되 끝은 있다. 작가가 하나뿐이고 눈금이 두 칸이면 서로 다른 배합이
+    // ★넉넉히 돌되 끝은 있다. 작가가 하나뿐이고 단계이 두 칸이면 서로 다른 배합이
     //   두 가지뿐이라, 못 채우는 것이 정상이다 — 그때는 만든 만큼만 돌려준다.
     for (let i = 0; i < want * 20 && out.length < want; i++) {
       const c = randomize(m, cfg, rand);
@@ -353,13 +394,13 @@ const Artists = (function () {
   /**
    * 매긴 점수를 반영해 다음 조합을 만든다.
    *
-   * 작가마다 **점수로 가중 평균한 세기**를 구해 그 근처에서 다시 뽑는다. 5점을 준 조합의
+   * 작가마다 **점수로 가중 평균한 가중치**를 구해 그 근처에서 다시 뽑는다. 5점을 준 조합의
    * 값이 가장 크게 당겨지고, 1점을 준 값은 거의 안 당겨진다.
    *
-   * ★작가를 켜고 끄는 것은 여기서 하지 않는다. 조합 모드는 같은 작가에 세기만 바꿔 가며
+   * ★작가를 켜고 끄는 것은 여기서 하지 않는다. 조합 모드는 같은 작가에 가중치만 바꿔 가며
    *   뽑으므로 모든 작가가 모든 조합에 들어 있고, 그러면 작가별 평균 점수가 전부 같아져
-   *   신호가 되지 않는다. 실제로 움직이는 것은 세기뿐이라 세기만 다룬다. 필요 없는 작가는
-   *   세기가 최소값으로 내려가면서 자연히 빠진다.
+   *   신호가 되지 않는다. 실제로 움직이는 것은 가중치뿐이라 가중치만 다룬다. 필요 없는 작가는
+   *   가중치가 최소값으로 내려가면서 자연히 빠진다.
    *
    * @param {Array} rated [{mix, score}] 점수는 1~5
    */
@@ -371,7 +412,7 @@ const Artists = (function () {
     });
     if (!list.length) return [];
 
-    // 점수로 가중 평균한 세기
+    // 점수로 가중 평균한 가중치
     const num = Object.create(null), den = Object.create(null);
     list.forEach(function (x) {
       x.mix.forEach(function (m) {
@@ -403,10 +444,10 @@ const Artists = (function () {
   /**
    * NAI 프롬프트 조각으로.
    *
-   * ★세기 문법은 `숫자::태그::` 다. 기준 페이로드에 `0::ai-generated::` 가 그대로
+   * ★가중치 문법은 `숫자::태그::` 다. 기준 페이로드에 `0::ai-generated::` 가 그대로
    *   들어 있는 것으로 확인했다. 1.0 은 문법을 붙이지 않는다 — 붙여도 뜻은 같은데
    *   프롬프트만 지저분해지고, 나중에 사람이 읽기 어렵다.
-   * ★언더스코어는 띄어쓰기로 바꾸되 괄호는 그대로 둔다 (NAI 는 {} 와 [] 로 세기를
+   * ★언더스코어는 띄어쓰기로 바꾸되 괄호는 그대로 둔다 (NAI 는 {} 와 [] 로 가중치를
    *   조절하므로 () 는 글자다 — `[[horror (theme)]]` 가 기준 페이로드에 있다).
    *
    * @param {Array} m mix()
@@ -428,7 +469,7 @@ const Artists = (function () {
   }
 
   /**
-   * 세기 훑기 — 한 명만 놓고 여러 세기로 뽑아 볼 목록을 만든다.
+   * 가중치 훑기 — 한 명만 놓고 여러 가중치로 뽑아 볼 목록을 만든다.
    * ★범인이 정해진 **뒤에만** 쓴다. 여러 명을 동시에 훑으면 가짓수가 곱해진다.
    *
    * @param {Array} m mix()
@@ -468,6 +509,7 @@ const Artists = (function () {
     renameCat: renameCat,
     removeCat: removeCat,
     categories: categories,
+    groupByLabel: groupByLabel,
     filter: filter,
     mix: mix,
     setWeight: setWeight,

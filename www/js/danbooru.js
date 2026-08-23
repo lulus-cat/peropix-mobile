@@ -18,7 +18,7 @@ const Danbooru = (function () {
   // 섞여 오므로 걸러 내려면 나머지도 알아야 한다.
   const CAT = { general: 0, artist: 1, copyright: 3, character: 4, meta: 5 };
 
-  // 등급. Danbooru 는 g < s < q < e 순으로 수위가 올라간다.
+  // 등급. Danbooru 는 g < s < q < e 순으로 등급가 올라간다.
   const RATINGS = ['g', 's', 'q', 'e'];
   const RATING_KO = { g: '전체', s: '가벼움', q: '아슬', e: '노출' };
 
@@ -38,7 +38,7 @@ const Danbooru = (function () {
   /**
    * Danbooru 태그를 **프롬프트에 넣을 모양**으로.
    *
-   * ★언더스코어만 띄어쓰기로 바꾼다. 괄호는 그대로 둔다 — NAI 는 세기 조절에 {} 와 []
+   * ★언더스코어만 띄어쓰기로 바꾼다. 괄호는 그대로 둔다 — NAI 는 가중치 조절에 {} 와 []
    *   를 쓰므로 () 는 글자로 읽는다. 실제로 기준 페이로드에도 `[[horror (theme)]]` 가
    *   괄호를 벗기지 않은 채 들어 있다. 여기서 괄호를 이스케이프하면 오히려 깨진다.
    */
@@ -46,7 +46,7 @@ const Danbooru = (function () {
     return String(tag || '').replace(/_/g, ' ').trim();
   }
 
-  /** 프롬프트에 적힌 것을 다시 태그 모양으로 (되읽을 때). */
+  /** 프롬프트에 적힌 것을 다시 태그 모양으로 (다시 읽을 때). */
   function fromPrompt(text) {
     return normalize(text);
   }
@@ -124,7 +124,7 @@ const Danbooru = (function () {
   }
 
   /**
-   * 여러 태그의 **전역** 장수를 한 번에. 특징 태그(×N)를 재려면 「남들은 얼마나
+   * 여러 태그의 **전역** 이미지 수를 한 번에. 특징 태그(×N)를 재려면 「남들은 얼마나
    * 그리는가」 가 있어야 하는데, 태그마다 부르면 12번이 든다.
    * ★`search[name_comma]` 로 쉼표 목록을 받는다 (`search[name]` 은 쉼표를 안 받는다).
    */
@@ -154,7 +154,7 @@ const Danbooru = (function () {
     });
   }
 
-  /** Danbooru 전체 장수 — 특징 태그의 분모다. */
+  /** Danbooru 전체 이미지 수 — 특징 태그의 분모다. */
   function totalUrl() {
     return API + '/counts/posts.json';
   }
@@ -168,7 +168,7 @@ const Danbooru = (function () {
   /**
    * ★목록에서 겹치지 않게 n 개를 고른다.
    *
-   * 추천은 「장수 100 이상」 인 작가 **약 2만 4천 명** 중에서 뽑는다. 한 번에 다 받을 수는
+   * 추천은 「이미지 수 100 이상」 인 작가 **약 2만 4천 명** 중에서 뽑는다. 한 번에 다 받을 수는
    * 없으므로 무작위 쪽(페이지)을 받아 와 그중에서 다시 고른다. 여기가 그 「다시 고르는」
    * 자리다.
    *
@@ -187,13 +187,13 @@ const Danbooru = (function () {
 
   /**
    * 몇 페이지까지 있는지 모를 때 다음에 볼 페이지. ★빈 페이지가 나오면 절반으로 줄인다 —
-   * 문턱(장수)을 올리면 작가가 확 줄어서, 늘 같은 깊이를 노리면 계속 빈손이 된다.
+   * 기준(이미지 수)을 올리면 작가가 확 줄어서, 늘 같은 깊이를 노리면 계속 빈손이 된다.
    */
   function backoffPage(page) {
     return Math.max(1, Math.floor((Number(page) || 1) / 2));
   }
 
-  /** parseTags 결과를 {태그: 장수} 로. distinctive() 에 그대로 넣는다. */
+  /** parseTags 결과를 {태그: 이미지 수} 로. distinctive() 에 그대로 넣는다. */
   function countMap(tags) {
     const m = Object.create(null);
     (tags || []).forEach(function (t) { if (t && t.name) m[t.name] = t.count || 0; });
@@ -261,8 +261,8 @@ const Danbooru = (function () {
    * ★「이 작가 태그가 NAI 에 먹힐까」 를 가늠한다.
    *
    * 정직하게 말하면 이것은 **추정**이다. NAI 가 무엇을 얼마나 배웠는지는 공개되지 않았다.
-   * 다만 학습이 Danbooru 를 바탕으로 한 이상 **그림 수가 곧 학습량**이고, 그림 수가 적은
-   * 작가는 실제로 잘 안 나온다. 그래서 post_count 를 그대로 눈금으로 쓰되, 「몇 장이라
+   * 다만 학습이 Danbooru 를 바탕으로 한 이상 **이미지 수가 곧 학습량**이고, 이미지 수가 적은
+   * 작가는 실제로 잘 안 나온다. 그래서 post_count 를 그대로 기준으로 쓰되, 「몇 장이라
    * 이 등급」 임을 화면에 같이 적어 사람이 직접 판단할 수 있게 한다.
    *
    * @returns {{level:number, label:string, note:string}}
@@ -365,11 +365,11 @@ const Danbooru = (function () {
    *
    * 잦은 태그만 보면 어느 작가나 1girl·solo·long_hair 라 아무 정보가 없다. 그 작가의
    * 비율을 **전체 평균과 견주어** 튀는 것만 남긴다. 전체 평균은 태그의 전역 post_count 를
-   * Danbooru 전체 장수로 나눈 것이다.
+   * Danbooru 전체 이미지 수로 나눈 것이다.
    *
    * @param {Array} topTags stats().topTags
    * @param {object} globalCounts {태그: 전역 post_count}
-   * @param {number} totalPosts Danbooru 전체 장수 (대략)
+   * @param {number} totalPosts Danbooru 전체 이미지 수 (대략)
    */
   function distinctive(topTags, globalCounts, totalPosts) {
     const total = totalPosts || 9000000;
@@ -396,7 +396,7 @@ const Danbooru = (function () {
     { key: 'nsfw', label: '19금' }
   ];
 
-  // 문턱. ★넉넉하게 잡는다 — 빠뜨리는 것보다 몇 개 더 붙는 편이 낫다.
+  // 기준. ★넉넉하게 잡는다 — 빠뜨리는 것보다 몇 개 더 붙는 편이 낫다.
   //   덜 붙으면 서랍에서 영영 안 보이지만, 더 붙으면 눈으로 걸러진다.
   const GENRE_CUT = { bg: 20, female: 50, male: 25, nsfw: 30 };
 
@@ -412,7 +412,7 @@ const Danbooru = (function () {
    *   (여성 태그가 없는 것)도 함께 센다.
    *
    * @param {Array} posts postsUrl 로 받은 것
-   * @param {object} cut 문턱을 바꿔 보고 싶을 때
+   * @param {object} cut 기준을 바꿔 보고 싶을 때
    * @returns {Array<{key,label,pct}>}
    */
   function genres(posts, cut) {
