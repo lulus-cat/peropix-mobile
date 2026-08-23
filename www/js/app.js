@@ -1148,6 +1148,30 @@
     }
   }
 
+  // ★한 줄 설치. 파일 올리기·실행·방화벽·상시 실행을 이 한 줄이 대신한다.
+  //   저장소가 공개라 토큰이 필요 없다.
+  function installCmd() {
+    const open = $('rx-cmd-open').checked ? ' -s -- --open' : '';
+    return 'curl -fsSL https://raw.githubusercontent.com/' + Store.DEFAULT_UPDATE_REPO
+      + '/main/tools/deploy/install.sh | sudo bash' + open;
+  }
+
+  function renderInstallCmd() {
+    $('rx-cmd').textContent = installCmd();
+  }
+
+  async function copyInstallCmd() {
+    const box = $('rx-cmd-msg');
+    const t = $('editor-text');
+    const keep = t.value;
+    t.value = installCmd();
+    const ok = await copyFromEditor();
+    t.value = keep;
+    box.textContent = ok
+      ? '복사했습니다. SSH 창에 붙여넣고 Enter 를 누르세요.'
+      : '복사하지 못했습니다. 위 글을 길게 눌러 직접 복사하세요.';
+  }
+
   async function copyReceiver() {
     const box = $('rx-msg');
     box.textContent = '꺼내는 중…';
@@ -7498,6 +7522,9 @@
       renderNamingPreview();
     });
 
+    $('rx-cmd-copy').addEventListener('click', copyInstallCmd);
+    $('rx-cmd-open').addEventListener('change', renderInstallCmd);
+    renderInstallCmd();
     $('rx-copy').addEventListener('click', copyReceiver);
     $('rx-save').addEventListener('click', saveReceiver);
 
