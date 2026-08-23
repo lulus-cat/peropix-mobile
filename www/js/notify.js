@@ -35,6 +35,39 @@ const Notify = (function () {
   }
 
   /**
+   * 「알람 및 리마인더」 상태를 본다 (안드로이드 14부터 따로 묻는다).
+   *
+   * ★알림 권한을 허용해도 이것이 따로 막혀 있으면, 정작 알림이 나갈 때 시스템이
+   *   한 번 더 물어본다. 그래서 첫 화면에서 같이 켤 수 있게 꺼내 둔다.
+   * ★이 API 는 플러그인 버전에 따라 없을 수 있다. 없으면 「해당 없음」 으로 본다 —
+   *   없는 것을 못 켰다고 빨갛게 띄우면 고칠 수도 없는 경고만 남는다.
+   * @returns {'granted'|'denied'|'unavailable'}
+   */
+  async function exactStatus() {
+    if (!isNative()) return 'unavailable';
+    const P = plugin();
+    if (!P || typeof P.checkExactNotificationSetting !== 'function') return 'unavailable';
+    try {
+      const r = await P.checkExactNotificationSetting();
+      return r && r.exact_alarm === 'granted' ? 'granted' : 'denied';
+    } catch (e) {
+      return 'unavailable';
+    }
+  }
+
+  /** 「알람 및 리마인더」 설정 화면으로 보낸다. 앱 안에서는 못 켜고 시스템 설정에서만 켠다. */
+  async function requestExact() {
+    const P = plugin();
+    if (!P || typeof P.changeExactNotificationSetting !== 'function') return false;
+    try {
+      await P.changeExactNotificationSetting();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
    * 알림 하나를 띄운다. 실패해도 조용히 넘어간다 —
    * 알림이 안 되는 것 때문에 생성 결과를 못 보게 하면 안 된다.
    */
@@ -64,6 +97,46 @@ const Notify = (function () {
     } catch (e) {
       return false;
     }
+  }
+
+  // 진행 알림은 **같은 id 로 다시 띄워** 덮어쓴다. id 를 매번 새로 주면 알림 목록에
+  // 「12% 13% 14%…」 가 줄줄이 쌓여 못 쓰게 된다.
+  const PROGRESS_ID = 20260823;
+
+  /**
+   * 상태바에 진행을 띄운다 (같은 줄을 계속 고쳐 쓴다).
+   * @param {string} title 제목
+   * @param {string} body  몇 %인지 등
+   * @param {boolean} [ongoing] 받는 동안 밀어서 못 지우게 할지
+   */
+  async function progress(title, body, ongoing) {
+    if (!isNative()) return false;
+    const P = plugin();
+    if (!P) return false;
+    if (!(await ensurePermission())) return false;
+    try {
+      await P.schedule({
+        notifications: [{
+          id: PROGRESS_ID,
+          title: title,
+          body: body,
+          smallIcon: 'ic_stat_icon_config_sample',
+          ongoing: !!ongoing,
+          autoCancel: !ongoing
+        }]
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** 진행 알림을 치운다. 다 됐는데 남아 있으면 아직 받는 줄 안다. */
+  async function clearProgress() {
+    if (!isNative()) return;
+    const P = plugin();
+    if (!P) return;
+    try { await P.cancel({ notifications: [{ id: PROGRESS_ID }] }); } catch (e) { /* 무시 */ }
   }
 
   /** 지금 권한 상태만 본다 (묻지 않는다). 'granted' | 'denied' | 'prompt' | 'unavailable' */
@@ -99,7 +172,11 @@ const Notify = (function () {
     }
   }
 
-  return { done: done, isNative: isNative, status: status, request: request };
+  return {
+    done: done, isNative: isNative, status: status, request: request,
+    progress: progress, clearProgress: clearProgress,
+    exactStatus: exactStatus, requestExact: requestExact
+  };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Notify;

@@ -42,7 +42,10 @@ html, body {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 32px;
+  /* ★안드로이드의 아래 막대(제스처 바·내비게이션 바)가 마지막 줄을 덮는다.
+     32px 은 제스처 바에서도 모자라고 3버튼 막대에서는 한참 모자란다.
+     기기가 알려 주는 값을 쓰고, 못 알려 주면 넉넉히 잡는다. */
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 24px));
 }
 
 /* ── 헤더 / 하단 ─────────────────────────────────────────────────────── */
@@ -1718,3 +1721,6 @@ textarea.expandable { cursor: pointer; }
 }
 .step-body { flex: 1 1 auto; min-width: 0; }
 .step-body > b { display: block; margin-bottom: 5px; font-size: 14px; }
+
+/* 모델 받는 진행 막대 — 단추 줄 바로 아래 */
+.cons-bar { margin: 8px 0 4px; }

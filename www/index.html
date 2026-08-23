@@ -154,7 +154,7 @@
 <section id="screen-perms" class="screen" hidden>
   <div class="pad scroll">
     <h1 class="brand">권한 허용</h1>
-    <p class="lead">두 가지만 허용하면 준비가 끝납니다.</p>
+    <p class="lead">아래 것들만 허용하면 준비가 끝납니다.</p>
 
     <div class="perm-item">
       <div class="perm-head">
@@ -166,6 +166,19 @@
         끝나면 알려 드립니다.
       </p>
       <button id="perm-notify" class="btn block">알림 허용</button>
+
+      <!-- ★안드로이드 14부터는 「알람 및 리마인더」 를 따로 묻는다. 알림을 허용해도
+           이게 막혀 있으면 정작 알림이 나갈 때 시스템이 한 번 더 물어본다.
+           그때 물으면 뽑는 중에 화면이 끊기니 여기서 미리 켜 둔다. -->
+      <div id="perm-exact-row" hidden>
+        <div class="perm-head">
+          <span class="perm-title">알람 및 리마인더</span>
+          <span id="perm-exact-state" class="perm-state">확인 중…</span>
+        </div>
+        <p class="hint">이걸 안 켜면 알림이 나갈 때 안드로이드가 한 번 더 물어봅니다.
+          여기서 미리 켜 두면 뽑는 도중에 안 끊깁니다.</p>
+        <button id="perm-exact" class="btn block">알람 및 리마인더 켜기</button>
+      </div>
     </div>
 
     <div class="perm-item">
@@ -476,9 +489,7 @@
     <button id="settings-test" class="btn block">현재 키 상태 확인</button>
     <button id="settings-clear" class="btn danger block">키 삭제</button>
 
-    <p class="hint">
-      키를 삭제하면 앱을 다시 켰을 때 첫 실행 화면이 나옵니다.
-    </p>
+    <p class="hint">키를 지워도 슬롯·인물·서랍은 그대로 남습니다. 다음에 켜면 키를 다시 물어봅니다.</p>
 
     <button id="settings-perms" class="btn block">권한 다시 확인</button>
 
@@ -486,16 +497,12 @@
 
     <details class="panel">
       <summary>원격 저장 대상 (PC · VPS)</summary>
-      <p class="hint">PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다. <b>비밀번호는 만들 필요가 없습니다.</b></p>
+      <p class="hint">뽑은 그림을 폰이 아니라 PC 나 VPS 에 바로 보냅니다. 폰 용량이 안 찹니다.</p>
     <div class="row-head">
       <span class="label">등록된 대상</span>
       <button id="dest-add" class="btn small">+ 추가</button>
     </div>
-    <p class="hint">
-      PC 나 VPS 에 <code>receiver.py</code> 를 띄워 두면 생성한 이미지를 그쪽으로 바로 보냅니다.
-      <b>비밀번호는 만들 필요가 없습니다.</b> <code>python3 receiver.py --root ./images</code>
-      만 하면 알아서 만들어 기억합니다.
-    </p>
+    <p class="hint">비밀번호는 서버가 알아서 만들어 기억합니다. 외워 두거나 적어 둘 것이 없습니다.</p>
 
     <!-- ★제일 쉬운 길을 맨 위에 둔다. 파일을 올리고 켜고 방화벽을 여는 것을 한 줄이
          대신한다. 아래의 손 설치는 인터넷이 막힌 서버용으로 남겨 둔다. -->
@@ -510,11 +517,14 @@
     <div class="toolrow">
       <button id="rx-cmd-copy" class="btn small primary">설치 명령 복사</button>
       <label class="check">
-        <input id="rx-cmd-open" type="checkbox" checked> 바깥에서 닿게 (VPS)
+        <input id="rx-cmd-open" type="checkbox" checked> 인터넷에서도 접속하게
       </label>
     </div>
     <p class="hint" id="rx-cmd-msg">끝나면 화면에 <code>peropix://…</code> 한 줄이 나옵니다.
       그것을 아래 칸에 붙여넣으면 됩니다.</p>
+    <p class="hint"><b>인터넷에서도 접속하게</b>: VPS 라면 켜 두세요. 폰 데이터로도,
+      밖에 나가서도 그림을 보낼 수 있습니다. 끄면 그 컴퓨터 안에서만 열려서,
+      같은 Wi-Fi 에 있는 집 안 PC 나 VPN 을 쓸 때만 됩니다.</p>
 
     <details>
       <summary class="hint">직접 올려서 깔기 (인터넷이 막힌 서버)</summary>
@@ -531,10 +541,8 @@
       <span class="label">한 줄로 붙여넣기</span>
       <input id="dest-paste" type="text" placeholder="peropix://192.168.0.5:8770#토큰"
              autocapitalize="off" autocorrect="off" spellcheck="false">
-      <span class="hint">
-        수신함을 켜면 화면에 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
-        이름·주소·비밀번호가 한 번에 채워집니다. <b>비밀번호는 만들 필요가 없습니다.</b> <code>python receiver.py --root ./images</code> 만 하면 알아서 만들어 기억합니다.
-      </span>
+      <span class="hint">설치가 끝나면 나오는 <code>peropix://…</code> 한 줄을 그대로 붙여넣으세요.
+        이름·주소·비밀번호가 한 번에 채워집니다.</span>
     </label>
     <div id="dest-paste-msg" class="msg" hidden></div>
 
@@ -556,11 +564,15 @@
         <option value="device">이 폰에서 (모델 다운로드 필요)</option>
         <option value="server">수신함에서 (PC · VPS 가 대신)</option>
       </select>
-      <span class="hint" id="cons-hint">기본은 안 함입니다.</span>
+      <span class="hint" id="cons-hint">폰에서 재면 모델을 한 번 받아 두고 인터넷 없이 씁니다.
+        수신함에서 재면 폰은 아무것도 안 받습니다.</span>
     </label>
-    <div class="toolrow" id="cons-device-row" hidden>
-      <button id="cons-get" class="btn small">모델 받기</button>
-      <span class="hint" id="cons-get-msg"></span>
+    <div id="cons-device-row" hidden>
+      <div class="toolrow">
+        <button id="cons-get" class="btn small">모델 받기</button>
+        <span class="hint" id="cons-get-msg"></span>
+      </div>
+      <div class="bar cons-bar" id="cons-get-bar" hidden><div class="fill" id="cons-get-fill"></div></div>
     </div>
     <div id="cons-server-row" hidden>
       <p class="hint" id="cons-server-msg"></p>
@@ -568,23 +580,21 @@
         <button id="cons-score-copy" class="btn small">score.py 복사</button>
         <button id="cons-score-save" class="btn small">파일로 저장</button>
       </div>
-      <p class="hint">수신함 폴더에 <code>score.py</code> 를 같이 두고
-        <code>pip install torch transformers pillow</code> 를 한 뒤
-        <code>receiver.py</code> 를 다시 켜면 됩니다.</p>
-    </div>
-
-  </div>
+      <p class="hint">서버가 검사를 하려면 준비가 조금 필요합니다. <code>score.py</code> 를
+        <code>receiver.py</code> 옆에 두고 <code>pip install torch transformers pillow</code> 를
+        한 번 실행한 뒤 다시 켜세요. 켤 때 「일관성 검사 : 켜짐」 이 나오면 된 것입니다.</p>
+      </div>
     </details>
 
     <details class="panel">
       <summary>버전 · 업데이트</summary>
-      <p class="hint">GitHub 릴리스를 봅니다. 토큰은 필요 없습니다.</p>
+      <p class="hint">새 버전이 나왔는지 GitHub 에서 봅니다. 여기서 바로 받아 설치할 수 있습니다.</p>
     <div class="toolrow">
       <span class="hint" id="ver-now">확인 중…</span>
       <span class="spacer"></span>
       <button id="ver-check" class="btn small">업데이트 확인</button>
     </div>
-    <p class="hint" id="ver-msg">GitHub 릴리스를 봅니다. 토큰은 필요 없습니다.</p>
+    <p class="hint" id="ver-msg">새 버전이 나왔는지 GitHub 에서 봅니다. 로그인할 필요 없습니다.</p>
     <label class="field">
       <span class="label">어느 저장소를 볼까</span>
       <select id="ver-repo" class="tool-select">
@@ -593,7 +603,9 @@
         <option value="__custom__">직접 적기</option>
       </select>
       <span class="hint">두 저장소가 같은 코드를 쓰기 때문에 어느 APK 를 깔았는지 앱이
-        알 수 없습니다. 받으신 쪽을 골라 주세요.</span>
+        알 수 없습니다. 받으신 쪽을 골라 주세요.
+        <b>비공개 저장소는 확인할 수 없습니다.</b> 앱은 로그인하지 않고 보기 때문에,
+        비공개로 두신 저장소의 릴리스는 안 보입니다.</span>
     </label>
     <label class="field" id="ver-repo-row" hidden>
       <span class="label">저장소 (owner/repo)</span>
@@ -604,8 +616,21 @@
       <input id="ver-auto" type="checkbox" checked> 켤 때 업데이트 확인
     </label>
 
-    </details>
+    <!-- ★새 버전이 있으면 여기서 바로 받는다. 예전에는 「시작 화면에서 받으세요」 라고만
+         적어 두어, 업데이트하려고 확인을 눌렀는데 다시 홈으로 가야 했다. -->
+    <div class="upd" id="ver-upd" hidden>
+      <div class="upd-top">
+        <b id="ver-upd-title"></b>
+        <span id="ver-upd-ver" class="upd-ver"></span>
+      </div>
+      <ul class="upd-list" id="ver-upd-list"></ul>
+      <div class="toolrow">
+        <button id="ver-upd-get" class="btn small primary">받아서 설치</button>
+        <button id="ver-upd-skip" class="btn small">이 버전 건너뛰기</button>
+      </div>
+    </div>
 
+    </details>
   </div>
 </section>
 
