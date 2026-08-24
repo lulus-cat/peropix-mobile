@@ -2728,6 +2728,49 @@
     ].join('\n');
   }
 
+  // ── 디버깅 · 버그 보고 ────────────────────────────────────────────────────
+  // ★오류는 **늘** 적어 둔다. 「디버깅 모드」 는 그것을 그때그때 화면에 띄울지만 정한다.
+  //   껐다 켜는 사이에 난 오류가 안 남으면, 켜고 다시 재현해 보라는 말이 되어 버린다.
+  let debugOn = false;
+
+  function debugStart() {
+    Report.capture(window, function (kind, text) {
+      if (debugOn) toast(kind + ': ' + text, 5000);
+    }, Date.now);
+  }
+
+  /** 보고서에 붙일 설정 요약. ★값이 아니라 **상태**만 적는다 — 주소도 키도 안 나간다. */
+  function debugFacts() {
+    return [
+      ['일관성 검사', consMode === 'device' ? '이 폰에서'
+        : (consMode === 'server' ? '수신함에서' : '안 함')],
+      ['일관성 모델', consReady ? '받아 둠' : '아직 안 받음'],
+      ['보낼 곳', jobsSource === 'github' ? 'GitHub' : (activeDestId === Store.DEVICE_ID ? '이 폰' : '수신함')],
+      ['작가 서랍', String(artDrawer.length) + '명'],
+      ['적어 둔 줄', String(Report.all().length) + '줄']
+    ];
+  }
+
+  function debugBuild() {
+    return Report.build({
+      version: appVersion || '(미리보기)',
+      platform: (window.Capacitor && window.Capacitor.isNativePlatform
+        && window.Capacitor.isNativePlatform()) ? 'Android 앱' : '브라우저 미리보기',
+      screen: currentScreen,
+      what: $('dbg-what').value,
+      facts: debugFacts()
+    });
+  }
+
+  function debugShow() {
+    const text = debugBuild();
+    $('dbg-out').value = text;
+    $('dbg-out').hidden = false;
+    $('dbg-msg').textContent = '적어 둔 오류 ' + Report.all().length
+      + '줄로 만들었습니다. 올리기 전에 읽어 보셔도 됩니다.';
+    return text;
+  }
+
   async function copyText(text) {
     const C = window.Capacitor;
     if (C && C.Plugins && C.Plugins.Clipboard) {
@@ -4767,25 +4810,29 @@
 
   /**
    * 권할 작가를 골라 온다.
-   * @returns {{list: Array, seen: boolean}} seen 은 쪽에 사람이 있었는지 — 없으면 못 받은 것이고,
-   *   있는데 list 가 비면 그 기준의 작가가 이미 다 서랍에 있는 것이다. 둘은 다른 이야기다.
+   *
+   * ★서랍에 없는 사람을 먼저 찾되, **다 봤으면 이미 담은 사람이라도 다시 보여 준다.**
+   *   빈 상자를 내미는 것보다는 낫다 — 담아 놓고 잊은 작가를 다시 만나는 자리가 된다.
+   *
+   * @returns {{list: Array, seen: boolean, again: boolean}}
+   *   again 이면 새 얼굴이 없어 이미 담은 사람을 다시 보여 주는 것이다.
+   *   seen 이 false 면 목록 자체를 못 받은 것이다 — 사람이 할 일이 다르다.
    */
   async function recoPick(min, want) {
     const pages = Danbooru.pageWalk(recoCap[min] || RECO_PAGE_MAX);
-    let seen = false;
+    let old = [];
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
       const rows = Danbooru.parseTags(
-        await dbGet(Danbooru.artistTagsUrl({ min: min, limit: 100, page: page })));
+        await dbGet(Danbooru.artistTagsUrl({ min: min, limit: 100, page: page })))
+        .filter(function (r) { return !r.deprecated; });
       if (!rows.length) { recoCap[min] = Math.max(1, page - 1); continue; }
-      seen = true;
-      // 이미 서랍에 있는 사람은 권할 것이 없다.
-      const fresh = rows.filter(function (r) {
-        return !r.deprecated && !Artists.has(artDrawer, r.name);
-      });
-      if (fresh.length) return { list: Danbooru.sample(fresh, want), seen: true };
+      if (!old.length) old = rows;
+      const fresh = rows.filter(function (r) { return !Artists.has(artDrawer, r.name); });
+      if (fresh.length) return { list: Danbooru.sample(fresh, want), seen: true, again: false };
     }
-    return { list: [], seen: seen };
+    if (old.length) return { list: Danbooru.sample(old, want), seen: true, again: true };
+    return { list: [], seen: false, again: false };
   }
 
   /**
@@ -4812,13 +4859,10 @@
     box.innerHTML = '<p class="hint">찾는 중…</p>';
     try {
       const got = await recoPick(min, opt.count || 5);
-      await renderReco(got.list, box);
+      await renderReco(got.list, box, got.again);
       if (!got.list.length) {
-        box.innerHTML = '<p class="hint">' + (got.seen
-          ? ('그림 ' + min.toLocaleString() + '장 이상인 작가는 서랍에 이미 다 있습니다. '
-            + '기준을 낮추면 새 얼굴이 나옵니다.')
-          : 'Danbooru 에서 목록을 못 받았습니다. 잠깐 뒤에 「다른 작가」 를 눌러 주세요.')
-          + '</p>';
+        box.innerHTML = '<p class="hint">Danbooru 에서 목록을 못 받았습니다. '
+          + '잠깐 뒤에 「다른 작가」 를 눌러 주세요.</p>';
       }
     } catch (e) {
       box.innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
@@ -4854,12 +4898,19 @@
     });
   }
 
-  async function renderReco(rows, target) {
+  async function renderReco(rows, target, again) {
     const box = target || $('reco-list');
     box.innerHTML = '';
     if (!rows.length) {
       box.innerHTML = '<p class="hint">권할 만한 작가를 못 찾았습니다.</p>';
       return;
+    }
+    // ★다 본 뒤에는 같은 사람이 다시 나온다. 왜 낯익은지 한 줄로 말해 준다.
+    if (again) {
+      const note = document.createElement('p');
+      note.className = 'hint';
+      note.textContent = '이 기준에서 새로 권할 작가를 다 보셨습니다. 담아 두신 작가를 다시 봅니다.';
+      box.appendChild(note);
     }
     rows.forEach(function (r) {
       const row = document.createElement('div');
@@ -4887,7 +4938,11 @@
 
       const keep = document.createElement('button');
       keep.className = 'btn small';
-      keep.textContent = '담기';
+      // 이미 서랍에 있으면 담을 것이 없다 — 눌러 봐야 아무 일도 안 일어나면 고장으로 보인다.
+      const kept = Artists.has(artDrawer, r.name);
+      keep.textContent = kept ? '담았음' : '담기';
+      keep.disabled = kept;
+      if (kept) row.classList.add('kept');
       row.appendChild(keep);
       box.appendChild(row);
 
@@ -7393,6 +7448,8 @@
     wRange = await Store.getWeightRange();
     recoOff = await Store.getRecoOff();
     recoMin = await Store.getRecoMin();
+    debugOn = await Store.getDebug();
+    $('dbg-on').checked = debugOn;
     stCfg = StyleTest.settings(await Store.getStyleTest());
     $('reco-tab-min').value = String(recoMin);
     renderWeightUI();
@@ -7435,6 +7492,10 @@
 
   // ── 이벤트 ──────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
+    // ★제일 먼저 켠다. 뒤에 붙이면 켜는 동안 난 오류가 안 남아, 앱이 안 뜨는 종류의
+    //   버그는 영영 보고할 수 없다.
+    debugStart();
+
     $('setup-save').addEventListener('click', function () {
       // ★첫 실행이면 키 다음에 권한을 묻는다. 나중에 물으면 이미 늦다.
       saveToken($('setup-token'), $('setup-msg'), function () { openPerms(false); });
@@ -7779,6 +7840,30 @@ $('perm-notify').addEventListener('click', async function () {
       $('reco-tab-min').value = String(recoMin);
       openReco(true);
     });
+    // 디버깅 · 버그 보고
+    $('dbg-on').addEventListener('change', async function () {
+      debugOn = $('dbg-on').checked;
+      await Store.setDebug(debugOn);
+      toast(debugOn ? '오류가 나면 화면에 바로 띄웁니다.' : '화면에는 안 띄웁니다. 적는 것은 계속합니다.', 2600);
+    });
+    $('dbg-make').addEventListener('click', debugShow);
+    $('dbg-copy').addEventListener('click', async function () {
+      const ok = await copyText(debugShow());
+      toast(ok ? '보고서를 복사했습니다.' : '복사하지 못했습니다. 아래 글을 직접 골라 복사하세요.', 3000);
+    });
+    $('dbg-issue').addEventListener('click', function () {
+      // ★언제나 공개 저장소로 간다. 비공개 저장소에는 이슈를 열 수 없다.
+      window.open(Report.issueUrl('lulus-cat/peropix-mobile',
+        '버그: ' + ($('dbg-what').value.split('\n')[0].slice(0, 60) || '(무엇을 하다가)'),
+        debugShow()), '_blank');
+    });
+    $('dbg-clear').addEventListener('click', function () {
+      Report.clear();
+      $('dbg-out').hidden = true;
+      $('dbg-out').value = '';
+      $('dbg-msg').textContent = '적어 둔 것을 지웠습니다.';
+    });
+
     $('bis-start').addEventListener('click', bisStart);
     $('bis-shoot').addEventListener('click', bisShoot);
     $('bis-undo').addEventListener('click', function () {

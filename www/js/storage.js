@@ -486,6 +486,18 @@ const Store = (function () {
     await setRaw(KEY_RECO_MIN, String(parseInt(n, 10) || 100));
   }
 
+  // ── 디버깅 모드 ──────────────────────────────────────────────────────────
+  // ★꺼 두어도 앱은 오류를 적어 둔다. 이 값은 「그때그때 화면에 띄울까」 만 정한다.
+  const KEY_DEBUG = 'debug_mode';
+
+  async function getDebug() {
+    return (await getRaw(KEY_DEBUG)) === '1';
+  }
+
+  async function setDebug(v) {
+    await setRaw(KEY_DEBUG, v ? '1' : '0');
+  }
+
   async function getRecoOff() {
     return (await getRaw(KEY_RECO_OFF)) === '1';
   }
@@ -627,6 +639,8 @@ const Store = (function () {
     DEFAULT_UPDATE_REPO: DEFAULT_UPDATE_REPO,
     getRecoMin: getRecoMin,
     setRecoMin: setRecoMin,
+    getDebug: getDebug,
+    setDebug: setDebug,
     getRecoOff: getRecoOff,
     setRecoOff: setRecoOff,
     getArtists: getArtists,
