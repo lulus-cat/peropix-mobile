@@ -142,7 +142,7 @@
 
     <p class="hint">
       NovelAI 웹사이트 → User Settings → Account → Get Persistent API Token 에서 발급합니다.
-      키는 이 기기에만 저장되고 다른 곳으로 전송되지 않습니다.
+      키는 이 폰에만 저장되고 다른 곳으로 나가지 않습니다.
     </p>
 
     <div id="setup-msg" class="msg" hidden></div>
@@ -226,7 +226,7 @@
     <label class="field">
       <span class="label">폴더 이름</span>
       <input id="persona" type="text" placeholder="예: 미아">
-      <span class="hint">생성한 이미지이 이 이름의 폴더에 들어갑니다.</span>
+      <span class="hint">생성한 이미지가 이 이름의 폴더에 들어갑니다.</span>
     </label>
 
     <div class="row-head">
@@ -242,7 +242,7 @@
     <label class="field">
       <textarea id="base-prompt" rows="3"
                 placeholder="예: artist:wlop, masterpiece, best quality"></textarea>
-      <span class="hint">슬롯 전체에 들어가는 프롬프트 입니다.</span>
+      <span class="hint">슬롯 전체에 들어가는 프롬프트입니다.</span>
     </label>
 
     <label class="field">
@@ -404,7 +404,7 @@
         <input id="opt-autosave" type="checkbox"> 생성하면 바로 저장
       </label>
       <p class="hint">
-        끄면 기기에 쓰지 않습니다. 결과를 눌러 크게 본 뒤 마음에 드는 것만 저장하세요.
+        끄면 폰에 저장하지 않습니다. 결과를 눌러 크게 본 뒤 마음에 드는 것만 저장하세요.
       </p>
     </details>
 
@@ -475,7 +475,7 @@
   <div class="pad scroll">
     <details class="panel" open>
       <summary>API 키</summary>
-      <p class="hint">NovelAI 키는 이 기기에만 저장됩니다. APK 에는 들어 있지 않습니다.</p>
+      <p class="hint">NovelAI 키는 이 폰에만 저장됩니다. APK 에는 들어 있지 않습니다.</p>
     <label class="field">
       <span class="label">NovelAI API 키</span>
       <textarea id="settings-token" rows="3" placeholder="pst-..." autocapitalize="off"
@@ -561,7 +561,7 @@
       <span class="label">어디서 잴까</span>
       <select id="cons-mode" class="tool-select">
         <option value="off">안 함</option>
-        <option value="device">이 폰에서 (모델 다운로드 필요)</option>
+        <option value="device">이 폰에서 (모델을 한 번 받습니다)</option>
         <option value="server">수신함에서 (PC · VPS 가 대신)</option>
       </select>
       <span class="hint" id="cons-hint">폰에서 재면 모델을 한 번 받아 두고 인터넷 없이 씁니다.
@@ -582,7 +582,7 @@
       </div>
       <p class="hint">서버가 검사를 하려면 준비가 조금 필요합니다. <code>score.py</code> 를
         <code>receiver.py</code> 옆에 두고 <code>pip install torch transformers pillow</code> 를
-        한 번 실행한 뒤 다시 켜세요. 켤 때 「일관성 검사 : 켜짐」 이 나오면 된 것입니다.</p>
+        한 번 실행한 뒤 다시 켜세요. 켤 때 「일관성 검사 : 켜짐」 이 나오면 준비가 끝났습니다.</p>
       </div>
     </details>
 
@@ -776,10 +776,10 @@
       <ul class="guide-ul">
         <li><b>연결하기를 눌렀는데 안 됩니다</b>: 클라우드 업체의 방화벽이 막고 있을 수
           있습니다. 업체 홈페이지의 방화벽(Firewall · Security Group) 설정에서
-          <b>TCP 8770</b> 들어오는 것을 허용해 주세요. 이건 서버 밖에 있어서 설치
-          명령이 손댈 수 없습니다.</li>
+          <b>TCP 8770</b> 들어오는 것을 허용해 주세요. 업체 방화벽은 서버 바깥이라
+          설치 명령이 못 건드립니다.</li>
         <li><b>peropix:// 줄이 안 보입니다</b>: 위로 스크롤해 보세요. 그래도 없으면
-          설치가 중간에 멈춘 것입니다. 마지막에 나온 빨간 글씨를 알려 주세요.</li>
+          설치가 중간에 멈췄습니다. 마지막에 나온 빨간 글씨를 알려 주세요.</li>
         <li><b>주소가 「이서버주소」 로 나옵니다</b>: 서버가 자기 공인 주소를 못 찾은
           경우입니다. 업체 화면에 적힌 IP 로 바꿔 주세요.</li>
         <li><b>다시 깔고 싶습니다</b>: 같은 명령을 다시 돌리면 됩니다. 비밀번호와
@@ -788,7 +788,7 @@
     </details>
 
     <details class="panel">
-      <summary>안전에 대해</summary>
+      <summary>안전 문제</summary>
       <p class="hint">이 방식은 <b>암호화 없이</b> 오갑니다. 집 안 PC 라면 그대로 쓰셔도
         됩니다. 인터넷에 열린 VPS 라면 남이 주소와 비밀번호를 알아내면 들어올 수 있으니,
         도메인이 있다면 Caddy 로 TLS 를 씌우거나 VPN(Tailscale) 안에서만 여는 것이
@@ -1205,7 +1205,7 @@
       <ul class="guide-ul">
         <li><b>뽑히다 말았다</b>: 이제 뽑는 동안에는 알림 하나가 떠 있고, 그 사이에는
           다른 앱을 봐도 안 끊깁니다. 그래도 끊긴다면 배터리 설정에서 이 앱을
-          <b>제한 없음</b> 으로 바꿔 주세요 (기기마다 「배터리 최적화 제외」 ·
+          <b>제한 없음</b> 으로 바꿔 주세요 (폰마다 「배터리 최적화 제외」 ·
           「백그라운드 사용 허용」 으로도 부릅니다).</li>
         <li><b>APK 가 안 깔린다</b>: 예전에 다른 서명으로 깔았던 것이 남아 있으면
           지우고 다시 깔아야 합니다. 지금 버전끼리는 덮어 설치되고 키·슬롯도 남습니다.</li>
@@ -1214,7 +1214,7 @@
           올릴 때 나머지가 내려갑니다. 큰 숫자가 정한 값, 옆의 작은 <code>→1.10</code> 이
           실제로 나가는 값입니다.</li>
         <li><b>작가 태그를 넣었는데 그림에 안 나온다</b>: 이미지 수가 적은 작가는 NAI 가
-          배운 게 없습니다. "찾기"에서 반영율을 먼저 보세요.</li>
+          배운 게 없습니다. "찾기"에서 반영률을 먼저 보세요.</li>
       </ul>
     </details>
 
@@ -1284,7 +1284,7 @@
             프롬프트가 그대로 남는 곳이니까요.
             <button id="gh-new" class="btn small block">GitHub 에서 새 저장소 만들기</button>
           </li>
-          <li><b>AI 에게 세팅을 시킵니다.</b> 아래 문구를 복사해 Claude Code·Codex 에 그대로
+          <li><b>AI 에게 설정을 맡깁니다.</b> 아래 문구를 복사해 Claude Code·Codex 에 그대로
             붙여넣으면 규약 파일(AGENTS.md · CLAUDE.md)과 폴더를 만들어 줍니다.
             <button id="gh-copy-setup" class="btn small block">AI 에게 시킬 말 복사</button>
           </li>
@@ -1469,7 +1469,7 @@
 </section>
 
 <!-- ★작가 태그를 다루는 곳. 네 가지 일을 한 화면에서 한다.
-       찾기: Danbooru 에 실시간으로 물어 반영율(이미지 수)과 그림체를 확인한다
+       찾기: Danbooru 에 실시간으로 물어 반영률(이미지 수)과 그림체를 확인한다
        서랍: 골라 둔 작가를 갈래로 나누고 섞는다 (가중치 배분 포함)
        추천: 그림 100장 이상인 작가 중에서 무작위로 권한다
        그림체: 조합(무작위 가중치)과 깎기(범인 찾기) -->
@@ -1532,7 +1532,7 @@
     </div>
 
     <details class="panel">
-      <summary>반영율이란</summary>
+      <summary>반영률이란</summary>
       <p class="hint">솔직히 말하면 <b>짐작</b>입니다. NAI 가 뭘 얼마나 배웠는지는 공개된 적이
         없습니다. 다만 NAI 는 Danbooru 로 학습했으니 <b>그림이 많은 작가일수록 많이 배웠다</b>고
         볼 수 있고, 실제로 그림이 적은 작가는 태그를 넣어도 잘 안 나옵니다. 그래서 이미지 수를

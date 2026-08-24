@@ -1131,7 +1131,7 @@ textarea.expandable { cursor: pointer; }
 .art-name { font-size: 18px; font-weight: 600; word-break: break-all; }
 .art-alias { color: var(--text-dim); font-size: 12px; margin-top: 2px; word-break: break-all; }
 
-/* 반영율 — 눈금 다섯 칸 */
+/* 반영률 — 눈금 다섯 칸 */
 .art-reach { margin: 12px 0; }
 .art-reach-bar {
   height: 6px;

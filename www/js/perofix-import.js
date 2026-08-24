@@ -45,7 +45,7 @@ const PerofixImport = (function () {
       return { ok: false, error: 'JSON 최상위가 객체가 아닙니다.' };
     }
     if (!Array.isArray(data.slots)) {
-      return { ok: false, error: '"slots" 배열이 없습니다. PeroFix 형식이 맞는지 확인해주세요.' };
+      return { ok: false, error: '"slots" 배열이 없습니다. PeroFix 형식이 맞는지 확인해 주세요.' };
     }
     if (!data.slots.length) {
       return { ok: false, error: '"slots" 가 비어 있습니다.' };
@@ -119,7 +119,7 @@ const PerofixImport = (function () {
     let list = null;
     if (Array.isArray(data)) list = data;
     else if (data && Array.isArray(data.characters)) list = data.characters;
-    else return { ok: false, error: '"characters" 배열이 없습니다. 캐릭터 프리셋이 맞는지 확인해주세요.' };
+    else return { ok: false, error: '"characters" 배열이 없습니다. 캐릭터 프리셋이 맞는지 확인해 주세요.' };
 
     if (!list.length) return { ok: false, error: '캐릭터가 하나도 없습니다.' };
 

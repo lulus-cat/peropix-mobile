@@ -67,7 +67,7 @@ const NaiClient = (function () {
         const tier = body && typeof body === 'object' ? body.tier : undefined;
         return { ok: true, message: '키가 정상 확인되었습니다.', tier: tier, raw: body };
       }
-      if (status === 401) return { ok: false, message: '키가 거부되었습니다 (401). 키를 다시 확인해주세요.' };
+      if (status === 401) return { ok: false, message: '키가 거부되었습니다 (401). 키를 다시 확인해 주세요.' };
       return { ok: false, message: 'NAI 서버가 ' + status + ' 를 돌려주었습니다.' };
     } catch (e) {
       return { ok: false, message: '연결 실패: ' + (e && e.message ? e.message : e) };
@@ -189,9 +189,9 @@ const NaiClient = (function () {
   }
 
   function naiErrorMessage(status, detail) {
-    if (status === 401) return '키가 거부되었습니다 (401). 설정에서 API 키를 다시 넣어주세요.';
+    if (status === 401) return '키가 거부되었습니다 (401). 설정에서 API 키를 다시 넣어 주세요.';
     if (status === 402) return 'Anlas 가 부족하거나 구독이 필요합니다 (402).';
-    if (status === 429) return '요청이 너무 잦습니다 (429). 잠시 뒤 다시 시도해주세요.';
+    if (status === 429) return '요청이 너무 잦습니다 (429). 잠시 뒤 다시 시도해 주세요.';
     if (status === 400) return '요청이 거부되었습니다 (400): ' + detail;
     return 'NAI 오류 ' + status + ': ' + detail;
   }

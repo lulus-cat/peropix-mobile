@@ -318,7 +318,7 @@ const ImageUtil = (function () {
 
   async function canvasToBytes(cv, mime, quality) {
     const blob = await new Promise(function (res) { cv.toBlob(res, mime, quality); });
-    if (!blob) throw new Error(mime + ' 로 저장할 수 없습니다 (이 기기가 지원하지 않음).');
+    if (!blob) throw new Error(mime + ' 로 저장할 수 없습니다 (이 폰이 지원하지 않음).');
     return new Uint8Array(await blob.arrayBuffer());
   }
 

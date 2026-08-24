@@ -61,10 +61,10 @@
     '조합에서 딱 맞는 게 없으면 별점을 매기고 "점수 반영해서 다시 뽑기". 높은 점수 쪽으로 가중치가 당겨집니다.',
     '작가 20명을 넣었는데 어떤 부분이 누구 때문인지 모르겠다면, 테스트 → 깎기 가 5번 만에 범인을 찾아 줍니다.',
     '뷰어에서 위로 밀면 버리기, 아래로 밀면 저장. 손가락 두 개로 벌리면 확대됩니다.',
-    '조합·깎기에서 생성한 이미지을 누르면 크게 뜹니다. 좌우로 밀어 그 세트 안을 오가고, 아래 별점으로 점수를 줍니다.',
+    '조합·깎기에서 뽑은 그림을 누르면 크게 뜹니다. 좌우로 밀어 그 세트 안을 오가고, 아래 별점으로 점수를 줍니다.',
     '인터넷이 끊겨 몇 장이 깨졌으면, 결과 화면 맨 위의 "못 만든 N장 다시 생성" 이 그것만 다시 뽑습니다.',
     '인물이 많고 슬롯이 적으면 "한 명 모드" 를 켜세요. 인물 수만큼 자동으로 돌립니다.',
-    '투명 배경으로 생성한 이미지은 "배경 합성" 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
+    '투명 배경으로 뽑은 그림은 "배경 합성" 으로 배경 그림 위에 얹을 수 있습니다. 통신도 Anlas 도 안 듭니다.',
     'API 키는 이 폰에만 저장됩니다. APK 를 남에게 줘도 키는 따라가지 않습니다.'
   ];
 
@@ -1758,7 +1758,7 @@
     if (!destinations.length) {
       const e = document.createElement('div');
       e.className = 'empty';
-      e.textContent = '등록된 대상이 없습니다. PC 나 VPS 를 추가해보세요.';
+      e.textContent = '등록된 대상이 없습니다. PC 나 VPS 를 추가해 보세요.';
       box.appendChild(e);
       return;
     }
@@ -2138,8 +2138,8 @@
     const first = targets[0];
     $('enh-title').textContent = batch ? ('일괄 인핸스 (' + targets.length + '장)') : '인핸스';
     $('enh-help').textContent = batch
-      ? '결과에 있는 그림 전부를 해상도를 키워 다시 그립니다. 원본은 덮어쓰지 않고 새 장으로 추가됩니다.'
-      : '이 그림을 해상도를 키워 다시 그립니다.';
+      ? '결과에 있는 그림을 모두 더 큰 해상도로 다시 그립니다. 원본은 그대로 두고 새 장으로 추가됩니다.'
+      : '이 그림을 더 큰 해상도로 다시 그립니다.';
     $('enh-preview').src = first.url;
 
     // ★투명 배경 그림은 인핸스해도 투명을 지킨다는 것을 알려 준다. 예전에는 배경이
@@ -2699,7 +2699,7 @@
     const repo = Github.parseRepo(ghCfg.repo);
     const where = repo ? (repo.owner + '/' + repo.repo) : '<내 저장소 owner/repo>';
     return [
-      '저장소 ' + where + ' 를 PeroPix 모바일의 "지시함" 으로 세팅해 줘.',
+      '저장소 ' + where + ' 를 PeroPix 모바일의 "지시함" 으로 설정해 줘.',
       '',
       '1. AGENTS.md 와 CLAUDE.md 를 만들어, 아래 규약을 그대로 적어 둘 것',
       '   (두 파일 내용은 같아도 된다. Codex 는 AGENTS.md, Claude Code 는 CLAUDE.md 를 읽는다).',
@@ -2938,7 +2938,7 @@
     }, 300);
   }
 
-  /** 한 작가를 펼쳐 본다 — 반영율·통계·그림까지 한 번에. */
+  /** 한 작가를 펼쳐 본다 — 반영률·통계·그림까지 한 번에. */
   async function artLoad(name) {
     const tag = Danbooru.normalize(name);
     if (!tag) return;
@@ -3001,7 +3001,7 @@
     const fill = $('art-reach-fill');
     fill.style.width = (r.level * 20) + '%';
     fill.className = 'lv' + r.level;
-    $('art-reach-label').textContent = '반영율 ' + r.label;
+    $('art-reach-label').textContent = '반영률 ' + r.label;
     $('art-reach-note').textContent = r.note;
 
     // 통계 알갱이들
@@ -5488,7 +5488,7 @@
 
   async function saveTagset() {
     const text = ($('base-prompt').value || '').trim();
-    if (!text) { toast('먼저 작가·퀄리티 태그를 적어주세요.'); return; }
+    if (!text) { toast('먼저 작가·퀄리티 태그를 적어 주세요.'); return; }
 
     const cur = $('tagset-select').value;
     const existing = tagsets.find(function (t) { return t.id === cur; });
@@ -6415,7 +6415,7 @@
 
     const token = await Store.getToken();
     if (!token) { show('setup'); return; }
-    if (!lastRun) { say($('batch-msg'), '이번 실행 정보가 없습니다. 생성 화면에서 다시 돌려주세요.', 'err'); return; }
+    if (!lastRun) { say($('batch-msg'), '이번 실행 정보가 없습니다. 생성 화면에서 다시 돌려 주세요.', 'err'); return; }
 
     const retryItems = failedItems();
     const pend = pendingJobs.slice();
@@ -7233,7 +7233,7 @@
     });
 
     if (!jobs.length) {
-      setProgress(0, 0, '생성할 슬롯이 없습니다. 슬롯을 추가하고 프롬프트를 넣어주세요.');
+      setProgress(0, 0, '생성할 슬롯이 없습니다. 슬롯을 추가하고 프롬프트를 넣어 주세요.');
       return;
     }
 
@@ -7310,7 +7310,7 @@
       granted: ['허용됨', 'ok'],
       denied: ['거부됨', 'no'],
       prompt: ['아직 안 물음', ''],
-      unavailable: ['이 기기에서 지원 안 함', '']
+      unavailable: ['이 폰에서 지원 안 함', '']
     };
     const n = NAMES[st] || NAMES.prompt;
     nEl.textContent = n[0];
@@ -7536,7 +7536,7 @@
     });
     $('wc-roll').addEventListener('click', function () {
       const src = $('wc-try').value;
-      if (!src.trim()) { say($('wc-result'), '테스트할 문장을 넣어주세요.', 'err'); return; }
+      if (!src.trim()) { say($('wc-result'), '테스트할 문장을 넣어 주세요.', 'err'); return; }
       say($('wc-result'), Wildcards.resolve(src, wildcardPools), 'ok');
     });
 

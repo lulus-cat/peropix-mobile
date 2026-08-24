@@ -60,11 +60,11 @@ const Store = (function () {
    */
   function validateTokenFormat(token) {
     token = (token || '').trim();
-    if (!token) return 'API 키를 입력해주세요.';
-    if (/\s/.test(token)) return 'API 키에 공백이나 줄바꿈이 섞여 있습니다. 다시 복사해주세요.';
+    if (!token) return 'API 키를 입력해 주세요.';
+    if (/\s/.test(token)) return 'API 키에 공백이나 줄바꿈이 섞여 있습니다. 다시 복사해 주세요.';
     // eslint-disable-next-line no-control-regex
     if (!/^[\x00-\x7F]*$/.test(token)) return 'API 키에 한글 등 ASCII 가 아닌 글자가 섞여 있습니다.';
-    if (token.indexOf('pst-') !== 0) return 'NovelAI 키는 보통 "pst-" 로 시작합니다. 키를 다시 확인해주세요.';
+    if (token.indexOf('pst-') !== 0) return 'NovelAI 키는 보통 "pst-" 로 시작합니다. 키를 다시 확인해 주세요.';
     return null;
   }
 
@@ -173,11 +173,11 @@ const Store = (function () {
 
   /** 주소·토큰 형식 검사. 통신 없이 알 수 있는 것만 본다. */
   function validateDestination(d) {
-    if (!d || !(d.name || '').trim()) return '이름을 지어주세요 (예: 집 PC, VPS).';
+    if (!d || !(d.name || '').trim()) return '이름을 지어 주세요 (예: 집 PC, VPS).';
     const url = (d.url || '').trim();
-    if (!url) return '주소를 넣어주세요 (예: 192.168.0.5:8770).';
+    if (!url) return '주소를 넣어 주세요 (예: 192.168.0.5:8770).';
     if (/\s/.test(url)) return '주소에 공백이 있습니다.';
-    if (!(d.token || '').trim()) return '토큰을 넣어주세요.';
+    if (!(d.token || '').trim()) return '토큰을 넣어 주세요.';
     if ((d.token || '').trim().length < 16) return '토큰이 너무 짧습니다 (16자 이상).';
     return null;
   }
