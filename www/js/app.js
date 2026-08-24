@@ -4760,17 +4760,32 @@
 
   const RECO_PAGE_MAX = 246;   // 100장 이상 · 한 쪽 100명 기준 (2026-08 실측 24,602명)
 
-  /** 한 쪽을 받아 온다. ★빈 쪽이면 절반으로 줄여 다시 본다 (기준을 올리면 쪽수가 준다). */
-  async function recoPage(min) {
-    let page = 1 + Math.floor(Math.random() * RECO_PAGE_MAX);
-    for (let i = 0; i < 4; i++) {
+  // ★기준마다 쪽수가 딴판이다. 100장 이상은 247쪽인데 1000장 이상은 7쪽, 5000장 이상은
+  //   1쪽뿐이다. 246쪽 안에서 아무 데나 찍으면 기준을 올린 사람은 거의 언제나 빈손이 된다.
+  //   빈 쪽을 만날 때마다 「여기 위로는 볼 것이 없다」 를 적어 두고 다음부터 그 안에서 찍는다.
+  const recoCap = Object.create(null);
+
+  /**
+   * 권할 작가를 골라 온다.
+   * @returns {{list: Array, seen: boolean}} seen 은 쪽에 사람이 있었는지 — 없으면 못 받은 것이고,
+   *   있는데 list 가 비면 그 기준의 작가가 이미 다 서랍에 있는 것이다. 둘은 다른 이야기다.
+   */
+  async function recoPick(min, want) {
+    const pages = Danbooru.pageWalk(recoCap[min] || RECO_PAGE_MAX);
+    let seen = false;
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
       const rows = Danbooru.parseTags(
         await dbGet(Danbooru.artistTagsUrl({ min: min, limit: 100, page: page })));
-      if (rows.length) return rows;
-      if (page === 1) return [];
-      page = Danbooru.backoffPage(page);
+      if (!rows.length) { recoCap[min] = Math.max(1, page - 1); continue; }
+      seen = true;
+      // 이미 서랍에 있는 사람은 권할 것이 없다.
+      const fresh = rows.filter(function (r) {
+        return !r.deprecated && !Artists.has(artDrawer, r.name);
+      });
+      if (fresh.length) return { list: Danbooru.sample(fresh, want), seen: true };
     }
-    return [];
+    return { list: [], seen: seen };
   }
 
   /**
@@ -4796,10 +4811,15 @@
     }
     box.innerHTML = '<p class="hint">찾는 중…</p>';
     try {
-      const rows = (await recoPage(min))
-        // 이미 서랍에 있는 사람은 권할 것이 없다.
-        .filter(function (r) { return !r.deprecated && !Artists.has(artDrawer, r.name); });
-      await renderReco(Danbooru.sample(rows, opt.count || 5), box);
+      const got = await recoPick(min, opt.count || 5);
+      await renderReco(got.list, box);
+      if (!got.list.length) {
+        box.innerHTML = '<p class="hint">' + (got.seen
+          ? ('그림 ' + min.toLocaleString() + '장 이상인 작가는 서랍에 이미 다 있습니다. '
+            + '기준을 낮추면 새 얼굴이 나옵니다.')
+          : 'Danbooru 에서 목록을 못 받았습니다. 잠깐 뒤에 「다른 작가」 를 눌러 주세요.')
+          + '</p>';
+      }
     } catch (e) {
       box.innerHTML = '<p class="hint">찾지 못했습니다: ' + (e.message || e) + '</p>';
     }

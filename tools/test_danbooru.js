@@ -208,6 +208,28 @@ check('원본을 건드리지 않는다', (function () {
 check('★빈 쪽이 나오면 절반으로 줄여 다시 본다', D.backoffPage(246) === 123);
 check('1 아래로는 안 내려간다', D.backoffPage(1) === 1 && D.backoffPage(0) === 1);
 
+// ★쪽 차례 — 「기준을 올렸더니 계속 못 찾는다」 가 여기서 났다.
+check('★쪽 차례는 반드시 1 에서 끝난다', (function () {
+  for (let i = 0; i < 300; i++) {
+    const seq = D.pageWalk(246);
+    if (seq[seq.length - 1] !== 1) return false;
+  }
+  return true;
+})());
+check('★쪽이 일곱뿐이어도 그 안을 본다 (1000장 이상)', (function () {
+  // 246쪽 안에서 아무 데나 찍어도 반씩 줄이다 보면 7쪽 안에 반드시 들어온다.
+  for (let i = 0; i < 300; i++) {
+    if (!D.pageWalk(246).some(function (p) { return p <= 7; })) return false;
+  }
+  return true;
+})());
+check('★한 쪽밖에 없어도 찾아낸다 (5000장 이상)',
+  D.pageWalk(246, function () { return 0.99; }).indexOf(1) !== -1);
+check('맨 위 쪽을 넘겨 찍지 않는다',
+  D.pageWalk(7, function () { return 0.999; })[0] <= 7);
+check('줄이는 횟수는 열 번을 안 넘는다', D.pageWalk(246, function () { return 0.999; }).length <= 10);
+check('한 쪽뿐이면 한 번만 본다', D.pageWalk(1).length === 1);
+
 // ── 10. 장르 자동 분류 ────────────────────────────────────────────────────
 function mk(n, general, rating) {
   const out = [];

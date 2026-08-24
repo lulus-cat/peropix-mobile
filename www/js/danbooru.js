@@ -193,6 +193,24 @@ const Danbooru = (function () {
     return Math.max(1, Math.floor((Number(page) || 1) / 2));
   }
 
+  /**
+   * 무작위 쪽에서 시작해 빈손이면 반씩 줄여 볼 쪽 차례.
+   * ★**쪽 1 까지 반드시 내려간다.** 예전에는 네 번만 줄여 200 → 100 → 50 → 25 에서 그쳤고,
+   *   기준을 1000장 이상으로 올리면 쪽이 일곱밖에 없어 늘 빈손이었다.
+   * @param {number} top 있을 법한 마지막 쪽
+   */
+  function pageWalk(top, rand) {
+    const hi = Math.max(1, Math.floor(Number(top) || 1));
+    let p = 1 + Math.floor((rand || Math.random)() * hi);
+    const seq = [];
+    for (;;) {
+      seq.push(p);
+      if (p === 1) break;
+      p = backoffPage(p);
+    }
+    return seq;
+  }
+
   /** parseTags 결과를 {태그: 이미지 수} 로. distinctive() 에 그대로 넣는다. */
   function countMap(tags) {
     const m = Object.create(null);
@@ -485,6 +503,7 @@ const Danbooru = (function () {
     countMap: countMap,
     sample: sample,
     backoffPage: backoffPage,
+    pageWalk: pageWalk,
     GENRES: GENRES,
     GENRE_CUT: GENRE_CUT,
     genres: genres,
